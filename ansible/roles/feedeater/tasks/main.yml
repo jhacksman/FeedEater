@@ -1,0 +1,41 @@
+- name: Create install directory
+  ansible.builtin.file:
+    path: "{{ feedeater_root }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Checkout FeedEater
+  ansible.builtin.git:
+    repo: "{{ feedeater_repo }}"
+    dest: "{{ feedeater_root }}"
+    version: "{{ feedeater_version }}"
+    force: true
+
+- name: Write .env
+  ansible.builtin.template:
+    src: env.j2
+    dest: "{{ feedeater_root }}/.env"
+    owner: root
+    group: root
+    mode: "0600"
+
+- name: Pull images
+  ansible.builtin.command:
+    chdir: "{{ feedeater_root }}"
+    cmd: docker compose pull
+  register: pull_result
+  changed_when: "'Downloaded newer image' in pull_result.stdout or pull_result.rc == 0"
+
+- name: Build and start services
+  ansible.builtin.command:
+    chdir: "{{ feedeater_root }}"
+    cmd: docker compose up -d --build
+
+- name: Apply Prisma schema (idempotent)
+  ansible.builtin.command:
+    chdir: "{{ feedeater_root }}"
+    cmd: docker compose run --rm api npm run -w @feedeater/db db:push
+
+

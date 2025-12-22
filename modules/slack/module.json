@@ -1,0 +1,28 @@
+{
+  "name": "slack",
+  "version": "0.0.1",
+  "namespace": "feedeater.slack",
+  "runtime": { "entry": "dist/runtime.js" },
+  "queues": ["mod:slack"],
+  "jobs": [
+    {
+      "name": "collect",
+      "queue": "mod:slack",
+      "schedule": "*/5 * * * *",
+      "description": "Collect Slack messages from configured channels and persist raw extracts into mod_slack."
+    }
+  ],
+  "settings": [
+    { "key": "enabled", "type": "boolean", "default": true },
+    { "key": "botToken", "type": "secret", "required": true },
+    { "key": "channelIds", "type": "string", "required": true },
+    { "key": "lookbackHours", "type": "number", "default": 24 },
+    { "key": "includeThreads", "type": "boolean", "default": true },
+    { "key": "excludeBots", "type": "boolean", "default": true }
+  ],
+  "cards": [
+    { "id": "slackStatus", "title": "Slack Collector" }
+  ]
+}
+
+

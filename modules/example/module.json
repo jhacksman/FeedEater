@@ -1,0 +1,30 @@
+{
+  "name": "example",
+  "version": "0.0.1",
+  "namespace": "feedeater.example",
+  "runtime": { "entry": "dist/runtime.js" },
+  "queues": ["mod:example"],
+  "jobs": [
+    {
+      "name": "tick",
+      "queue": "mod:example",
+      "schedule": "*/1 * * * *",
+      "description": "Emits a demo NormalizedMessage every minute."
+    },
+    {
+      "name": "processMessage",
+      "queue": "mod:example",
+      "triggeredBy": "feedeater.example.messageCreated",
+      "description": "Triggered when the module emits messageCreated; simulates downstream processing."
+    }
+  ],
+  "settings": [
+    { "key": "enabled", "type": "boolean", "default": true },
+    { "key": "demoSecret", "type": "secret", "required": false }
+  ],
+  "cards": [
+    { "id": "exampleStatus", "title": "Example Module" }
+  ]
+}
+
+

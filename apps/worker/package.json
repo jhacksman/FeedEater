@@ -1,0 +1,32 @@
+{
+  "name": "@feedeater/worker",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch dist/index.js",
+    "build": "tsup src/index.ts --format esm --dts false",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "echo \"(no lint configured yet)\"",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@feedeater/core": "workspace:*",
+    "@feedeater/module-example": "workspace:*",
+    "@feedeater/module-sdk": "workspace:*",
+    "@feedeater/module-slack": "workspace:*",
+    "bullmq": "^5.58.5",
+    "ioredis": "^5.7.0",
+    "nats": "^2.29.3",
+    "pg": "^8.16.3",
+    "uuid": "^11.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "@types/pg": "^8.15.5",
+    "tsup": "^8.5.0",
+    "typescript": "^5.9.2"
+  }
+}
+
+

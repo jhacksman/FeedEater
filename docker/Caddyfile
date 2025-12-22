@@ -1,0 +1,20 @@
+:666 {
+  encode gzip
+
+  # Web UI
+  @api path /api/*
+  handle @api {
+    reverse_proxy api:4000
+  }
+
+  @bullboard path /bullboard*
+  handle @bullboard {
+    reverse_proxy api:4000
+  }
+
+  handle {
+    reverse_proxy web:3000
+  }
+}
+
+

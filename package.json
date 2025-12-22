@@ -1,0 +1,21 @@
+{
+  "name": "feedeater",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*",
+    "modules/*"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "npm run -ws dev",
+    "build": "npm run -ws build",
+    "typecheck": "npm run -ws typecheck",
+    "lint": "npm run -ws lint"
+  }
+}
+
+
