@@ -1,0 +1,13 @@
+{
+  "name": "@feedeater/module-system",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "echo \"(no build)\"",
+    "typecheck": "echo \"(no typecheck)\"",
+    "lint": "echo \"(no lint)\""
+  }
+}
+
+

@@ -10,6 +10,7 @@ COPY packages/module-sdk/package.json packages/module-sdk/package.json
 COPY packages/db/package.json packages/db/package.json
 COPY modules/example/package.json modules/example/package.json
 COPY modules/slack/package.json modules/slack/package.json
+COPY modules/system/package.json modules/system/package.json
 
 RUN npm install
 

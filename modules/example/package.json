@@ -17,8 +17,8 @@
     "lint": "echo \"(no lint configured yet)\""
   },
   "dependencies": {
-    "@feedeater/core": "workspace:*",
-    "@feedeater/module-sdk": "workspace:*",
+    "@feedeater/core": "0.0.1",
+    "@feedeater/module-sdk": "0.0.1",
     "nats": "^2.29.3",
     "uuid": "^11.1.0"
   },

@@ -6,7 +6,7 @@ export function createModuleRuntime(): ModuleRuntime {
   return {
     moduleName: "slack",
     handlers: {
-      "mod:slack": {
+      mod_slack: {
         async collect({ ctx }) {
           const raw = await ctx.fetchInternalSettings("slack");
           const settings = parseSlackSettingsFromInternal(raw);

@@ -3,17 +3,17 @@
   "version": "0.0.1",
   "namespace": "feedeater.example",
   "runtime": { "entry": "dist/runtime.js" },
-  "queues": ["mod:example"],
+  "queues": ["mod_example"],
   "jobs": [
     {
       "name": "tick",
-      "queue": "mod:example",
+      "queue": "mod_example",
       "schedule": "*/1 * * * *",
       "description": "Emits a demo NormalizedMessage every minute."
     },
     {
       "name": "processMessage",
-      "queue": "mod:example",
+      "queue": "mod_example",
       "triggeredBy": "feedeater.example.messageCreated",
       "description": "Triggered when the module emits messageCreated; simulates downstream processing."
     }

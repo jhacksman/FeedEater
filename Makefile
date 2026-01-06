@@ -25,6 +25,6 @@ restart:
 
 # Creates/updates platform tables using Prisma (idempotent).
 db-push:
-	$(COMPOSE) run --rm api npm run -w @feedeater/db db:push
+	$(COMPOSE) run --rm --workdir /app api npx prisma db push --schema packages/db/prisma/schema.prisma
 
 

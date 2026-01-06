@@ -20,4 +20,46 @@ model Setting {
   @@index([module])
 }
 
+model BusMessage {
+  id              String    @id @default(uuid()) @db.Uuid
+  createdAt       DateTime
+  sourceModule    String
+  sourceStream    String?
+
+  // Unified message fields
+  message         String?
+  followMe        String?
+  from            String?
+  thread          String?
+  isDirectMention Boolean   @default(false)
+  isDigest        Boolean   @default(false)
+  isSystemMessage Boolean   @default(false)
+  likes           Int?
+
+  // Snapshots for convenience (immutability preserved by inserts only)
+  tagsJson        Json?
+  rawJson         Json
+
+  tags            BusTag[]
+
+  @@index([createdAt])
+  @@index([sourceModule, createdAt])
+  @@map("bus_messages")
+}
+
+model BusTag {
+  id              String    @id @default(uuid()) @db.Uuid
+  createdAt       DateTime
+  createdByModule String
+  messageId       String    @db.Uuid
+  key             String
+  valueJson       Json
+
+  message         BusMessage @relation(fields: [messageId], references: [id], onDelete: Restrict)
+
+  @@index([messageId, createdAt])
+  @@index([createdByModule, createdAt])
+  @@map("bus_tags")
+}
+
 

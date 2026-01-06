@@ -5,16 +5,16 @@
   "type": "module",
   "scripts": {
     "dev": "node --watch dist/index.js",
-    "build": "tsup src/index.ts --format esm --dts false",
+    "build": "tsup src/index.ts --format esm",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "echo \"(no lint configured yet)\"",
     "start": "node dist/index.js"
   },
   "dependencies": {
-    "@feedeater/core": "workspace:*",
-    "@feedeater/module-example": "workspace:*",
-    "@feedeater/module-sdk": "workspace:*",
-    "@feedeater/module-slack": "workspace:*",
+    "@feedeater/core": "0.0.1",
+    "@feedeater/module-example": "0.0.1",
+    "@feedeater/module-sdk": "0.0.1",
+    "@feedeater/module-slack": "0.0.1",
     "bullmq": "^5.58.5",
     "ioredis": "^5.7.0",
     "nats": "^2.29.3",

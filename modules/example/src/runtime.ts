@@ -6,7 +6,7 @@ export function createModuleRuntime(): ModuleRuntime {
   return {
     moduleName: "example",
     handlers: {
-      "mod:example": {
+      mod_example: {
         async tick({ ctx }) {
           await runExampleTick({ nats: ctx.nats as any, sc: ctx.sc as any });
         },

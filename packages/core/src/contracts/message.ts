@@ -13,10 +13,16 @@ export const NormalizedMessageSchema = z.object({
     module: z.string(),
     stream: z.string().optional(),
   }),
-  content: z.object({
-    text: z.string().optional(),
-    url: z.string().url().optional(),
-  }),
+  // Human-readable body.
+  Message: z.string().optional(),
+  // URL to open when clicking the message.
+  FollowMe: z.string().url().optional(),
+  From: z.string().optional(),
+  Thread: z.string().optional(),
+  isDirectMention: z.boolean().default(false),
+  isDigest: z.boolean().default(false),
+  isSystemMessage: z.boolean().default(false),
+  likes: z.number().int().nonnegative().optional(),
   tags: MessageTagsSchema.default({}),
 });
 

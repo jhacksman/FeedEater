@@ -1,0 +1,18 @@
+{
+  "name": "system",
+  "version": "0.0.1",
+  "namespace": "feedeater.system",
+  "settings": [
+    { "key": "jetstream_max_age_seconds", "type": "number", "default": 2592000 },
+    { "key": "dashboard_bus_history_minutes", "type": "number", "default": 60 },
+    { "key": "dashboard_bus_limit", "type": "number", "default": 200 },
+    { "key": "dashboard_bus_filter_module", "type": "string", "default": "" },
+    { "key": "dashboard_bus_filter_stream", "type": "string", "default": "" },
+    { "key": "dashboard_bus_search", "type": "string", "default": "" }
+  ],
+  "cards": [
+    { "id": "systemStatus", "title": "System" }
+  ]
+}
+
+

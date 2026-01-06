@@ -1,9 +1,14 @@
+import { JobsRunPanel } from "../../components/JobsRunPanel";
+
 export default function JobsPage() {
   return (
     <div className="card">
       <div style={{ fontSize: 20, fontWeight: 700 }}>Jobs (BullBoard)</div>
       <div style={{ height: 8 }} />
       <div className="muted">Embedded management UI for BullMQ queues.</div>
+      <div style={{ height: 12 }} />
+
+      <JobsRunPanel />
       <div style={{ height: 12 }} />
 
       <div

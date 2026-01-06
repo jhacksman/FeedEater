@@ -3,7 +3,7 @@ import type { Pool } from "pg";
 import { v5 as uuidv5 } from "uuid";
 import type { NatsConnection, StringCodec } from "nats";
 
-import { NormalizedMessageSchema, subjectFor } from "@feedeater/core";
+import { MessageCreatedEventSchema, NormalizedMessageSchema, subjectFor } from "@feedeater/core";
 
 export type SlackSettings = {
   enabled: boolean;
@@ -53,6 +53,26 @@ export class SlackIngestor {
   private slack: WebClient;
   private userCache = new Map<string, string>();
 
+  private log(level: "debug" | "info" | "warn" | "error", message: string, meta?: unknown) {
+    try {
+      this.nats.publish(
+        "feedeater.slack.log",
+        this.sc.encode(
+          JSON.stringify({
+            level,
+            module: "slack",
+            source: "collector",
+            at: new Date().toISOString(),
+            message,
+            meta,
+          })
+        )
+      );
+    } catch {
+      // ignore
+    }
+  }
+
   constructor(
     private readonly settings: SlackSettings,
     private readonly db: Pool,
@@ -100,7 +120,12 @@ export class SlackIngestor {
         });
       }
       return replies;
-    } catch {
+    } catch (err) {
+      this.log(
+        "warn",
+        "failed to fetch thread replies (continuing)",
+        err instanceof Error ? { channelId, threadTs, name: err.name, message: err.message } : { channelId, threadTs, err }
+      );
       return [];
     }
   }
@@ -110,11 +135,25 @@ export class SlackIngestor {
     const lookbackTime = Date.now() / 1000 - lookbackHours * 3600;
 
     for (const channelId of channelIds) {
-      const result = await this.slack.conversations.history({
-        channel: channelId,
-        oldest: String(lookbackTime),
-        limit: 1000,
-      });
+      this.log("info", "scraping channel history", { channelId, lookbackHours });
+
+      let result: any;
+      try {
+        result = await this.slack.conversations.history({
+          channel: channelId,
+          oldest: String(lookbackTime),
+          limit: 1000,
+        });
+      } catch (err) {
+        // Keep going: one bad channel should not block other channels.
+        // Still report prominently (and with channelId) to the logs UI.
+        this.log(
+          "error",
+          "failed to fetch channel history (continuing)",
+          err instanceof Error ? { channelId, name: err.name, message: err.message, stack: err.stack } : { channelId, err }
+        );
+        continue;
+      }
 
       for (const m of result.messages ?? []) {
         if (!m || !m.ts || !m.user || !m.text) continue;
@@ -176,6 +215,7 @@ export class SlackIngestor {
   }
 
   async collectAndPersist(): Promise<{ insertedOrUpdated: number }> {
+    this.log("info", "slack collect starting", { channelIds: this.settings.channelIds, lookbackHours: this.settings.lookbackHours });
     const msgs = await this.fetchChannelMessages(this.settings.channelIds, this.settings.lookbackHours);
     if (msgs.length === 0) return { insertedOrUpdated: 0 };
 
@@ -183,12 +223,15 @@ export class SlackIngestor {
     try {
       await client.query("BEGIN");
       let count = 0;
+      let published = 0;
 
       for (const m of msgs) {
         const tsNum = parseFloat(m.timestamp);
         const sourceId = `slack-${m.channel}-${m.timestamp}`;
 
-        await client.query(
+        // De-duplication: only publish to the unified bus when we insert a previously unseen Slack message.
+        // We still upsert the DB row (so payload/text changes can be updated), but avoid re-emitting duplicates.
+        const upsert = (await client.query(
           `
           INSERT INTO mod_slack.slack_messages (
             id, channel_id, slack_ts, slack_ts_num, ts,
@@ -204,6 +247,7 @@ export class SlackIngestor {
             author_name = EXCLUDED.author_name,
             payload = EXCLUDED.payload,
             collected_at = now()
+          RETURNING (xmax = 0) AS inserted
           `,
           [
             sourceId,
@@ -218,29 +262,46 @@ export class SlackIngestor {
             m.replyCount ?? null,
             m as any,
           ]
-        );
+        )) as unknown as { rows: Array<{ inserted: boolean }> };
         count++;
 
-        const msgId = uuidv5(sourceId, UUID_NAMESPACE);
-        const normalized = NormalizedMessageSchema.parse({
-          id: msgId,
-          createdAt: new Date(tsNum * 1000).toISOString(),
-          source: { module: "slack", stream: m.channel },
-          content: { text: m.text },
-          tags: {
-            source: "slack",
-            channelId: m.channel,
-            author: m.username ?? m.user,
-            isThreadReply: Boolean(m.isThreadReply),
-          },
-        });
-        this.nats.publish(subjectFor("slack", "messageCreated"), this.sc.encode(JSON.stringify(normalized)));
+        const inserted = Boolean(upsert.rows?.[0]?.inserted);
+        if (inserted) {
+          const msgId = uuidv5(sourceId, UUID_NAMESPACE);
+          const normalized = NormalizedMessageSchema.parse({
+            id: msgId,
+            createdAt: new Date(tsNum * 1000).toISOString(),
+            source: { module: "slack", stream: m.channel },
+            Message: m.text,
+            FollowMe: undefined,
+            From: m.username ?? m.user,
+            Thread: m.threadTs,
+            isDirectMention: false,
+            isDigest: false,
+            isSystemMessage: false,
+            tags: {
+              source: "slack",
+              channelId: m.channel,
+              author: m.username ?? m.user,
+              isThreadReply: Boolean(m.isThreadReply),
+            },
+          });
+          const event = MessageCreatedEventSchema.parse({ type: "MessageCreated", message: normalized });
+          this.nats.publish(subjectFor("slack", "messageCreated"), this.sc.encode(JSON.stringify(event)));
+          published++;
+        }
       }
 
       await client.query("COMMIT");
+      this.log("info", "slack collect finished", { insertedOrUpdated: count, publishedNew: published });
       return { insertedOrUpdated: count };
     } catch (e) {
       await client.query("ROLLBACK");
+      this.log(
+        "error",
+        "slack collect failed (job will fail)",
+        e instanceof Error ? { name: e.name, message: e.message, stack: e.stack } : e
+      );
       throw e;
     } finally {
       client.release();

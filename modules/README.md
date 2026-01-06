@@ -17,7 +17,7 @@ Required fields:
 - `version`
 - `namespace`: NATS subject prefix, typically `feedeater.<moduleName>`
 - `runtime.entry`: relative path to the built runtime entrypoint (example: `dist/runtime.js`)
-- `queues`: list of BullMQ queue names this module uses (example: `["mod:slack"]`)
+- `queues`: list of BullMQ queue names this module uses (example: `["mod_slack"]`)
 - `jobs`: list of jobs the worker should schedule and/or subscribe to
 
 Example (trimmed):
@@ -28,9 +28,9 @@ Example (trimmed):
   "version": "0.0.1",
   "namespace": "feedeater.slack",
   "runtime": { "entry": "dist/runtime.js" },
-  "queues": ["mod:slack"],
+  "queues": ["mod_slack"],
   "jobs": [
-    { "name": "collect", "queue": "mod:slack", "schedule": "*/5 * * * *" }
+    { "name": "collect", "queue": "mod_slack", "schedule": "*/5 * * * *" }
   ]
 }
 ```
@@ -78,7 +78,7 @@ modules/<moduleName>/
 
 ## Job + queue conventions
 
-- Prefer queue names `mod:<moduleName>` (example: `mod:slack`).
+- Prefer queue names `mod_<moduleName>` (example: `mod_slack`).
 - Jobs can be:
   - **scheduled** with `schedule` (cron string)
   - **event-triggered** with `triggeredBy` (NATS subject)
