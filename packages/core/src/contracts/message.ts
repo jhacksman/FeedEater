@@ -6,6 +6,20 @@ export type MessageTagValue = z.infer<typeof MessageTagValueSchema>;
 export const MessageTagsSchema = z.record(MessageTagValueSchema);
 export type MessageTags = z.infer<typeof MessageTagsSchema>;
 
+export const FollowMePanelSchema = z.object({
+  module: z.string(),
+  panelId: z.string(),
+  href: z.string().url().optional(),
+  label: z.string().optional(),
+});
+export type FollowMePanel = z.infer<typeof FollowMePanelSchema>;
+
+export const MessageContextRefSchema = z.object({
+  ownerModule: z.string(),
+  sourceKey: z.string(),
+});
+export type MessageContextRef = z.infer<typeof MessageContextRefSchema>;
+
 export const NormalizedMessageSchema = z.object({
   id: z.string().uuid(),
   createdAt: z.string().datetime(),
@@ -13,12 +27,15 @@ export const NormalizedMessageSchema = z.object({
     module: z.string(),
     stream: z.string().optional(),
   }),
+  // True only for first-time, live emissions (not bulk replay).
+  realtime: z.boolean().optional(),
   // Human-readable body.
   Message: z.string().optional(),
-  // URL to open when clicking the message.
-  FollowMe: z.string().url().optional(),
+  // Context linkage (summaries live in contexts, not messages).
+  contextRef: MessageContextRefSchema.optional(),
+  // Module-provided drill-down panel association.
+  followMePanel: FollowMePanelSchema.optional(),
   From: z.string().optional(),
-  Thread: z.string().optional(),
   isDirectMention: z.boolean().default(false),
   isDigest: z.boolean().default(false),
   isSystemMessage: z.boolean().default(false),

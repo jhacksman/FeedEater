@@ -29,8 +29,8 @@ model BusMessage {
   // Unified message fields
   message         String?
   followMe        String?
+  followMePanel   Json?
   from            String?
-  thread          String?
   isDirectMention Boolean   @default(false)
   isDigest        Boolean   @default(false)
   isSystemMessage Boolean   @default(false)
@@ -41,6 +41,7 @@ model BusMessage {
   rawJson         Json
 
   tags            BusTag[]
+  contexts        BusContextMessage[]
 
   @@index([createdAt])
   @@index([sourceModule, createdAt])
@@ -60,6 +61,79 @@ model BusTag {
   @@index([messageId, createdAt])
   @@index([createdByModule, createdAt])
   @@map("bus_tags")
+}
+
+model BusContext {
+  id           String   @id @default(uuid()) @db.Uuid
+  ownerModule  String
+  sourceKey    String
+  summaryShort String   @db.VarChar(128)
+  summaryLong  String   @db.Text
+  keyPoints    Json
+  embedding    Unsupported("vector")?
+  version      Int      @default(1)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  messages     BusContextMessage[]
+
+  @@unique([ownerModule, sourceKey])
+  @@index([ownerModule, updatedAt])
+  @@map("bus_contexts")
+}
+
+model BusContextMessage {
+  contextId String   @db.Uuid
+  messageId String   @db.Uuid
+  createdAt DateTime @default(now())
+
+  context   BusContext @relation(fields: [contextId], references: [id], onDelete: Cascade)
+  message   BusMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@id([contextId, messageId])
+  @@index([messageId, createdAt])
+  @@map("bus_context_messages")
+}
+
+model JobRun {
+  id          String   @id @default(uuid())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  module      String
+  job         String
+  queue       String
+  status      String
+  triggerType String
+  triggerJson Json?
+  metricsJson Json?
+  startedAt   DateTime?
+  finishedAt  DateTime?
+  error       String?
+
+  @@index([module, job, createdAt])
+  @@index([status, createdAt])
+  @@map("job_runs")
+}
+
+model JobState {
+  id            String   @id @default(uuid())
+  module        String
+  job           String
+  lastRunAt     DateTime?
+  lastSuccessAt DateTime?
+  lastErrorAt   DateTime?
+  lastError     String?
+  lastMetrics   Json?
+
+  @@unique([module, job])
+  @@map("job_states")
+}
+
+model BusReemitDedupe {
+  messageId     String   @id @db.Uuid
+  lastEmittedAt DateTime @default(now()) @updatedAt
+
+  @@map("bus_reemit_dedupe")
 }
 
 

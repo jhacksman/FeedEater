@@ -8,6 +8,24 @@ export const MessageCreatedEventSchema = z.object({
 });
 export type MessageCreatedEvent = z.infer<typeof MessageCreatedEventSchema>;
 
+export const ContextSummarySchema = z.object({
+  ownerModule: z.string(),
+  sourceKey: z.string().optional(),
+  summaryShort: z.string().max(128),
+  summaryLong: z.string(),
+  keyPoints: z.array(z.string()).default([]),
+  embedding: z.array(z.number()).optional(),
+});
+export type ContextSummary = z.infer<typeof ContextSummarySchema>;
+
+export const ContextUpdatedEventSchema = z.object({
+  type: z.literal("ContextUpdated"),
+  createdAt: z.string().datetime(),
+  messageId: z.string().uuid().optional(),
+  context: ContextSummarySchema,
+});
+export type ContextUpdatedEvent = z.infer<typeof ContextUpdatedEventSchema>;
+
 export const TagAppendedEventSchema = z.object({
   type: z.literal("TagAppended"),
   id: z.string().uuid(),
@@ -19,7 +37,7 @@ export const TagAppendedEventSchema = z.object({
 });
 export type TagAppendedEvent = z.infer<typeof TagAppendedEventSchema>;
 
-export const BusEventSchema = z.union([MessageCreatedEventSchema, TagAppendedEventSchema]);
+export const BusEventSchema = z.union([MessageCreatedEventSchema, ContextUpdatedEventSchema, TagAppendedEventSchema]);
 export type BusEvent = z.infer<typeof BusEventSchema>;
 
 

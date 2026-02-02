@@ -3,26 +3,21 @@
 
 declare var process: any;
 
-declare module "bullmq" {
-  export class Queue {
-    constructor(name: string, opts: any);
-    add(name: string, data: any, opts?: any): Promise<any>;
-  }
-  export class Worker {
-    constructor(name: string, processor: any, opts: any);
-    on(event: string, cb: any): any;
-  }
-}
-
-declare module "ioredis" {
-  export default class IORedis {
-    constructor(url: string, opts?: any);
-  }
+declare namespace NodeJS {
+  interface Timeout {}
 }
 
 declare module "nats" {
   export type NatsConnection = any;
   export type StringCodec = any;
+  export type ConsumerOptions = any;
+  export enum RetentionPolicy {
+    Limits,
+  }
+  export enum StorageType {
+    File,
+  }
+  export function consumerOpts(): ConsumerOptions;
   export function connect(opts: any): Promise<any>;
   export function StringCodec(): any;
 }

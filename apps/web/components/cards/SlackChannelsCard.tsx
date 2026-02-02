@@ -48,10 +48,27 @@ export function SlackChannelsCard() {
       const res = await fetch(url.toString(), { cache: "no-store" });
       const json = (await res.json()) as SlackChannelsApiResponse;
       setData(json);
+      if (json.ok) {
+        void saveChannelNameMap(json.channels);
+      }
     } catch (e) {
       setData({ ok: false, error: e instanceof Error ? e.message : String(e) });
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function saveChannelNameMap(channels: SlackChannel[]) {
+    try {
+      const map = Object.fromEntries(channels.map((c) => [c.id, c.name]));
+      const res = await fetch(`/api/settings/${encodeURIComponent("slack")}/${encodeURIComponent("channelNameMap")}`, {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ value: JSON.stringify(map), isSecret: false }),
+      });
+      if (!res.ok) throw new Error(`Save channel map failed (${res.status})`);
+    } catch {
+      // ignore: best-effort cache for background jobs
     }
   }
 

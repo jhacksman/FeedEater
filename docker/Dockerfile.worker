@@ -26,6 +26,7 @@ RUN npm run -w @feedeater/db generate
 RUN npm run -w @feedeater/db build
 RUN npm run -w @feedeater/module-example build
 RUN npm run -w @feedeater/module-slack build
+RUN npm run -w @feedeater/module-system build
 RUN npm run -w @feedeater/worker build
 
 FROM node:20-alpine

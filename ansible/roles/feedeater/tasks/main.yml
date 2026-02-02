@@ -28,6 +28,11 @@
   ignore_errors: true
   no_log: true
 
+- name: Initialize feedeater_env defaults
+  ansible.builtin.set_fact:
+    feedeater_env: "{{ feedeater_env | default({}) }}"
+  no_log: true
+
 - name: Extract existing FEED_SETTINGS_KEY/FEED_INTERNAL_TOKEN (if present)
   ansible.builtin.set_fact:
     feedeater_existing_settings_key: >-

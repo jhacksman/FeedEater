@@ -3,14 +3,6 @@
   become: true
   vars:
     feedeater_root: /opt/feedeater
-    feedeater_env:
-      POSTGRES_USER: feedeater
-      POSTGRES_PASSWORD: feedeater
-      POSTGRES_DB: feedeater
-      DATABASE_URL: "postgresql://feedeater:feedeater@postgres:5432/feedeater"
-      REDIS_URL: "redis://redis:6379"
-      NATS_URL: "nats://nats:4222"
-      # FEED_SETTINGS_KEY and FEED_INTERNAL_TOKEN are generated on-host if missing.
   roles:
     - docker
     - feedeater

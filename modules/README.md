@@ -17,7 +17,7 @@ Required fields:
 - `version`
 - `namespace`: NATS subject prefix, typically `feedeater.<moduleName>`
 - `runtime.entry`: relative path to the built runtime entrypoint (example: `dist/runtime.js`)
-- `queues`: list of BullMQ queue names this module uses (example: `["mod_slack"]`)
+- `queues`: list of job queues this module uses (example: `["mod_slack"]`)
 - `jobs`: list of jobs the worker should schedule and/or subscribe to
 
 Example (trimmed):
@@ -83,8 +83,8 @@ modules/<moduleName>/
   - **scheduled** with `schedule` (cron string)
   - **event-triggered** with `triggeredBy` (NATS subject)
 - The worker will:
-  - schedule repeatable jobs from `module.json`
-  - subscribe to `triggeredBy` subjects and enqueue jobs into the configured queue
+  - schedule repeatable jobs from `module.json` via NATS job subjects
+  - subscribe to `triggeredBy` subjects and publish job events for the configured queue
 
 ---
 
@@ -95,6 +95,24 @@ modules/<moduleName>/
 - The worker fetches decrypted settings using an internal token (`FEED_INTERNAL_TOKEN`).
 
 **Do not** read secrets from committed files. Use module settings for secrets.
+
+---
+
+## AI execution (module-owned prompts)
+
+The API exposes internal AI endpoints that only execute models and return raw responses.
+Modules are responsible for:
+
+- assembling the prompt and any system instructions
+- parsing the model response into their own data shape
+
+Use `/api/internal/ai/summary` with a payload like:
+
+```json
+{ "prompt": "...", "system": "...", "format": "json" }
+```
+
+The response includes a `response` string from the model and optional `token_rate`.
 
 ---
 

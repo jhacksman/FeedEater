@@ -8,6 +8,7 @@ export async function runExampleTick(params: { nats: NatsConnection; sc: StringC
     id: uuidv4(),
     createdAt: new Date().toISOString(),
     source: { module: "example", stream: "scheduler" },
+    realtime: true,
     Message: "Hello from FeedEater example module",
     isDirectMention: false,
     isDigest: false,

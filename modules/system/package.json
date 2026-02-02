@@ -4,9 +4,17 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "echo \"(no build)\"",
-    "typecheck": "echo \"(no typecheck)\"",
+    "build": "tsup src/runtime.ts --format esm --dts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "echo \"(no lint)\""
+  },
+  "dependencies": {
+    "@feedeater/module-sdk": "0.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "tsup": "^8.5.0",
+    "typescript": "^5.9.2"
   }
 }
 

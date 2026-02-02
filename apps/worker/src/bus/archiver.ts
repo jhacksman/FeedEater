@@ -98,11 +98,12 @@ export async function startBusArchiver(params: {
     if (parsed.type !== "MessageCreated") return;
 
     const msg = parsed.message;
+    const { realtime: _realtime, ...msgForArchive } = msg as typeof msg & { realtime?: boolean };
     await params.db.query(
       `
       INSERT INTO bus_messages (
         id, "createdAt", "sourceModule", "sourceStream",
-        message, "followMe", "from", thread,
+        message, "followMe", "followMePanel", "from",
         "isDirectMention", "isDigest", "isSystemMessage", likes,
         "tagsJson", "rawJson"
       ) VALUES (
@@ -119,15 +120,15 @@ export async function startBusArchiver(params: {
         msg.source.module,
         msg.source.stream ?? null,
         msg.Message ?? null,
-        msg.FollowMe ?? null,
+        msg.followMePanel?.href ?? null,
+        msg.followMePanel ?? null,
         msg.From ?? null,
-        msg.Thread ?? null,
         msg.isDirectMention,
         msg.isDigest,
         msg.isSystemMessage,
         typeof msg.likes === "number" ? msg.likes : null,
         msg.tags ?? {},
-        msg,
+        msgForArchive,
       ]
     );
   }

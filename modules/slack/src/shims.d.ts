@@ -1,5 +1,7 @@
 // Local dev shim: this repo may be opened without `node_modules` installed.
 // Minimal type shims to keep editor/typecheck usable; real types come from installed deps.
+declare var process: any;
+
 declare module "@slack/web-api" {
   export class WebClient {
     constructor(token: string);

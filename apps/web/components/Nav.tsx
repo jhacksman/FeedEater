@@ -27,6 +27,9 @@ export function Nav() {
         <Link href="/jobs" style={linkStyle}>
           Jobs
         </Link>
+        <Link href="/contexts" style={linkStyle}>
+          Contexts
+        </Link>
         <Link href="/logs" style={linkStyle}>
           Logs
         </Link>

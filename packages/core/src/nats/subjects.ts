@@ -8,4 +8,13 @@ export function isFeedeaterSubject(subject: string): boolean {
   return subject.startsWith("feedeater.");
 }
 
+export function jobSubjectFor(params: { moduleName: string; queue: string; job: string }): string {
+  // Convention: feedeater.jobs.<module>.<queue>.<job>
+  return `feedeater.jobs.${params.moduleName}.${params.queue}.${params.job}`;
+}
+
+export function isJobSubject(subject: string): boolean {
+  return subject.startsWith("feedeater.jobs.");
+}
+
 

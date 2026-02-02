@@ -1,11 +1,15 @@
-import { Queue, Worker } from "bullmq";
-import IORedis from "ioredis";
 import { connect, StringCodec } from "nats";
 import { Pool } from "pg";
-
-import { MessageCreatedEventSchema, NormalizedMessageSchema, createSettingsClient } from "@feedeater/core";
+import {
+  ContextUpdatedEventSchema,
+  JobRunEventSchema,
+  MessageCreatedEventSchema,
+  NormalizedMessageSchema,
+  createSettingsClient,
+  jobSubjectFor,
+  subjectFor,
+} from "@feedeater/core";
 import { discoverModules } from "./modules/discovery.js";
-import type { ModuleManifest } from "./modules/types.js";
 import type { ModuleRuntimeContext, ModuleRuntime } from "@feedeater/module-sdk";
 import { loadModuleRuntime } from "./modules/runtime.js";
 import { startBusArchiver } from "./bus/archiver.js";
@@ -49,17 +53,321 @@ function requiredEnv(name: string): string {
   return v;
 }
 
-const REDIS_URL = process.env.REDIS_URL ?? "redis://localhost:6379";
 const NATS_URL = requiredEnv("NATS_URL");
 const MODULES_DIR = process.env.FEED_MODULES_DIR ?? "/app/modules";
 const API_BASE_URL = process.env.FEED_API_BASE_URL ?? "http://localhost:4000";
 const INTERNAL_TOKEN = requiredEnv("FEED_INTERNAL_TOKEN");
+const DEFAULT_EMBED_DIM = Number(process.env.OLLAMA_EMBED_DIM ?? "4096");
+let currentEmbedDim = DEFAULT_EMBED_DIM;
 
 requiredEnv("DATABASE_URL");
 const DATABASE_URL = requiredEnv("DATABASE_URL");
 
-const redis = new IORedis(REDIS_URL, { maxRetriesPerRequest: null });
 const sc = StringCodec();
+const JOB_SUBJECT_WILDCARD = "feedeater.jobs.>";
+const CONTEXT_SUBJECT_WILDCARD = "feedeater.*.contextUpdated";
+
+type JobTrigger = { type: "schedule" | "manual" | "event"; subject?: string; messageId?: string };
+
+function serializeError(err: unknown): string {
+  if (err instanceof Error) return `${err.name}: ${err.message}\n${err.stack ?? ""}`.trim();
+  return typeof err === "string" ? err : safeJson(err);
+}
+
+async function ensureContextStorage(
+  db: Pool,
+  publish: (level: LogLevel, message: string, meta?: unknown) => void,
+  embedDim: number
+) {
+  try {
+    await db.query(`CREATE EXTENSION IF NOT EXISTS vector`);
+  } catch (err) {
+    publish("warn", "failed to ensure pgvector extension", { err: serializeError(err) });
+  }
+
+  if (Number.isFinite(embedDim) && embedDim > 0) {
+    try {
+      await db.query(
+        `ALTER TABLE bus_contexts ALTER COLUMN embedding TYPE vector(${embedDim}) USING embedding::vector`
+      );
+    } catch (err) {
+      publish("warn", "failed to ensure bus_contexts embedding dimension", { err: serializeError(err) });
+    }
+  }
+
+  if (Number.isFinite(embedDim) && embedDim <= 2000) {
+    try {
+      await db.query(
+        `
+        CREATE INDEX IF NOT EXISTS bus_context_embedding_idx
+        ON bus_contexts USING ivfflat (embedding vector_cosine_ops)
+        `
+      );
+    } catch (err) {
+      publish("warn", "failed to ensure bus_contexts embedding index", { err: serializeError(err) });
+    }
+  } else {
+    try {
+      await db.query(`DROP INDEX IF EXISTS bus_context_embedding_idx`);
+    } catch {
+      // ignore
+    }
+    publish("warn", "skipping bus_contexts ivfflat index (embedding dim > 2000)", { embedDim });
+  }
+}
+
+async function upsertContext(params: {
+  db: Pool;
+  ownerModule: string;
+  sourceKey?: string;
+  summaryShort: string;
+  summaryLong: string;
+  keyPoints: string[];
+  embedding?: number[];
+  messageId?: string;
+}) {
+  const summaryShort = params.summaryShort.slice(0, 128);
+  const sourceKey = params.sourceKey ?? params.messageId ?? crypto.randomUUID();
+  const validEmbedding =
+    params.embedding &&
+    params.embedding.length > 0 &&
+    (!Number.isFinite(currentEmbedDim) || params.embedding.length === currentEmbedDim);
+  const embeddingValue = validEmbedding ? `[${params.embedding!.join(",")}]` : "";
+
+  const res = await params.db.query(
+    `
+    INSERT INTO bus_contexts (
+      id, "ownerModule", "sourceKey", "summaryShort", "summaryLong", "keyPoints", embedding, version, "createdAt", "updatedAt"
+    ) VALUES (
+      $1, $2, $3, $4, $5, $6,
+      NULLIF($7, '')::vector,
+      1, now(), now()
+    )
+    ON CONFLICT ("ownerModule", "sourceKey") DO UPDATE SET
+      "summaryShort" = EXCLUDED."summaryShort",
+      "summaryLong" = EXCLUDED."summaryLong",
+      "keyPoints" = EXCLUDED."keyPoints",
+      embedding = EXCLUDED.embedding,
+      "updatedAt" = now(),
+      version = bus_contexts.version + 1
+    RETURNING id
+    `,
+    [
+      crypto.randomUUID(),
+      params.ownerModule,
+      sourceKey,
+      summaryShort,
+      params.summaryLong,
+      params.keyPoints,
+      embeddingValue,
+    ]
+  );
+
+  const contextId = res.rows?.[0]?.id as string | undefined;
+  if (contextId && params.messageId) {
+    await params.db.query(
+      `
+      INSERT INTO bus_context_messages ("contextId", "messageId", "createdAt")
+      VALUES ($1, $2, now())
+      ON CONFLICT ("contextId", "messageId") DO NOTHING
+      `,
+      [contextId, params.messageId]
+    );
+  }
+}
+
+async function recordJobStart(params: {
+  db: Pool;
+  runId: string;
+  moduleName: string;
+  queue: string;
+  jobName: string;
+  trigger: JobTrigger;
+}) {
+  const triggerJson = params.trigger ?? null;
+  await params.db.query(
+    `
+    INSERT INTO job_runs (
+      id, "createdAt", "updatedAt",
+      module, job, queue,
+      status, "triggerType", "triggerJson",
+      "startedAt"
+    ) VALUES (
+      $1, now(), now(),
+      $2, $3, $4,
+      'running', $5, $6,
+      now()
+    )
+    ON CONFLICT (id) DO UPDATE SET
+      status = 'running',
+      "updatedAt" = now(),
+      "startedAt" = now()
+    `,
+    [
+      params.runId,
+      params.moduleName,
+      params.jobName,
+      params.queue,
+      params.trigger.type,
+      triggerJson,
+    ]
+  );
+
+  await params.db.query(
+    `
+    INSERT INTO job_states (id, module, job, "lastRunAt")
+    VALUES ($1, $2, $3, now())
+    ON CONFLICT (module, job) DO UPDATE SET "lastRunAt" = EXCLUDED."lastRunAt"
+    `,
+    [crypto.randomUUID(), params.moduleName, params.jobName]
+  );
+}
+
+async function recordJobSuccess(params: {
+  db: Pool;
+  runId: string;
+  moduleName: string;
+  jobName: string;
+  metricsJson?: Record<string, unknown>;
+}) {
+  await params.db.query(
+    `
+    UPDATE job_runs
+    SET status = 'success', "updatedAt" = now(), "finishedAt" = now(), error = NULL, "metricsJson" = $2
+    WHERE id = $1
+    `,
+    [params.runId, params.metricsJson ?? null]
+  );
+  await params.db.query(
+    `
+    UPDATE job_states
+    SET "lastSuccessAt" = now(), "lastErrorAt" = NULL, "lastError" = NULL, "lastRunAt" = now(), "lastMetrics" = $3
+    WHERE module = $1 AND job = $2
+    `,
+    [params.moduleName, params.jobName, params.metricsJson ?? null]
+  );
+}
+
+async function recordJobError(params: { db: Pool; runId: string; moduleName: string; jobName: string; error: string }) {
+  await params.db.query(
+    `
+    UPDATE job_runs
+    SET status = 'error', "updatedAt" = now(), "finishedAt" = now(), error = $2
+    WHERE id = $1
+    `,
+    [params.runId, params.error]
+  );
+  await params.db.query(
+    `
+    UPDATE job_states
+    SET "lastErrorAt" = now(), "lastError" = $3, "lastRunAt" = now()
+    WHERE module = $1 AND job = $2
+    `,
+    [params.moduleName, params.jobName, params.error]
+  );
+}
+
+function nextCronTime(cron: string, now: Date): Date | null {
+  const parts = cron.trim().split(/\s+/);
+  if (parts.length !== 5) return null;
+  const min = parts[0] ?? "";
+  const hour = parts[1] ?? "";
+  const dom = parts[2] ?? "";
+  const mon = parts[3] ?? "";
+  const dow = parts[4] ?? "";
+  if (hour !== "*" || dom !== "*" || mon !== "*" || dow !== "*") return null;
+
+  const next = new Date(now.getTime());
+  next.setSeconds(0, 0);
+
+  if (min === "*") {
+    next.setMinutes(next.getMinutes() + 1);
+    return next;
+  }
+
+  const stepMatch = min.match(/^\*\/(\d+)$/);
+  if (stepMatch) {
+    const step = Number(stepMatch[1]);
+    if (!Number.isFinite(step) || step <= 0) return null;
+    const remainder = next.getMinutes() % step;
+    const add = remainder === 0 ? step : step - remainder;
+    next.setMinutes(next.getMinutes() + add);
+    return next;
+  }
+
+  if (/^\d+$/.test(min)) {
+    const minute = Number(min);
+    if (!Number.isFinite(minute) || minute < 0 || minute > 59) return null;
+    if (next.getMinutes() < minute) {
+      next.setMinutes(minute);
+      return next;
+    }
+    next.setHours(next.getHours() + 1);
+    next.setMinutes(minute);
+    return next;
+  }
+
+  return null;
+}
+
+function scheduleCronJob(params: {
+  schedule: string;
+  onTick: (nextAt: Date) => Promise<void> | void;
+  onError: (err: unknown) => void;
+}) {
+  let cancelled = false;
+  let timer: ReturnType<typeof setTimeout> | null = null;
+
+  const scheduleNext = () => {
+    if (cancelled) return;
+    try {
+      const nextAt = nextCronTime(params.schedule, new Date());
+      if (!nextAt) throw new Error(`Unsupported cron pattern: ${params.schedule}`);
+      const delay = Math.max(0, nextAt.getTime() - Date.now());
+      timer = setTimeout(async () => {
+        try {
+          await params.onTick(nextAt);
+        } catch (err) {
+          params.onError(err);
+        } finally {
+          scheduleNext();
+        }
+      }, delay);
+    } catch (err) {
+      params.onError(err);
+    }
+  };
+
+  scheduleNext();
+  return () => {
+    cancelled = true;
+    if (timer) clearTimeout(timer);
+  };
+}
+
+async function publishJobEvent(params: {
+  nc: import("nats").NatsConnection;
+  sc: import("nats").StringCodec;
+  moduleName: string;
+  queue: string;
+  jobName: string;
+  trigger: JobTrigger;
+  runId?: string;
+  data?: unknown;
+}) {
+  const payload = JobRunEventSchema.parse({
+    type: "JobRun",
+    module: params.moduleName,
+    queue: params.queue,
+    job: params.jobName,
+    requestedAt: new Date().toISOString(),
+    runId: params.runId,
+    trigger: params.trigger,
+    data: params.data,
+  });
+  const subject = jobSubjectFor({ moduleName: params.moduleName, queue: params.queue, job: params.jobName });
+  params.nc.publish(subject, params.sc.encode(JSON.stringify(payload)));
+}
 
 async function main() {
   const nc = await connect({ servers: NATS_URL });
@@ -68,7 +376,6 @@ async function main() {
 
   try {
     const db = new Pool({ connectionString: DATABASE_URL });
-
     const settingsClient = createSettingsClient({ apiBaseUrl: API_BASE_URL });
     const apiBase = API_BASE_URL.replace(/\/+$/, "");
     const fetchSettings = async (moduleName: string) => {
@@ -97,22 +404,18 @@ async function main() {
       }
     };
 
+    const sysSettings = await fetchSettings("system");
+    const sysEmbedDimRaw = sysSettings.ollama_embed_dim ?? DEFAULT_EMBED_DIM;
+    const sysEmbedDim = Number.isFinite(Number(sysEmbedDimRaw)) ? Number(sysEmbedDimRaw) : DEFAULT_EMBED_DIM;
+    currentEmbedDim = sysEmbedDim;
+    await ensureContextStorage(db, (level, message, meta) => publishLog(nc, sc, level, message, meta), sysEmbedDim);
+
     // Start append-only archive consumer (JetStream -> Postgres).
     await startBusArchiver({ nc, db, fetchInternalSettings: fetchSettings });
 
     const modules = await discoverModules(MODULES_DIR);
     // eslint-disable-next-line no-console
     console.log(`[worker] discovered modules: ${modules.map((m) => m.name).join(", ") || "(none)"}`);
-
-    const queuesByName = new Map<string, Queue>();
-    const getQueue = (name: string) => {
-      let q = queuesByName.get(name);
-      if (!q) {
-        q = new Queue(name, { connection: redis });
-        queuesByName.set(name, q);
-      }
-      return q;
-    };
 
     const runtimeByModule = new Map<string, ModuleRuntime>();
     for (const m of modules) {
@@ -126,29 +429,68 @@ async function main() {
       runtimeByModule.set(m.name, rt);
     }
 
-    const baseCtx: Omit<ModuleRuntimeContext, "moduleName"> = {
+    const baseCtx: Omit<ModuleRuntimeContext, "moduleName" | "getQueue"> = {
       modulesDir: MODULES_DIR,
       db: db as any,
       nats: nc as any,
       sc: sc as any,
-      getQueue: (q: string) => getQueue(q) as any,
       fetchInternalSettings: fetchSettings,
     };
+
+    const makeCtx = (moduleName: string): ModuleRuntimeContext => ({
+      ...(baseCtx as any),
+      moduleName,
+      getQueue: (queueName: string) =>
+        ({
+          add: async (name: string, data: unknown) => {
+            await publishJobEvent({
+              nc,
+              sc,
+              moduleName,
+              queue: queueName,
+              jobName: name,
+              trigger: { type: "event", subject: "internal" },
+              data,
+            });
+          },
+        }) as any,
+    });
 
     // Schedule repeat jobs declared by modules.
     for (const mod of modules) {
       for (const job of mod.jobs ?? []) {
-        if (job.schedule) {
-          await getQueue(job.queue).add(
-            job.name,
-            { __module: mod.name },
-            { repeat: { pattern: job.schedule }, removeOnComplete: true, removeOnFail: 100 }
-          );
-        }
+        if (!job.schedule) continue;
+        scheduleCronJob({
+          schedule: job.schedule,
+          onTick: async (nextAt) => {
+            publishLog(nc, sc, "debug", "cron fired", {
+              module: mod.name,
+              job: job.name,
+              queue: job.queue,
+              nextAt: nextAt.toISOString(),
+            });
+            await publishJobEvent({
+              nc,
+              sc,
+              moduleName: mod.name,
+              queue: job.queue,
+              jobName: job.name,
+              trigger: { type: "schedule" },
+            });
+          },
+          onError: (err) => {
+            publishLog(nc, sc, "error", "cron schedule failed", {
+              module: mod.name,
+              job: job.name,
+              queue: job.queue,
+              err: serializeError(err),
+            });
+          },
+        });
       }
     }
 
-    // NATS → queue triggers
+    // NATS → job triggers
     const natsSubs: Array<{ subject: string; queue: string; jobName: string; moduleName: string }> = [];
     for (const mod of modules) {
       for (const j of mod.jobs ?? []) {
@@ -171,11 +513,15 @@ async function main() {
               if (env.success) return env.data.message;
               return NormalizedMessageSchema.parse(raw);
             })();
-            await getQueue(s.queue).add(
-              s.jobName,
-              { __module: s.moduleName, trigger: { subject: s.subject, messageId: msg.id } },
-              { removeOnComplete: true, removeOnFail: 100 }
-            );
+            await publishJobEvent({
+              nc,
+              sc,
+              moduleName: s.moduleName,
+              queue: s.queue,
+              jobName: s.jobName,
+              trigger: { type: "event", subject: s.subject, messageId: msg.id },
+              data: { trigger: { subject: s.subject, messageId: msg.id } },
+            });
           } catch (err) {
             // eslint-disable-next-line no-console
             console.error("[worker] failed to enqueue triggered job", err);
@@ -189,29 +535,132 @@ async function main() {
       });
     }
 
-    // Job dispatchers per queue.
-    const makeProcessor = (queueName: string) => async (job: any) => {
-      const moduleName = String(job?.data?.__module ?? "");
-      if (!moduleName) throw new Error(`Job missing __module (queue=${queueName} name=${job?.name ?? "unknown"})`);
+    // Job dispatchers (NATS-based).
+    const jobSub = nc.subscribe(JOB_SUBJECT_WILDCARD);
+    (async () => {
+      for await (const m of jobSub) {
+        try {
+          const raw = JSON.parse(sc.decode(m.data)) as unknown;
+          const env = JobRunEventSchema.parse(raw);
+          const runId = env.runId ?? crypto.randomUUID();
+          await recordJobStart({
+            db,
+            runId,
+            moduleName: env.module,
+            queue: env.queue,
+            jobName: env.job,
+            trigger: env.trigger,
+          });
 
-      const rt = runtimeByModule.get(moduleName);
-      if (!rt) throw new Error(`No runtime loaded for module ${moduleName}`);
+          const rt = runtimeByModule.get(env.module);
+          if (!rt) throw new Error(`No runtime loaded for module ${env.module}`);
 
-      const handler = rt.handlers?.[queueName]?.[String(job.name)];
-      if (!handler) throw new Error(`No handler for module=${moduleName} queue=${queueName} job=${String(job.name)}`);
+          const handler = rt.handlers?.[env.queue]?.[env.job];
+          if (!handler) throw new Error(`No handler for module=${env.module} queue=${env.queue} job=${env.job}`);
 
-      const ctx: ModuleRuntimeContext = { ...(baseCtx as any), moduleName };
-      await handler({ ctx, job: { name: String(job.name), data: job.data, id: job.id } });
-    };
+          const ctx = makeCtx(env.module);
+          const startedAt = Date.now();
+          const result = await handler({ ctx, job: { name: env.job, data: env.data, id: runId } });
+          const durationMs = Date.now() - startedAt;
+          const metrics =
+            result && typeof result === "object" && "metrics" in result && result.metrics
+              ? (result.metrics as Record<string, unknown>)
+              : {};
+          const metricsJson = { durationMs, ...metrics };
+          await recordJobSuccess({ db, runId, moduleName: env.module, jobName: env.job, metricsJson });
+        } catch (err) {
+          const message = serializeError(err);
+          publishLog(nc, sc, "error", "job failed", { err: message });
+          try {
+            const raw = JSON.parse(sc.decode(m.data)) as unknown;
+            const env = JobRunEventSchema.safeParse(raw);
+            if (env.success) {
+              const runId = env.data.runId ?? crypto.randomUUID();
+              await recordJobError({ db, runId, moduleName: env.data.module, jobName: env.data.job, error: message });
+            }
+          } catch {
+            // ignore
+          }
+        }
+      }
+    })().catch((err) => {
+      // eslint-disable-next-line no-console
+      console.error("[worker] job subscription loop crashed", err);
+      publishLog(nc, sc, "error", "job subscription loop crashed", err);
+    });
 
-    for (const qName of queuesByName.keys()) {
-      const w = new Worker(qName, makeProcessor(qName), { connection: redis });
-      w.on("failed", (job: unknown, err: unknown) => {
-        // eslint-disable-next-line no-console
-        const id = (job as any)?.id ?? "unknown";
-        console.error(`[worker] job failed queue=${qName} id=${id}`, err);
-        publishLog(nc, sc, "error", `job failed queue=${qName} id=${id}`, { queue: qName, jobId: id, err });
-      });
+    const contextSub = nc.subscribe(CONTEXT_SUBJECT_WILDCARD);
+    (async () => {
+      for await (const m of contextSub) {
+        try {
+          const raw = JSON.parse(sc.decode(m.data)) as unknown;
+          const env = ContextUpdatedEventSchema.parse(raw);
+          await upsertContext({
+            db,
+            ownerModule: env.context.ownerModule,
+            sourceKey: env.context.sourceKey,
+            summaryShort: env.context.summaryShort,
+            summaryLong: env.context.summaryLong,
+            keyPoints: env.context.keyPoints ?? [],
+            embedding: env.context.embedding,
+            messageId: env.messageId,
+          });
+        } catch (err) {
+          publishLog(nc, sc, "warn", "failed to apply context update", { err: serializeError(err) });
+        }
+      }
+    })().catch((err) => {
+      // eslint-disable-next-line no-console
+      console.error("[worker] context subscription loop crashed", err);
+      publishLog(nc, sc, "error", "context subscription loop crashed", err);
+    });
+
+    // Re-emit Postgres history into NATS for dashboard lookback window.
+    const sysSettings2 = await fetchSettings("system");
+    const lookbackMinutesRaw = sysSettings2.dashboard_bus_history_minutes;
+    const parsedLookbackMinutes =
+      lookbackMinutesRaw === null || lookbackMinutesRaw === undefined ? NaN : Number(String(lookbackMinutesRaw).trim());
+    const lookbackMinutes = Number.isFinite(parsedLookbackMinutes) && parsedLookbackMinutes >= 0 ? parsedLookbackMinutes : 60;
+
+    await db.query(
+      `
+      DELETE FROM bus_reemit_dedupe
+      WHERE "lastEmittedAt" < (now() - ($1 * INTERVAL '1 minute'))
+      `,
+      [lookbackMinutes]
+    );
+
+    const since = new Date(Date.now() - lookbackMinutes * 60_000);
+    const res = await db.query(
+      `
+      SELECT m.id, m."rawJson"
+      FROM bus_messages m
+      LEFT JOIN bus_reemit_dedupe d ON d."messageId" = m.id
+      WHERE m."createdAt" >= $1 AND d."messageId" IS NULL
+      ORDER BY m."createdAt" ASC
+      `,
+      [since]
+    );
+
+    for (const row of res.rows as Array<{ id: string; rawJson: unknown }>) {
+      try {
+        const msg = NormalizedMessageSchema.parse(row.rawJson);
+        const event = MessageCreatedEventSchema.parse({
+          type: "MessageCreated",
+          message: { ...msg, realtime: false },
+        });
+        nc.publish(subjectFor(msg.source.module, "messageCreated"), sc.encode(JSON.stringify(event)));
+        await db.query(
+          `
+          INSERT INTO bus_reemit_dedupe ("messageId", "lastEmittedAt")
+          VALUES ($1, now())
+          ON CONFLICT ("messageId") DO UPDATE SET "lastEmittedAt" = EXCLUDED."lastEmittedAt"
+          `,
+          [row.id]
+        );
+      } catch (err) {
+        publishLog(nc, sc, "warn", "failed to re-emit bus history", { err: serializeError(err), messageId: row.id });
+      }
     }
 
     // Keep the legacy settings client referenced to avoid tree-shaking issues in some bundlers.

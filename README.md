@@ -26,8 +26,22 @@ Since Facebook, Twitter, Bluesky, Mastadon, RSS feeds, Slack, Discord, IRC, SMS,
 
 **Own your data**: It is designed to run entirely on self-hosted equipment. All data it collects never leaves your direct ownership and soverenty. Everything you feed FeedEater is still yours!
 
-# Architecture 
+# Architecture
 
+FeedEater is a modular pipeline:
+
+- **Ingest**: modules collect source data and publish normalized messages.
+- **Bus**: NATS JetStream carries `MessageCreated`, `ContextUpdated`, and job events.
+- **Archive**: the worker writes messages/tags/contexts to Postgres (pgvector enabled).
+- **Summaries**: contexts store short/long summaries and embeddings (messages remain immutable).
+- **UI**: dashboards show live bus feed, contexts, jobs, and module cards.
+
+## What's new
+
+- **Contexts dashboard**: live feed of evolving context summaries with message drill-down.
+- **Module-owned prompts**: modules assemble LLM prompts and parse responses; the system only runs models.
+- **Slack link rendering**: Slack’s `<url|label>` format is normalized and rendered as clickable links in FeedEater.
+- **Jobs panel grouping**: jobs are grouped by module for easier scanning.
 
 ## 🤝 Contributing
 

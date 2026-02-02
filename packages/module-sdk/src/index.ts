@@ -30,7 +30,7 @@ export type ModuleRuntimeContext = {
 export type ModuleJobHandler = (params: {
   ctx: ModuleRuntimeContext;
   job: { name: string; data: any; id?: string | number };
-}) => Promise<void>;
+}) => Promise<void | { metrics?: Record<string, unknown> }>;
 
 export type ModuleRuntime = {
   moduleName: string;

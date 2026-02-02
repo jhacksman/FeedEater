@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres:16-alpine
+    image: pgvector/pgvector:pg16
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-feedeater}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-feedeater}
@@ -11,17 +11,6 @@ services:
       test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 5s
       timeout: 5s
-      retries: 20
-
-  redis:
-    image: redis:7-alpine
-    command: ["redis-server", "--appendonly", "yes"]
-    volumes:
-      - redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
       retries: 20
 
   nats:
@@ -36,16 +25,16 @@ services:
       dockerfile: docker/Dockerfile.api
     environment:
       PORT: "4000"
-      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
       NATS_URL: ${NATS_URL:-nats://nats:4222}
       DATABASE_URL: ${DATABASE_URL:-postgresql://feedeater:feedeater@postgres:5432/feedeater}
       FEED_SETTINGS_KEY: ${FEED_SETTINGS_KEY:-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=}
       FEED_MODULES_DIR: /app/modules
       FEED_INTERNAL_TOKEN: ${FEED_INTERNAL_TOKEN:-dev-internal-token}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       postgres:
-        condition: service_healthy
-      redis:
         condition: service_healthy
       nats:
         condition: service_started
@@ -55,16 +44,16 @@ services:
       context: .
       dockerfile: docker/Dockerfile.worker
     environment:
-      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
       NATS_URL: ${NATS_URL:-nats://nats:4222}
       DATABASE_URL: ${DATABASE_URL:-postgresql://feedeater:feedeater@postgres:5432/feedeater}
       FEED_MODULES_DIR: /app/modules
       FEED_INTERNAL_TOKEN: ${FEED_INTERNAL_TOKEN:-dev-internal-token}
       FEED_API_BASE_URL: ${FEED_API_BASE_URL:-http://api:4000}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       postgres:
-        condition: service_healthy
-      redis:
         condition: service_healthy
       nats:
         condition: service_started
@@ -94,7 +83,6 @@ services:
 
 volumes:
   postgres_data:
-  redis_data:
   nats_data:
 
 

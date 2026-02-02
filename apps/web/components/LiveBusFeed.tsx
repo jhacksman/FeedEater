@@ -2,19 +2,55 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 
+function renderMessageText(text: string) {
+  const parts: Array<JSX.Element | string> = [];
+  const pattern =
+    /\[([^\]]+)\]\(((?:https?:\/\/|mailto:)[^\s)]+)\)|((?:https?:\/\/|mailto:)[^\s<]+[^\s<.,;:!?)\]])/g;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+  while ((match = pattern.exec(text))) {
+    if (match.index > lastIndex) parts.push(text.slice(lastIndex, match.index));
+    if (match[1] && match[2]) {
+      const label = match[1];
+      const href = match[2];
+      parts.push(
+        <a key={`${match.index}-${href}`} href={href} target="_blank" rel="noreferrer" style={{ color: "var(--accent)" }}>
+          {label}
+        </a>
+      );
+    } else if (match[3]) {
+      const href = match[3];
+      parts.push(
+        <a key={`${match.index}-${href}`} href={href} target="_blank" rel="noreferrer" style={{ color: "var(--accent)" }}>
+          {href}
+        </a>
+      );
+    }
+    lastIndex = match.index + match[0].length;
+  }
+  if (lastIndex < text.length) parts.push(text.slice(lastIndex));
+  return parts.length ? <>{parts}</> : text;
+}
+
 type BusEnvelope = {
   subject: string;
   receivedAt: string;
+  contextSummaryShort?: string | null;
   data: {
     type: "MessageCreated";
     message: {
       id: string;
       createdAt: string;
       source: { module: string; stream?: string };
+      realtime?: boolean;
       Message?: string;
-      FollowMe?: string;
+      followMePanel?: {
+        module: string;
+        panelId: string;
+        href?: string;
+        label?: string;
+      };
       From?: string;
-      Thread?: string;
       isDirectMention: boolean;
       isDigest: boolean;
       isSystemMessage: boolean;
@@ -40,6 +76,7 @@ export function LiveBusFeed() {
   const [filterModule, setFilterModule] = useState("");
   const [filterStream, setFilterStream] = useState("");
   const [search, setSearch] = useState("");
+  const [showIds, setShowIds] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
 
@@ -71,11 +108,13 @@ export function LiveBusFeed() {
         const mod = String(byKey.get("dashboard_bus_filter_module") ?? "");
         const stream = String(byKey.get("dashboard_bus_filter_stream") ?? "");
         const q = String(byKey.get("dashboard_bus_search") ?? "");
+        const show = String(byKey.get("dashboard_show_ids") ?? "false");
         if (Number.isFinite(hm) && hm >= 0) setHistoryMinutes(hm);
         if (Number.isFinite(lim) && lim > 0) setLimit(lim);
         setFilterModule(mod);
         setFilterStream(stream);
         setSearch(q);
+        setShowIds(show === "true");
       }
     } catch {
       // ignore
@@ -134,6 +173,11 @@ export function LiveBusFeed() {
   }, [historyMinutes, limit, filterModule, filterStream, search]);
 
   useEffect(() => {
+    void saveSetting("dashboard_show_ids", String(showIds));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showIds]);
+
+  useEffect(() => {
     const es = new EventSource("/api/bus/stream");
 
     es.onopen = () => setStatus("open");
@@ -152,7 +196,7 @@ export function LiveBusFeed() {
         if (filterStream && (msg.source?.stream ?? "") !== filterStream) return;
         if (search) {
           const q = search.toLowerCase();
-          const hay = `${msg.Message ?? ""}\n${msg.From ?? ""}\n${msg.Thread ?? ""}`.toLowerCase();
+          const hay = `${msg.Message ?? ""}\n${msg.From ?? ""}`.toLowerCase();
           if (!hay.includes(q)) return;
         }
 
@@ -271,7 +315,7 @@ export function LiveBusFeed() {
         <input
           value={search}
           onChange={(e: any) => setSearch(String(e?.target?.value ?? ""))}
-          placeholder="Search message/from/thread…"
+          placeholder="Search message/from…"
           style={{
             flex: "1 1 240px",
             minWidth: 220,
@@ -283,6 +327,10 @@ export function LiveBusFeed() {
             outline: "none",
           }}
         />
+        <label className="muted" style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 12 }}>
+          <input type="checkbox" checked={showIds} onChange={(e) => setShowIds(e.target.checked)} />
+          Show IDs
+        </label>
 
         <button
           onClick={() => void loadHistory()}
@@ -312,6 +360,7 @@ export function LiveBusFeed() {
         ) : (
           items.map((e: BusEnvelope) => {
             const m = e.data.message;
+            const summary = e.contextSummaryShort ?? "";
             return (
               <div
                 key={`${m.id}:${e.receivedAt}`}
@@ -325,31 +374,44 @@ export function LiveBusFeed() {
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
                   <div style={{ fontWeight: 700 }}>
                     {m.source.module}
-                    {m.source.stream ? <span className="muted"> · {m.source.stream}</span> : null}
+                    {summary ? <span className="muted"> · {summary}</span> : null}
                   </div>
                   <div className="muted" style={{ fontSize: 12 }}>
                     {new Date(m.createdAt).toLocaleString()}
                   </div>
                 </div>
 
-                {m.From ? (
-                  <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
-                    From: {m.From}
-                    {m.Thread ? <> · Thread: {m.Thread}</> : null}
+                {showIds ? (
+                  <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
+                    messageId: <code>{m.id}</code>
                   </div>
                 ) : null}
 
-                {m.Message ? <div style={{ marginTop: 8, whiteSpace: "pre-wrap" }}>{m.Message}</div> : null}
+                {m.From ? (
+                  <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
+                    From: {m.From}
+                  </div>
+                ) : null}
+
+                {m.Message ? (
+                  <div style={{ marginTop: 8, whiteSpace: "pre-wrap" }}>{renderMessageText(m.Message)}</div>
+                ) : null}
 
                 <div style={{ display: "flex", gap: 10, marginTop: 8, flexWrap: "wrap" }}>
                   {m.isDirectMention ? <span className="muted">directMention</span> : null}
                   {m.isDigest ? <span className="muted">digest</span> : null}
                   {m.isSystemMessage ? <span className="muted">system</span> : null}
                   {typeof m.likes === "number" ? <span className="muted">likes: {m.likes}</span> : null}
-                  {m.FollowMe ? (
-                    <a href={m.FollowMe} target="_blank" rel="noreferrer" style={{ color: "var(--accent)" }}>
-                      FollowMe
-                    </a>
+                  {m.followMePanel ? (
+                    m.followMePanel.href ? (
+                      <a href={m.followMePanel.href} target="_blank" rel="noreferrer" style={{ color: "var(--accent)" }}>
+                        {m.followMePanel.label ?? "Follow"}
+                      </a>
+                    ) : (
+                      <span className="muted">
+                        Follow: {m.followMePanel.module}.{m.followMePanel.panelId}
+                      </span>
+                    )
                   ) : null}
                 </div>
               </div>

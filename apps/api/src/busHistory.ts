@@ -32,13 +32,17 @@ export async function getBusHistory(req: Request, res: Response) {
               OR: [
                 { message: { contains: q, mode: "insensitive" } },
                 { from: { contains: q, mode: "insensitive" } },
-                { thread: { contains: q, mode: "insensitive" } },
               ],
             }
           : {}),
       },
       orderBy: { createdAt: "desc" },
       take: limit,
+      include: {
+        contexts: {
+          include: { context: true },
+        },
+      },
     });
 
     res.json({
@@ -48,6 +52,7 @@ export async function getBusHistory(req: Request, res: Response) {
       items: rows.map((r) => ({
         subject: `feedeater.${r.sourceModule}.messageCreated`,
         receivedAt: r.createdAt.toISOString(),
+        contextSummaryShort: r.contexts?.[0]?.context?.summaryShort ?? null,
         data: { type: "MessageCreated", message: r.rawJson },
       })),
     });

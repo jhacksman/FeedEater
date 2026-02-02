@@ -10,6 +10,12 @@
       "queue": "mod_slack",
       "schedule": "*/5 * * * *",
       "description": "Collect Slack messages from configured channels and persist raw extracts into mod_slack."
+    },
+    {
+      "name": "updateContexts",
+      "queue": "mod_slack",
+      "schedule": "*/30 * * * *",
+      "description": "Refresh context summaries from recent Slack messages."
     }
   ],
   "settings": [
@@ -18,7 +24,19 @@
     { "key": "channelIds", "type": "string", "required": true },
     { "key": "lookbackHours", "type": "number", "default": 24 },
     { "key": "includeThreads", "type": "boolean", "default": true },
-    { "key": "excludeBots", "type": "boolean", "default": true }
+    { "key": "excludeBots", "type": "boolean", "default": true },
+    { "key": "nonThreadContextTemplate", "type": "string", "default": "Message in channel {channel}" },
+    { "key": "channelNameMap", "type": "string", "default": "{}" },
+    {
+      "key": "contextPrompt",
+      "type": "string",
+      "default": "You are summarizing the provided Slack messages. Summarize ONLY the messages provided. Do not make suggestions, ask questions, or add commentary. Return strict JSON with keys: summary_short and summary_long. summary_short must be <= 128 characters. summary_long should be 1-3 short paragraphs. Do not return empty strings."
+    },
+    {
+      "key": "contextPromptFallback",
+      "type": "string",
+      "default": "Summarize ONLY the provided messages in plain text. 1-3 short sentences. Do not return JSON. Do not make suggestions or ask questions."
+    }
   ],
   "cards": [
     { "id": "slackStatus", "title": "Slack Collector" },
