@@ -1,47 +1,45 @@
-# FeedEater - Ad-block and spam filtering for the post-human internet
+# Takeing back the newsfeed
 
-Feedeater's name is quite literal: it's a tool for injesting the sprawl of news, social media, alerts, and chat feeds we're all stuck sorting through every day. It processes them with locally-hosted AI to summarize and filter the crap while permitting the freshest, tastiest, healthiest nuggets to pass through and grace your grey matter in a single combined dashboard. 
+Feedeater's name is literal: it's a backplane and an engine for tools that munch on and digest the modern world's ever-expanding sprawl of newsfeeds, social media apps, notifications, alerts, chats, and reminders that we're all stuck trying to stomach every day.
 
-It's kinda like a helper-🤖, written by a coder-🤖, to fight the spam-🤖s and their all-mighty algorythm-🤖 overloads. Clearly this is the best timeline. 
+It's a backplane to unite an ecosystem of lightweight and modular tools that empowers people to assemble their own darn newsfeeds policed and moderated by their own darn algorythms (blackjack and hookers optional).
 
-Feedeater is Open-Source (GNU licenced) and designed to run off a locally-hosted AI box like a DJX Spark or a Strix Halo. It hosts it's web interface on port 666 because hurr funny number. 
+# Context is King
+Rather then rigied and archaic system-specific concepts like "threads" or "topics" or "channels" or "conversations" or "Hashtags", Feedeater's unified data model groups messages by "Contexts". 
+
+**Contexts allow deep knowedge**: FeedEater tracks AI summaries and semantic embeds for messages in a given context. This allows both humans any any sorting/filtering/monitoring processes to understand a given message at a much deeper level.
+
+**Contexts may span platforms**: FeedEater allows the tracking of topics and conversations across platforms by allowing messages and information coming from diffent systems to be related to the same context. 
+
+**Contexts allow deep control**: [future feature] FeedEater allows feed filtering and monitoring (job triggering) based on semantic search. 
+
+# Batteries Included Platform
+FeedEater makes it easy to collect, aggriate, process, and filter feeds like news, chats, message, and notifications by providing unified data structures and support services: 
+
+- **Drop-in installs**: FeedEater will automatically import and integrate with any module cloned into its /modules folder (see an [example module](https://github.com/SparksMcGhee/FeedEater/tree/main/modules/example)).
+- **Free Orchestration**: Modules may define jobs which FeedEater will invoke either on a schedule, based on message/context subscription rules, or based on button presses in the web interface.  
+- **External intergration**: Jobs may make external API calls 
+- **Unified Message Bus**: All modules can read and emit messages on a unified, persistant, and realtime message bus.
+- **Collabrative understanding**: Modules can collaborate on a shared understanding of those messages by emitting key-value tags on any message (not just theirs)
+- **AI all warmed up**: Modules are provided system endpoints for interacting with OLLAMA. No fussing with API keys, networking, sidecar services, pulling stuff from HuggingFace or waiting for models to load. FeedEater will even handle task queueing. 
+- **Free Logging**: FeedEater logs and monitors jobs as well as providing a unified realtime debug log accessible from the UI. 
+- **Free Settings**: FeedEater handles exposing module settings to the end-user via the web interface as well as securely and persistantly storing settings values.  
+- **Free UI**: Modules may expand their settings page by defining their own TypeScript cards for any additional interoperability, as well as defining the card which is displayed when a user clicks on one of it's messages. 
+- **Free Persistance**: Modules get their own schema on the Postgres backend to store persistant data. Schema definitions via Prisma. 
+- **Free Message Queue**: Modules get their own namespace on FeedEater's NATs message queue. 
 
 # Why FeedEater? 
-For most of human history the biggest challenge we faced was getting enough food. We wired ourselves to consume all the greese, salt, carbs, and sugar we could cram into our mouths so we had something to survive on during the hard times. 
+For most of human history the biggest challenge we faced was getting enough food. Our brains are wired to consume all the greese, salt, carbs, and sugar we could cram into our mouths becuase for most of history the threat of heart diease was laughable compared to the looming monster of starvation.  
 
 Then, in an evolutionary blink of the eye the hard times ended. Developed nations didn't just have enough food, we had too much food. Suddenly the biggest killer and threat to our wellbeing wasn't starving, it was obesity, diabetes, and heart problems... suddenly success wasn't eating enough, it was eating right. 
 
-It took us years of experimenting with scientific reserch, fad diets, public education campaigns, regulation, and finally GLP-1 drugs to functionally patch our brain's wiring for the new era.
+It took us years of experimenting, medical reserch, fad diets, public education campaigns, and food regulation to get the situation under control. 
 
-Our natural curiosity and need for knowledge and closeness is in many ways just like hunger. Knowledge and social closeness increases our evolutionary advantage and for most of human history we were starving and scratching for every tidbit. 
+Our natural desire for knowledge and closeness is, like hunger, is rooted in the same fear. Knowledge and social closeness increases our evolutionary advantage and for most of human history we were starving and scratching for every tidbit.
 
-Then, in an evolutionary blink of the eye the whole game changed. Suddenly the Internet allowed us to hook a firehose of all humanitites knowledge and every banial thought and infinite volume of empty mental junkfood directly up to our eyeballs 24/7/365. Suddenly becoming wise, informed, and healthy means consuming the right information. 
+Then, in the same evolutionary blink of the eye the whole game changed. Suddenly the Internet allowed us to pump all of humanitites knowledge along with every baniel thought and cat picture directly into our eyeballs 24/7/365. Suddenly becoming wise, informed, and healthy required careful information dieting. 
 
-Since Facebook, Twitter, Bluesky, Mastadon, RSS feeds, Slack, Discord, IRC, SMS, Signal, Telegram, WeChat, Email.... all of them, seem intent on blasting your eyeballs with infinite volumes of ever-enshittifying garbage, FeedEater exists to be your filter. You can eat your metaphorical information-burger  
-
-## Why do you need FeedEater?
-**fights for the user**: You tell FeedEater what you care about and FeedEater monitors your socials for that. Full stop. No advertisers tipping the scale to sell you shit, no data scientists optimizing feeds for addiction, no evil recomendation algorythm, no enshitification, no phones being blown up at 2am when you friends start trading memes (unless FeedEater knows you'd want in).
-
-**Only watches**: FeedEater isn't your garden-variaty social media bot. It will never spam or bother your friends, impersonate minorities, humiliate you, or otherwise contribute to the Dead-Internet problems it exists to solve. 
-
-**Own your data**: It is designed to run entirely on self-hosted equipment. All data it collects never leaves your direct ownership and soverenty. Everything you feed FeedEater is still yours!
-
-# Architecture
-
-FeedEater is a modular pipeline:
-
-- **Ingest**: modules collect source data and publish normalized messages.
-- **Bus**: NATS JetStream carries `MessageCreated`, `ContextUpdated`, and job events.
-- **Archive**: the worker writes messages/tags/contexts to Postgres (pgvector enabled).
-- **Summaries**: contexts store short/long summaries and embeddings (messages remain immutable).
-- **UI**: dashboards show live bus feed, contexts, jobs, and module cards.
-
-## What's new
-
-- **Contexts dashboard**: live feed of evolving context summaries with message drill-down.
-- **Module-owned prompts**: modules assemble LLM prompts and parse responses; the system only runs models.
-- **Slack link rendering**: Slack’s `<url|label>` format is normalized and rendered as clickable links in FeedEater.
-- **Jobs panel grouping**: jobs are grouped by module for easier scanning.
+Since Facebook, Twitter, Tik-Toc, Bluesky, Mastadon, RSS feeds, Slack, Discord, IRC, SMS, Signal, Telegram, WeChat, Email.... appear to have collectively decided that pumping volumes of unhealthy and outright dangerious information into our eyeballs is more prophetable we're going to have to take matters into our own hands. 
 
 ## 🤝 Contributing
 
