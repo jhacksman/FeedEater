@@ -1,0 +1,45 @@
+{
+  "name": "discord",
+  "version": "0.0.1",
+  "namespace": "feedeater.discord",
+  "runtime": { "entry": "dist/runtime.js" },
+  "queues": ["mod_discord"],
+  "jobs": [
+    {
+      "name": "collect",
+      "queue": "mod_discord",
+      "schedule": "*/5 * * * *",
+      "description": "Collect Discord messages from configured guilds/channels and persist raw extracts into mod_discord."
+    },
+    {
+      "name": "updateContexts",
+      "queue": "mod_discord",
+      "schedule": "*/30 * * * *",
+      "description": "Refresh context summaries from recent Discord messages."
+    }
+  ],
+  "settings": [
+    { "key": "enabled", "type": "boolean", "default": true },
+    { "key": "botToken", "type": "secret", "required": true },
+    { "key": "guildIds", "type": "string", "required": true, "description": "Comma-separated list of Discord guild (server) IDs to collect from" },
+    { "key": "channelIds", "type": "string", "required": false, "description": "Optional comma-separated list of channel IDs to filter (leave empty for all channels)" },
+    { "key": "lookbackHours", "type": "number", "default": 24 },
+    { "key": "includeThreads", "type": "boolean", "default": true },
+    { "key": "excludeBots", "type": "boolean", "default": true },
+    { "key": "channelNameMap", "type": "string", "default": "{}", "description": "JSON mapping of channel IDs to human-readable names" },
+    {
+      "key": "contextPrompt",
+      "type": "string",
+      "default": "You are summarizing the provided Discord messages. Summarize ONLY the messages provided. Do not make suggestions, ask questions, or add commentary. Return strict JSON with keys: summary_short and summary_long. summary_short must be <= 128 characters. summary_long should be 1-3 short paragraphs. Do not return empty strings."
+    },
+    {
+      "key": "contextPromptFallback",
+      "type": "string",
+      "default": "Summarize ONLY the provided messages in plain text. 1-3 short sentences. Do not return JSON. Do not make suggestions or ask questions."
+    }
+  ],
+  "cards": [
+    { "id": "discordStatus", "title": "Discord Collector" },
+    { "id": "discordGuilds", "title": "Discord Guilds (Server IDs)" }
+  ]
+}

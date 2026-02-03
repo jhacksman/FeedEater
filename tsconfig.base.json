@@ -10,7 +10,9 @@
       "@feedeater/db": ["packages/db/src/index.ts"],
       "@feedeater/module-sdk": ["packages/module-sdk/src/index.ts"],
       "@feedeater/module-example": ["modules/example/src/index.ts"],
-      "@feedeater/module-slack": ["modules/slack/src/index.ts"]
+      "@feedeater/module-slack": ["modules/slack/src/index.ts"],
+      "@feedeater/module-bluesky": ["modules/bluesky/src/index.ts"],
+      "@feedeater/module-discord": ["modules/discord/src/index.ts"]
     },
     "strict": true,
     "noUncheckedIndexedAccess": true,
