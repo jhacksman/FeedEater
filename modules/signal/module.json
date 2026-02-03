@@ -1,0 +1,76 @@
+{
+  "name": "signal",
+  "version": "0.0.1",
+  "description": "Signal messenger integration via signal-cli. Collects messages from linked device (forward-only due to E2E encryption).",
+  "namespace": "feedeater.signal",
+  "runtime": {
+    "entry": "dist/runtime.js"
+  },
+  "queues": ["mod_signal"],
+  "jobs": [
+    {
+      "name": "collect",
+      "description": "Receive new messages from signal-cli daemon",
+      "queue": "mod_signal",
+      "schedule": "*/1 * * * *",
+      "timeout": 60000,
+      "metrics": ["messages_received", "groups_updated", "reactions_received"]
+    },
+    {
+      "name": "sessionCheck",
+      "description": "Verify signal-cli session is alive and linked device active",
+      "queue": "mod_signal",
+      "schedule": "0 */6 * * *",
+      "timeout": 30000,
+      "metrics": ["session_alive", "linked_device_active"]
+    },
+    {
+      "name": "updateContexts",
+      "description": "Generate AI summaries for active Signal conversations",
+      "queue": "mod_signal",
+      "schedule": "*/30 * * * *",
+      "timeout": 300000,
+      "metrics": ["contexts_updated", "summaries_generated"]
+    }
+  ],
+  "ui": {
+    "cards": [
+      {
+        "id": "signal-status",
+        "title": "Signal Status",
+        "type": "status",
+        "description": "Connection and session health"
+      },
+      {
+        "id": "signal-feed",
+        "title": "Recent Messages",
+        "type": "feed",
+        "description": "Latest messages from Signal"
+      }
+    ],
+    "setup": {
+      "steps": [
+        {
+          "id": "install",
+          "title": "Install signal-cli",
+          "description": "Download and install signal-cli on your server"
+        },
+        {
+          "id": "link",
+          "title": "Link Device",
+          "description": "Link signal-cli as a secondary device to your phone"
+        },
+        {
+          "id": "daemon",
+          "title": "Start Daemon",
+          "description": "Run signal-cli in daemon mode for continuous collection"
+        },
+        {
+          "id": "configure",
+          "title": "Configure Settings",
+          "description": "Set phone number and collection preferences"
+        }
+      ]
+    }
+  }
+}
