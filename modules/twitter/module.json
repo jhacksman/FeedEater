@@ -1,0 +1,53 @@
+{
+  "name": "twitter",
+  "version": "0.0.1",
+  "namespace": "feedeater.twitter",
+  "runtime": { "entry": "dist/runtime.js" },
+  "queues": ["mod_twitter"],
+  "jobs": [
+    {
+      "name": "collect",
+      "queue": "mod_twitter",
+      "schedule": "*/15 * * * *",
+      "description": "Collect tweets from configured feeds (home, lists, mentions) and persist into mod_twitter."
+    },
+    {
+      "name": "updateContexts",
+      "queue": "mod_twitter",
+      "schedule": "*/30 * * * *",
+      "description": "Refresh context summaries from recent tweets."
+    }
+  ],
+  "settings": [
+    { "key": "enabled", "type": "boolean", "default": true },
+    {
+      "key": "feedSources",
+      "type": "string",
+      "default": "[{\"type\":\"home\",\"variant\":\"foryou\"}]",
+      "description": "JSON array of feed sources. Types: home (variants: foryou/following), list (id required), mentions"
+    },
+    {
+      "key": "cookieSource",
+      "type": "string",
+      "default": "",
+      "description": "Browser cookie source. Format: 'chrome:Profile Name' or 'firefox:profile-name'. Leave empty to auto-detect."
+    },
+    { "key": "tweetsPerRequest", "type": "number", "default": 50 },
+    { "key": "lookbackHours", "type": "number", "default": 24 },
+    { "key": "requestDelayMs", "type": "number", "default": 5000, "description": "Delay between feed requests to avoid rate limits" },
+    {
+      "key": "contextPrompt",
+      "type": "string",
+      "default": "You are summarizing a Twitter/X thread or conversation. Summarize ONLY the tweets provided. Do not make suggestions, ask questions, or add commentary. Return strict JSON with keys: summary_short and summary_long. summary_short must be <= 128 characters. summary_long should be 1-3 short paragraphs covering the main topic and key points."
+    },
+    {
+      "key": "contextPromptFallback",
+      "type": "string",
+      "default": "Summarize ONLY the provided tweets in plain text. 1-3 short sentences. Do not return JSON. Do not make suggestions or ask questions."
+    }
+  ],
+  "cards": [
+    { "id": "twitterStatus", "title": "Twitter/X Collector" },
+    { "id": "twitterFeeds", "title": "Configured Feeds" }
+  ]
+}

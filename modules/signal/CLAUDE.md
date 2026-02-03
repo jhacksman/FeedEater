@@ -429,7 +429,19 @@ async function withDaemonConnection<T>(fn: () => Promise<T>): Promise<T> {
 
 ## Lessons Learned
 
-(To be populated during implementation)
+### From Implementation (2025-07-11)
+
+1. **Use SDK types not pg types** — The module-sdk provides `DbLike`, `NatsLike`, `StringCodecLike` which are more flexible than importing directly from `pg` and `nats`. This avoids type compatibility issues between the SDK's abstractions and the concrete implementations.
+
+2. **Query results need explicit typing** — When using `DbLike.query()`, the return type is `Promise<unknown>`. Cast results explicitly: `(await this.db.query(...)) as { rows: Array<{ ... }> }`.
+
+3. **Optional properties vs undefined** — TypeScript's `exactOptionalPropertyTypes` means `{ errorMessage?: string }` is NOT the same as `{ errorMessage: string | undefined }`. Use spread syntax to conditionally include properties: `...(errorMessage !== undefined ? { errorMessage } : {})`.
+
+4. **shims.d.ts for development** — Create a `shims.d.ts` file with minimal type declarations for external dependencies. This allows the editor/typecheck to work even without `node_modules` installed.
+
+5. **signal-cli RPC interface** — The daemon exposes JSON-RPC at port 7583 by default. Key methods: `receive` (get messages), `listIdentities` (health check). The `account` parameter is required for multi-account setups.
+
+6. **Deduplication key** — Signal messages are uniquely identified by `(timestamp, source_phone)`. This is the natural dedup key since timestamps are unique per sender.
 
 ### From signal-cli Community
 
@@ -449,9 +461,9 @@ async function withDaemonConnection<T>(fn: () => Promise<T>): Promise<T> {
 
 - [ ] Real-time message handling (daemon websocket?)
 - [ ] Attachment download and storage
-- [ ] Reaction tracking and context updates
-- [ ] Disappearing message policy configuration
-- [ ] Session health monitoring and alerts
+- [x] Reaction tracking and context updates *(implemented in collect job)*
+- [x] Disappearing message policy configuration *(handleDisappearing setting)*
+- [x] Session health monitoring and alerts *(sessionCheck job)*
 - [ ] Multi-account support (multiple daemons)
 - [ ] Group member tracking
 - [ ] Better error recovery for session expiry
