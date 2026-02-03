@@ -1,0 +1,46 @@
+{
+  "name": "twitch",
+  "version": "0.0.1",
+  "namespace": "feedeater.twitch",
+  "runtime": { "entry": "dist/runtime.js" },
+  "queues": ["mod_twitch"],
+  "jobs": [
+    {
+      "name": "collect",
+      "queue": "mod_twitch",
+      "schedule": "*/5 * * * *",
+      "description": "Collect live streams, VODs, and clips from followed Twitch channels."
+    },
+    {
+      "name": "updateContexts",
+      "queue": "mod_twitch",
+      "schedule": "*/30 * * * *",
+      "description": "Refresh context summaries for recent Twitch content."
+    }
+  ],
+  "settings": [
+    { "key": "enabled", "type": "boolean", "default": true },
+    { "key": "clientId", "type": "string", "required": true },
+    { "key": "clientSecret", "type": "secret", "required": true },
+    { "key": "userAccessToken", "type": "secret", "required": true },
+    { "key": "refreshToken", "type": "secret", "required": false },
+    { "key": "userId", "type": "string", "required": true },
+    { "key": "collectVods", "type": "boolean", "default": true },
+    { "key": "collectClips", "type": "boolean", "default": true },
+    { "key": "lookbackHours", "type": "number", "default": 168 },
+    {
+      "key": "contextPrompt",
+      "type": "string",
+      "default": "You are summarizing Twitch content. Summarize ONLY the provided stream/video/clip information. Do not make suggestions, ask questions, or add commentary. Return strict JSON with keys: summary_short and summary_long. summary_short must be <= 128 characters. summary_long should be 1-3 short paragraphs. Do not return empty strings."
+    },
+    {
+      "key": "contextPromptFallback",
+      "type": "string",
+      "default": "Summarize ONLY the provided Twitch content in plain text. 1-3 short sentences. Do not return JSON. Do not make suggestions or ask questions."
+    }
+  ],
+  "cards": [
+    { "id": "twitchStatus", "title": "Twitch Collector" },
+    { "id": "twitchFollowed", "title": "Followed Streams" }
+  ]
+}
