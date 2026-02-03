@@ -313,6 +313,29 @@ Request timed out.
 3. **Channels can have linked discussion groups** — Handle the relationship
 4. **Reactions are per-message, not per-chat** — Need to track individually
 
+## Implementation Lessons (2025-01)
+
+### gramjs Type System
+1. **Dialog types differ** — `telegram/tl/custom/dialog` (Dialog wrapper class) is NOT `Api.Dialog` (raw TL type). The wrapper has `.entity`, `.archived`, etc. as properties.
+2. **BigInteger handling** — gramjs uses `big-integer` library, not native BigInt. Use `bigInt()` constructor and `bigInt.zero` for values.
+3. **Import paths** — Use `.js` extensions in imports for ES module compatibility: `telegram/sessions/index.js`, `telegram/errors/index.js`.
+4. **Entity resolution** — Dialog IDs need reconstruction: channels are `-100{id}`, groups are `-{id}`, users are positive.
+
+### Module SDK Compatibility
+1. **Use SDK types** — `DbLike`, `NatsLike`, `StringCodecLike` from `@feedeater/module-sdk` instead of concrete `Pool`/`NatsConnection` types.
+2. **Query result typing** — Cast query results explicitly: `(await db.query(...)) as { rows: Array<{...}> }`.
+
+### Rate Limiting
+1. **FLOOD_WAIT is automatic** — gramjs auto-sleeps for waits under `floodSleepThreshold`. Only catch `FloodWaitError` for waits above threshold.
+2. **Safety multiplier** — Always multiply FLOOD_WAIT by 1.5x or more to avoid repeated violations.
+
+### Context Key Format
+```
+telegram:{dialogId}:{threadId}
+```
+- threadId is 0 for non-forum chats
+- Use `buildContextKey()` helper from settings.ts
+
 ## Future Improvements
 
 - [ ] Real-time updates via persistent connection (UpdateHandler)
