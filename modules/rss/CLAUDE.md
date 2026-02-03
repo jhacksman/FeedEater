@@ -438,3 +438,50 @@ Focus on themes and topics, not individual articles.
 - Some servers return `text/html` content-type for XML feeds (check magic bytes)
 - Cloudflare can block bot user agents — may need to rotate or customize
 - Many feeds have entries with future pubDates (scheduled posts) — decide policy
+
+### Implementation Completed (2025-01-XX)
+
+#### Key Decisions Made
+
+1. **fast-xml-parser configuration**: Used `removeNSPrefix: false` to handle namespaces manually - this gives more control over `content:encoded`, `dc:creator`, etc.
+
+2. **DbLike interface**: Must use `DbLike` from `@feedeater/module-sdk` instead of `Pool` from `pg` - the module-sdk abstracts the database interface.
+
+3. **Query result typing**: Create a helper type `QueryResult<T> = { rows: T[]; rowCount?: number | null }` and cast all db.query results explicitly.
+
+4. **exactOptionalPropertyTypes**: FeedEater uses strict TypeScript with `exactOptionalPropertyTypes`. When spreading optional properties, use conditional spread: `...(value ? { key: value } : {})` instead of `key: value` when value could be undefined.
+
+5. **Regex match group handling**: TypeScript requires explicit checks for match groups even when the pattern guarantees captures. Check `match[1] && match[2] && ...` before using.
+
+#### Files Created
+
+- `src/ingest.ts` — Main RSSIngestor class (~1200 lines)
+- `src/runtime.ts` — Job handlers (poll, cleanup, updateContexts)
+- `src/index.ts` — Exports
+- `settings.ts` — Zod settings schema
+- `module.json` — Module manifest with 3 jobs, 14 settings
+- `package.json` — Dependencies: fast-xml-parser, @feedeater/core, @feedeater/module-sdk
+- `tsconfig.json` — Extends base config
+
+#### Patterns from Slack Module
+
+- Same job structure (poll/collect → updateContexts → cleanup)
+- Same logging pattern via NATS publish
+- Same AI embedding/summary helpers
+- Same context publishing pattern
+
+#### What's Missing (Future Work)
+
+- OPML import/export UI and handlers
+- Feed discovery from HTML pages
+- Content extraction (Readability integration)
+- Enclosure downloading for podcasts
+- Per-domain rate limiting
+- Redirect URL updating (feed URL changes)
+
+#### Testing Notes
+
+Build and typecheck pass. Real-world testing requires:
+- Database with pgvector extension
+- NATS connection
+- AI embedding/summary endpoints
