@@ -244,3 +244,12 @@ YouTube Shorts are just videos with duration <= 60 seconds and vertical aspect r
 - Desktop app flow is simplest for personal use
 - Store refresh token, not access token
 - Handle token refresh transparently in API wrapper
+
+### Implementation Phase (Feb 2026)
+- fast-xml-parser works well for Atom feed parsing with `ignoreAttributes: false` and `attributeNamePrefix: "@_"` for attribute handling
+- YouTube RSS entries can have nested link elements (array or single) - always handle both cases
+- Channel-based context model (vs thread-based like Slack) simplifies summarization - one context per channel
+- Schema creation should avoid FK constraints initially to handle upsert ordering (channel may not exist when video arrives via RSS)
+- Embedding generation can fail silently (rate limits, timeouts) - log warning but don't fail the job
+- RSS feed returns ~15 most recent videos - sufficient for daily/hourly collection
+- Lookback filtering should happen after fetching to avoid repeatedly fetching old videos that are still in the RSS feed
