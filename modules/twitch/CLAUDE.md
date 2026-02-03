@@ -306,3 +306,39 @@ For FeedEater, native fetch + WebSocket is probably fine. Libraries add overhead
 - [ ] Stream recording integration
 - [ ] Emote rendering in summaries
 - [ ] Prediction/poll tracking via EventSub
+- [ ] EventSub WebSocket for real-time stream online/offline events
+
+## Implementation Notes (v1)
+
+### What's Implemented
+
+The initial v1 implementation covers:
+- **REST API Polling**: Followed streams, VODs, clips via Helix API
+- **Token Management**: Validation and refresh flow (refresh token optional)
+- **Rate Limiting**: Header-based tracking with backoff on 429
+- **Database Schema**: `mod_twitch` schema with streams, videos, clips, embeddings tables
+- **Jobs**: `collect` (5 min) and `updateContexts` (30 min)
+- **Bus Events**: `messageCreated`, `streamOnline`, `videoCreated`, `clipCreated`, `contextUpdated`
+- **AI Summaries**: Context generation with fallback
+
+### What's NOT Implemented (v2)
+
+- EventSub WebSocket for real-time notifications
+- Chat message collection
+- Multiple account support
+
+### Lessons Learned During Implementation
+
+1. **exactOptionalPropertyTypes**: When using `exactOptionalPropertyTypes: true` in tsconfig, use `| undefined` instead of `?` for optional properties that may be explicitly undefined.
+
+2. **Twitch API Pagination**: Always implement cursor-based pagination. Max 100 items per page.
+
+3. **Lookback Window**: For clips, use `started_at` and `ended_at` query params. For videos, filter client-side based on `created_at`.
+
+4. **Rate Limit Headers**: Check `Ratelimit-Remaining` and `Ratelimit-Reset` on every response. Reset is Unix timestamp, not seconds.
+
+5. **Token Refresh on 401**: Don't just fail - try refresh flow first, then retry the original request.
+
+6. **Context Keys**: Use consistent format: `stream:{userId}`, `vod:{videoId}`, `clip:{clipId}`
+
+7. **UUID Generation**: Use deterministic UUIDs via `uuid.v5(sourceId, namespace)` for idempotent message creation.
