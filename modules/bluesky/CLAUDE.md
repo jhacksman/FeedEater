@@ -266,13 +266,42 @@ for (const item of data.feed) {
 
 ## Lessons Learned
 
-*(To be updated as implementation progresses)*
-
 ### From Research Phase
 - OAuth is complex (PKCE, PAR, DPoP required) — app passwords are simpler for server-side
 - Bluesky's architecture separates PDS (data home) from AppView (aggregation)
 - Rate limits are generous for read-only use cases
 - Jetstream is the future for real-time — polling is fine for MVP
+
+### From Implementation (February 2025)
+
+**Type Safety with module-sdk**
+- Use `DbLike`, `NatsLike`, `StringCodecLike` from `@feedeater/module-sdk` — NOT the concrete types from `pg` or `nats`
+- `DbLike.query()` returns `Promise<unknown>`, so cast results explicitly: `(await db.query(...)) as { rows: Array<...> }`
+- This pattern matches Slack module and ensures compatibility with the FeedEater worker
+
+**AT Protocol SDK Gotchas**
+- `BskyAgent.getTimeline()` has `exactOptionalPropertyTypes` issues — use conditional object: `cursor ? { limit, cursor } : { limit }`
+- The regex for parsing AT URIs can return undefined captures — always check before using
+
+**Context Key Format**
+- For threads: `{rootDid}:{rootRkey}` — all replies share the same context
+- For standalone posts: `{authorDid}:{postRkey}` — post is its own context
+- Use `parseAtUri()` helper to extract components from AT URIs
+
+**Timeline Collection Strategy**
+- Cursor pagination works well — fetch pages until cutoff time is reached
+- Safety limit pages (50 max) to prevent runaway fetches
+- `getTimeline` returns newest-first, so cutoff check works naturally
+
+**Embedding Errors are Non-Fatal**
+- Wrap embedding calls in try/catch and continue without embeddings
+- Better to store posts without embeddings than fail entire job
+- Same pattern applies to AI summary generation in `refreshContexts`
+
+**Database Schema Design**
+- Store both `author_did` (permanent) and `author_handle` (display, can change)
+- `reply_root_uri` and `reply_parent_uri` for thread tracking
+- `is_repost` flag to distinguish original posts from reposts
 
 ## Future Improvements
 
