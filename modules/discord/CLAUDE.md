@@ -301,10 +301,16 @@ const response = await fetch(`https://discord.com/api/v10/channels/${channelId}/
 
 ## Lessons Learned
 
-*(To be updated as implementation progresses)*
-
 ### Research Phase
 - OAuth2 `messages.read` scope is for local RPC only - bot tokens are required for API message access
 - MESSAGE_CONTENT intent is required since Sept 2022 - without it, message.content is empty
 - Rate limits are per-bucket (route + resource), not just per-endpoint
 - Discord.js handles rate limits automatically, but custom implementations need careful bucket tracking
+
+### Implementation Phase (2025-01)
+- **Use raw fetch, not discord.js**: For REST-only collection, discord.js is overkill. Raw fetch gives full control over rate limiting and is much lighter weight
+- **exactOptionalPropertyTypes gotcha**: When using TypeScript strict mode with `exactOptionalPropertyTypes`, don't pass `undefined` to fetch body - either omit it or use conditional object building
+- **Snowflake pagination**: Discord's `after` parameter expects the *oldest* message ID you've seen, not the newest. The API returns newest-first, so reverse the batch before processing
+- **Thread discovery is separate**: Unlike Slack where threads are discovered via `thread_ts` on messages, Discord threads are separate channels (types 10-12) and must be discovered via `/guilds/{id}/threads/active`
+- **Context key design**: Using `{guildId}:{channelId}:{threadId}` mirrors Slack's `{channelId}:{threadTs}` pattern and allows proper context isolation for AI summaries
+- **Rate limit handling**: Simple retry-after loop with jitter is sufficient for FeedEater's collection pattern (low frequency). No need for complex bucket tracking unless doing high-volume realtime collection

@@ -1,0 +1,49 @@
+{
+  "name": "reddit",
+  "version": "0.0.1",
+  "namespace": "feedeater.reddit",
+  "runtime": { "entry": "dist/runtime.js" },
+  "queues": ["mod_reddit"],
+  "jobs": [
+    {
+      "name": "collect",
+      "queue": "mod_reddit",
+      "schedule": "*/10 * * * *",
+      "description": "Collect Reddit posts from the home feed and persist raw extracts into mod_reddit."
+    },
+    {
+      "name": "updateContexts",
+      "queue": "mod_reddit",
+      "schedule": "*/30 * * * *",
+      "description": "Refresh context summaries from recent Reddit posts."
+    }
+  ],
+  "settings": [
+    { "key": "enabled", "type": "boolean", "default": true },
+    { "key": "clientId", "type": "string", "required": true },
+    { "key": "clientSecret", "type": "secret", "required": true },
+    { "key": "username", "type": "string", "required": true },
+    { "key": "password", "type": "secret", "required": true },
+    { "key": "userAgent", "type": "string", "required": true },
+    { "key": "feedTypes", "type": "string", "default": "home" },
+    { "key": "lookbackHours", "type": "number", "default": 24 },
+    { "key": "postsPerFeed", "type": "number", "default": 25 },
+    { "key": "minScore", "type": "number", "default": 0 },
+    { "key": "excludeNSFW", "type": "boolean", "default": true },
+    { "key": "rateLimitDelay", "type": "number", "default": 1000 },
+    {
+      "key": "contextPrompt",
+      "type": "string",
+      "default": "You are summarizing a Reddit post and its top comments. Summarize ONLY the content provided. Do not make suggestions, ask questions, or add commentary. Return strict JSON with keys: summary_short and summary_long. summary_short must be <= 128 characters. summary_long should be 1-3 short paragraphs. Do not return empty strings."
+    },
+    {
+      "key": "contextPromptFallback",
+      "type": "string",
+      "default": "Summarize ONLY the provided Reddit content in plain text. 1-3 short sentences. Do not return JSON. Do not make suggestions or ask questions."
+    }
+  ],
+  "cards": [
+    { "id": "redditStatus", "title": "Reddit Collector" },
+    { "id": "redditFeeds", "title": "Reddit Feeds" }
+  ]
+}
