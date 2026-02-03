@@ -1,0 +1,55 @@
+{
+  "name": "rss",
+  "version": "0.0.1",
+  "namespace": "feedeater.rss",
+  "runtime": { "entry": "dist/runtime.js" },
+  "queues": ["mod_rss"],
+  "jobs": [
+    {
+      "name": "poll",
+      "queue": "mod_rss",
+      "schedule": "*/5 * * * *",
+      "description": "Poll RSS/Atom feeds that are due for checking and persist new entries."
+    },
+    {
+      "name": "cleanup",
+      "queue": "mod_rss",
+      "schedule": "0 4 * * *",
+      "description": "Remove old entries past the retention period."
+    },
+    {
+      "name": "updateContexts",
+      "queue": "mod_rss",
+      "schedule": "*/30 * * * *",
+      "description": "Refresh feed context summaries with AI-generated descriptions."
+    }
+  ],
+  "settings": [
+    { "key": "enabled", "type": "boolean", "default": true },
+    { "key": "defaultPollIntervalMinutes", "type": "number", "default": 30 },
+    { "key": "minPollIntervalMinutes", "type": "number", "default": 5 },
+    { "key": "maxConcurrentPolls", "type": "number", "default": 10 },
+    { "key": "requestTimeoutSeconds", "type": "number", "default": 30 },
+    { "key": "userAgent", "type": "string", "default": "FeedEater/1.0 (+https://feedeater.app)" },
+    { "key": "useConditionalGet", "type": "boolean", "default": true },
+    { "key": "adaptivePolling", "type": "boolean", "default": false },
+    { "key": "adaptiveMinMinutes", "type": "number", "default": 5 },
+    { "key": "adaptiveMaxMinutes", "type": "number", "default": 1440 },
+    { "key": "retentionDays", "type": "number", "default": 90 },
+    { "key": "maxEntriesPerFeed", "type": "number", "default": 1000 },
+    {
+      "key": "contextPrompt",
+      "type": "string",
+      "default": "You are summarizing recent RSS feed entries. Summarize ONLY the content provided. Do not make suggestions, ask questions, or add commentary. Return strict JSON with keys: summary_short and summary_long. summary_short must be <= 128 characters. summary_long should be 1-3 short paragraphs describing the feed's current focus and themes."
+    },
+    {
+      "key": "contextPromptFallback",
+      "type": "string",
+      "default": "Summarize ONLY the provided feed entries in plain text. 1-3 short sentences about the feed's recent content. Do not return JSON. Do not make suggestions or ask questions."
+    }
+  ],
+  "cards": [
+    { "id": "rssStatus", "title": "RSS Collector" },
+    { "id": "rssFeeds", "title": "Feed Subscriptions" }
+  ]
+}
