@@ -309,3 +309,73 @@ For script apps, you can authenticate with username/password each session - no n
 - [ ] Crosspost detection
 - [ ] Subreddit auto-discovery based on user activity
 - [ ] Comment sentiment analysis
+
+---
+
+## Implementation Lessons Learned (2025-02-03)
+
+### snoowrap TypeScript Types
+
+snoowrap doesn't have great TypeScript support built-in. The solution is to create a `shims.d.ts` file with type declarations for the methods and objects you need:
+
+```typescript
+// src/shims.d.ts
+declare module "snoowrap" {
+  interface Submission {
+    id: string;
+    name: string;
+    title: string;
+    // ... etc
+  }
+  // ... etc
+}
+```
+
+### Use DbLike, Not Pool
+
+The `@feedeater/module-sdk` provides `DbLike`, `NatsLike`, and `StringCodecLike` types for the context passed to handlers. Don't import `Pool` from `pg` directly - use the SDK types:
+
+```typescript
+import type { DbLike, NatsLike, StringCodecLike } from "@feedeater/module-sdk";
+
+constructor(
+  private readonly db: DbLike,
+  private readonly nats: NatsLike,
+  private readonly sc: StringCodecLike,
+  // ...
+) {}
+```
+
+### Type Query Results Explicitly
+
+Since `DbLike.query()` returns `unknown`, you need to cast the result:
+
+```typescript
+const res = (await this.db.query(sql, params)) as { 
+  rows: Array<{ id: string; /* ... */ }> 
+};
+```
+
+### Author Can Be Object or String
+
+Reddit's API returns `author` as either a string or an object with a `name` property. Handle both:
+
+```typescript
+const authorName = typeof submission.author === "string"
+  ? submission.author
+  : submission.author?.name ?? "[deleted]";
+```
+
+### Embed Dimension Mismatch
+
+The system-wide embedding dimension (`ollama_embed_dim`) must match what the model actually produces. If there's a mismatch, log a warning and skip the embedding rather than failing:
+
+```typescript
+if (embedding.length && embedding.length !== embedDim) {
+  this.log("warn", "embedding dimension mismatch", { expected: embedDim, got: embedding.length });
+}
+```
+
+### Normalized Fullnames
+
+Reddit posts use fullnames like `t3_abc123` but the `id` field is just `abc123`. Store the plain `id` and construct fullnames when needed for API calls.
