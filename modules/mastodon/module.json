@@ -1,0 +1,46 @@
+{
+  "name": "mastodon",
+  "version": "0.0.1",
+  "namespace": "feedeater.mastodon",
+  "runtime": { "entry": "dist/runtime.js" },
+  "queues": ["mod_mastodon"],
+  "jobs": [
+    {
+      "name": "collect",
+      "queue": "mod_mastodon",
+      "schedule": "*/5 * * * *",
+      "description": "Collect toots from configured Mastodon timeline and persist raw extracts into mod_mastodon."
+    },
+    {
+      "name": "updateContexts",
+      "queue": "mod_mastodon",
+      "schedule": "*/30 * * * *",
+      "description": "Refresh context summaries from recent Mastodon toots."
+    }
+  ],
+  "settings": [
+    { "key": "enabled", "type": "boolean", "default": true },
+    { "key": "instanceUrl", "type": "string", "required": true, "description": "Mastodon instance URL (e.g., https://mastodon.social)" },
+    { "key": "accessToken", "type": "secret", "required": true, "description": "OAuth access token with read scope" },
+    { "key": "timelineType", "type": "enum", "values": ["home", "local", "public"], "default": "home", "description": "Which timeline to fetch" },
+    { "key": "lookbackHours", "type": "number", "default": 24 },
+    { "key": "includeBoosts", "type": "boolean", "default": true, "description": "Include boosted/reblogged toots" },
+    { "key": "includeReplies", "type": "boolean", "default": true, "description": "Include reply toots" },
+    { "key": "excludeSensitive", "type": "boolean", "default": false, "description": "Exclude toots marked as sensitive (with CW)" },
+    { "key": "nonThreadContextTemplate", "type": "string", "default": "Toot from @{author}" },
+    {
+      "key": "contextPrompt",
+      "type": "string",
+      "default": "You are summarizing the provided Mastodon toots. Summarize ONLY the toots provided. Do not make suggestions, ask questions, or add commentary. Return strict JSON with keys: summary_short and summary_long. summary_short must be <= 128 characters. summary_long should be 1-3 short paragraphs. Do not return empty strings."
+    },
+    {
+      "key": "contextPromptFallback",
+      "type": "string",
+      "default": "Summarize ONLY the provided toots in plain text. 1-3 short sentences. Do not return JSON. Do not make suggestions or ask questions."
+    }
+  ],
+  "cards": [
+    { "id": "mastodonStatus", "title": "Mastodon Collector" },
+    { "id": "mastodonTimeline", "title": "Mastodon Timeline" }
+  ]
+}
