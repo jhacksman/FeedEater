@@ -264,6 +264,31 @@ bird outputs tweets with this structure (simplified):
 
 ## Lessons Learned
 
+### Implementation Notes (2024-02-03)
+
+**bird CLI JSON Output:**
+- bird outputs JSON array directly (not wrapped in an object)
+- Warnings go to stderr, JSON to stdout — need to extract JSON with regex
+- Date format is Twitter's quirky format: "Mon Feb 02 12:00:00 +0000 2026"
+- Safari cookie access requires special permissions and often fails — Chrome/Firefox more reliable
+
+**TypeScript SDK Compatibility:**
+- Don't use full library types (`Pool` from pg, `NatsConnection` from nats)
+- Use minimal interfaces that match `DbLike` and `NatsLike` from module-sdk
+- The SDK's db.query returns `Promise<unknown>`, need explicit type assertions
+
+**FeedEater Patterns:**
+- Follow Slack module structure exactly — it's the reference implementation
+- Settings come as strings from internal API — parse JSON fields manually
+- Use discriminated unions for feed source types (Zod's `z.discriminatedUnion`)
+- Sequential feed fetching with delays — never parallel requests
+
+**bird CLI Specifics:**
+- Path: `/opt/homebrew/bin/bird` (Homebrew on Apple Silicon)
+- Cookie source format: `--chrome-profile "Profile Name"` or `--firefox-profile profile-name`
+- Home timeline variants: default (For You) or `--following` (chronological)
+- Always use `-n` to limit tweets — never use `--all`
+
 ### Cookie Extraction
 
 - Chrome profile names can have spaces ("Profile 1", not "Profile1")
@@ -304,10 +329,13 @@ bird outputs tweets with this structure (simplified):
 
 ## Future Improvements
 
-- [ ] Support multiple feed sources per instance (home + lists)
+- [x] Support multiple feed sources per instance (home + lists) — DONE via feedSources JSON array
 - [ ] Automatic cookie refresh detection and re-extraction
 - [ ] Engagement threshold filtering (min likes/retweets)
 - [ ] Topic/keyword filtering before storage
 - [ ] Thread expansion (fetch full thread when interesting)
 - [ ] Spaces/audio content detection
 - [ ] Sentiment analysis for context summaries
+- [ ] User timeline support (`bird user-tweets <handle>`)
+- [ ] Search support (`bird search <query>`)
+- [ ] Bookmarks support (`bird bookmarks`)
