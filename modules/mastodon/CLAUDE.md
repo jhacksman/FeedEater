@@ -241,13 +241,30 @@ Don't use these directly (FeedEater is TypeScript, direct REST is fine), but use
 
 ## Lessons Learned
 
-*(To be updated as implementation progresses)*
+### Initial Setup (2025-02-03)
+- Module structure directly mirrors Slack module for consistency
+- shims.d.ts is essential for TypeScript compilation — must declare types for all workspace dependencies (`@feedeater/core`, `@feedeater/module-sdk`) and external deps (`pg`, `nats`, `uuid`)
+- Use `type` imports for nats types (`NatsConnection`, `StringCodec`) to avoid value vs type confusion
+- npm workspaces require `npm install` from project root, not individual module directory
 
-### Initial Setup
-- TBD after implementation begins
+### API Implementation
+- No external Mastodon client library needed — raw `fetch()` works great with good typing
+- Rate limiting: Check `X-RateLimit-Remaining` header; wait until `X-RateLimit-Reset` timestamp on 429
+- Link header pagination: Parse `<url>; rel="next"` format manually
+- Timeline endpoint varies: `/api/v1/timelines/home` for home, add `?local=true` for local timeline
 
-### API Quirks
-- TBD
+### Data Model Decisions
+- **Use `uri` for deduplication** — `id` is instance-local and will collide across instances
+- **Store original toot for boosts** — When `status.reblog` is set, store `status.reblog` with `boosted_by_handle` annotation, skip the wrapper
+- **Hash URI for IDs** — Use SHA256 hash of URI for deterministic, fixed-length source IDs
+- **Context key format** — `{instanceHost}:{conversationId}` handles federation correctly
+
+### HTML Content
+- `content` field is already sanitized HTML
+- Simple regex-based strip works: convert `<br>` to newlines, remove tags, decode entities
+- Content warnings in `spoiler_text` should be considered for context summaries
 
 ### Context Summarization
-- TBD
+- Thread detection: COUNT(*) where conversation_id matches — if > 1, it's a thread
+- Non-threads use template (`Toot from @{author}`), threads get AI summary
+- Semantic search for thread context: embed query text, find closest matches in conversation
