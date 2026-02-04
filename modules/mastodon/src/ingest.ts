@@ -214,7 +214,8 @@ export class MastodonIngestor {
         ? "/api/v1/timelines/public"
         : "/api/v1/timelines/home";
 
-    let url: string | undefined = `${this.settings.instanceUrl}${endpoint}&limit=40`;
+    const separator = endpoint.includes("?") ? "&" : "?";
+    let url: string | undefined = `${this.settings.instanceUrl}${endpoint}${separator}limit=40`;
     let pageCount = 0;
     const maxPages = 25; // Safety limit
 
