@@ -1,0 +1,44 @@
+{
+  "name": "polymarket",
+  "version": "0.0.1",
+  "description": "Polymarket prediction market integration. Collects market data and trading activity from the decentralized prediction market.",
+  "namespace": "feedeater.polymarket",
+  "runtime": { "entry": "dist/runtime.js" },
+  "queues": ["mod_polymarket"],
+  "jobs": [
+    {
+      "name": "collect",
+      "queue": "mod_polymarket",
+      "schedule": "*/5 * * * *",
+      "description": "Collect market data and recent activity from Polymarket and persist into mod_polymarket."
+    },
+    {
+      "name": "updateContexts",
+      "queue": "mod_polymarket",
+      "schedule": "*/30 * * * *",
+      "description": "Refresh context summaries for active markets."
+    }
+  ],
+  "settings": [
+    { "key": "enabled", "type": "boolean", "default": false },
+    { "key": "watchedMarkets", "type": "string", "default": "[]", "description": "JSON array of market condition IDs to watch (empty = trending markets)" },
+    { "key": "watchedCategories", "type": "string", "default": "[\"politics\", \"crypto\", \"sports\"]", "description": "JSON array of categories to watch" },
+    { "key": "minVolume", "type": "number", "default": 10000, "description": "Minimum 24h volume to include market" },
+    { "key": "collectComments", "type": "boolean", "default": false, "description": "Collect market comments/discussion" },
+    { "key": "lookbackHours", "type": "number", "default": 24, "description": "How many hours of history to collect" },
+    {
+      "key": "contextPrompt",
+      "type": "string",
+      "default": "You are summarizing prediction market activity on Polymarket. Summarize ONLY the market data provided. Include current probabilities, volume, and notable movements. Return strict JSON with keys: summary_short and summary_long. summary_short must be <= 128 characters. summary_long should be 1-3 short paragraphs. Do not return empty strings."
+    },
+    {
+      "key": "contextPromptFallback",
+      "type": "string",
+      "default": "Summarize ONLY the provided market data in plain text. 1-3 short sentences about probability and volume. Do not return JSON."
+    }
+  ],
+  "cards": [
+    { "id": "polymarketStatus", "title": "Polymarket Collector" },
+    { "id": "polymarketMarkets", "title": "Watched Markets" }
+  ]
+}
