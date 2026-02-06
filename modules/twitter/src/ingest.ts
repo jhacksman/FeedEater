@@ -1,8 +1,6 @@
-import { exec } from "node:child_process";
-import { promisify } from "node:util";
+import { Rettiwt } from "rettiwt-api";
 import { v5 as uuidv5 } from "uuid";
 
-// Use minimal interfaces instead of full library types for SDK compatibility
 type DbPool = {
   query(sql: string, params?: unknown[]): Promise<unknown>;
   connect(): Promise<{
@@ -28,15 +26,13 @@ import {
 
 import { FeedSourceSchema, type FeedSource } from "../settings.js";
 
-const execAsync = promisify(exec);
-
-const BIRD_PATH = "/opt/homebrew/bin/bird";
-const UUID_NAMESPACE = "8f14e45f-ceea-467f-a6f4-12c7f9b8c3e1"; // Twitter module namespace
+const UUID_NAMESPACE = "8f14e45f-ceea-467f-a6f4-12c7f9b8c3e1";
 
 export type TwitterSettings = {
   enabled: boolean;
+  authMode: "guest" | "user";
+  apiKey: string;
   feedSources: FeedSource[];
-  cookieSource: string;
   tweetsPerRequest: number;
   lookbackHours: number;
   requestDelayMs: number;
@@ -44,46 +40,38 @@ export type TwitterSettings = {
   contextPromptFallback: string;
 };
 
-/**
- * Raw tweet structure from bird CLI JSON output
- */
-type BirdTweet = {
+type RettiwtTweet = {
   id: string;
-  text: string;
+  fullText: string;
   createdAt: string;
-  replyCount?: number;
-  retweetCount?: number;
-  likeCount?: number;
-  quoteCount?: number;
+  replyCount: number;
+  retweetCount: number;
+  likeCount: number;
+  quoteCount: number;
   viewCount?: number;
   conversationId?: string;
-  inReplyToId?: string;
-  quotedTweet?: BirdTweet;
-  retweetedTweet?: BirdTweet;
-  author: {
-    username: string;
-    name: string;
-    id?: string;
+  replyTo?: string;
+  quoted?: string;
+  retweetedTweet?: RettiwtTweet;
+  tweetBy: {
+    id: string;
+    userName: string;
+    fullName: string;
   };
-  authorId?: string;
-  media?: Array<{ type: string; url: string }>;
 };
 
-/**
- * Parse Twitter settings from FeedEater internal settings format
- */
 export function parseTwitterSettingsFromInternal(
   raw: Record<string, unknown>
 ): TwitterSettings {
   const enabled = String(raw.enabled ?? "true") !== "false";
-  const cookieSource = String(raw.cookieSource ?? "").trim();
+  const authMode = String(raw.authMode ?? "guest").trim() as "guest" | "user";
+  const apiKey = String(raw.apiKey ?? "").trim();
   const tweetsPerRequest = raw.tweetsPerRequest
     ? Number(raw.tweetsPerRequest)
-    : 50;
+    : 20;
   const lookbackHours = raw.lookbackHours ? Number(raw.lookbackHours) : 24;
   const requestDelayMs = raw.requestDelayMs ? Number(raw.requestDelayMs) : 5000;
 
-  // Parse feed sources from JSON string
   const feedSourcesRaw = String(raw.feedSources ?? "[]").trim();
   let feedSources: FeedSource[] = [];
   try {
@@ -100,12 +88,11 @@ export function parseTwitterSettingsFromInternal(
         .filter((x): x is FeedSource => x !== null);
     }
   } catch {
-    // Default to home timeline if parsing fails
-    feedSources = [{ type: "home", variant: "foryou" }];
+    feedSources = [{ type: "user", username: "elonmusk" }];
   }
 
   if (feedSources.length === 0) {
-    feedSources = [{ type: "home", variant: "foryou" }];
+    feedSources = [{ type: "user", username: "elonmusk" }];
   }
 
   const defaultContextPrompt =
@@ -127,8 +114,9 @@ export function parseTwitterSettingsFromInternal(
 
   return {
     enabled,
+    authMode,
+    apiKey,
     feedSources,
-    cookieSource,
     tweetsPerRequest,
     lookbackHours,
     requestDelayMs,
@@ -142,6 +130,7 @@ export class TwitterIngestor {
   private internalToken: string;
   private contextTopK: number;
   private embedDim: number;
+  private rettiwt: Rettiwt | null = null;
 
   constructor(
     private readonly settings: TwitterSettings,
@@ -185,138 +174,132 @@ export class TwitterIngestor {
     }
   }
 
-  /**
-   * Build bird CLI cookie arguments from settings
-   */
-  private getCookieArgs(): string[] {
-    const source = this.settings.cookieSource.trim();
-    if (!source) return []; // Let bird auto-detect
-
-    // Format: "chrome:Profile Name" or "firefox:profile-name"
-    const colonIdx = source.indexOf(":");
-    if (colonIdx === -1) {
-      // Assume it's a chrome profile name
-      return ["--chrome-profile", source];
+  private async initRettiwt(): Promise<Rettiwt> {
+    if (this.rettiwt) {
+      return this.rettiwt;
     }
 
-    const browser = source.slice(0, colonIdx).toLowerCase();
-    const profile = source.slice(colonIdx + 1);
+    const { authMode, apiKey } = this.settings;
 
-    if (browser === "chrome" || browser === "chromium") {
-      return ["--chrome-profile", profile];
-    } else if (browser === "firefox") {
-      return ["--firefox-profile", profile];
+    if (authMode === "user" && apiKey) {
+      this.log("info", "initializing rettiwt with API key (user auth)");
+      this.rettiwt = new Rettiwt({ apiKey });
+      return this.rettiwt;
     }
 
-    return [];
+    if (authMode === "user" && !apiKey) {
+      this.log("warn", "user auth mode requires an API key - falling back to guest mode");
+    }
+
+    this.log("info", "initializing rettiwt in guest mode");
+    this.rettiwt = new Rettiwt();
+    return this.rettiwt;
   }
 
-  /**
-   * Execute bird CLI command and return parsed JSON
-   */
-  private async execBird(
-    command: string,
-    args: string[] = []
-  ): Promise<BirdTweet[]> {
-    const cookieArgs = this.getCookieArgs();
-    const fullArgs = [command, ...args, "--json", ...cookieArgs];
-    const cmd = `${BIRD_PATH} ${fullArgs.map((a) => `"${a.replace(/"/g, '\\"')}"`).join(" ")}`;
-
-    this.log("debug", "executing bird command", { command, args: fullArgs });
+  private async fetchUserTimeline(username: string, count: number): Promise<RettiwtTweet[]> {
+    const rettiwt = await this.initRettiwt();
+    this.log("debug", "fetching user timeline", { username, count });
 
     try {
-      const { stdout, stderr } = await execAsync(cmd, {
-        timeout: 60000, // 60 second timeout
-        maxBuffer: 10 * 1024 * 1024, // 10MB buffer
-      });
-
-      if (stderr) {
-        // bird outputs warnings to stderr (e.g., cookie extraction warnings)
-        this.log("debug", "bird stderr", { stderr: stderr.slice(0, 500) });
-      }
-
-      // Find JSON array in stdout (bird may output warnings before JSON)
-      const jsonMatch = stdout.match(/\[[\s\S]*\]/);
-      if (!jsonMatch) {
-        this.log("warn", "no JSON array in bird output", {
-          stdout: stdout.slice(0, 200),
-        });
+      const user = await rettiwt.user.details(username);
+      if (!user?.id) {
+        this.log("warn", "user not found", { username });
         return [];
       }
 
-      const tweets = JSON.parse(jsonMatch[0]) as BirdTweet[];
-      return Array.isArray(tweets) ? tweets : [];
+      const timeline = await rettiwt.user.timeline(user.id, count);
+      const tweets = (timeline?.list ?? []) as unknown as RettiwtTweet[];
+      this.log("info", `fetched ${tweets.length} tweets from @${username}`);
+      return tweets;
     } catch (err) {
-      const error = err as Error & { stderr?: string; code?: number };
-      this.log("error", "bird command failed", {
-        command,
-        message: error.message,
-        stderr: error.stderr?.slice(0, 500),
-        code: error.code,
+      this.log("error", "failed to fetch user timeline", {
+        username,
+        message: err instanceof Error ? err.message : String(err),
       });
-
-      // Check for rate limit indicators
-      if (
-        error.message?.includes("429") ||
-        error.stderr?.includes("rate limit")
-      ) {
-        throw new Error("RATE_LIMIT");
-      }
-
       throw err;
     }
   }
 
-  /**
-   * Fetch home timeline tweets
-   */
-  private async fetchHome(
-    variant: "foryou" | "following",
-    count: number
-  ): Promise<BirdTweet[]> {
-    const args = ["-n", String(count)];
-    if (variant === "following") {
-      args.push("--following");
+  private async fetchHomeTimeline(): Promise<RettiwtTweet[]> {
+    const rettiwt = await this.initRettiwt();
+    this.log("debug", "fetching home timeline");
+
+    if (this.settings.authMode !== "user") {
+      this.log("warn", "home timeline requires user authentication");
+      return [];
     }
-    return this.execBird("home", args);
+
+    try {
+      const timeline = await rettiwt.user.recommended();
+      const tweets = (timeline?.list ?? []) as unknown as RettiwtTweet[];
+      this.log("info", `fetched ${tweets.length} tweets from home timeline`);
+      return tweets;
+    } catch (err) {
+      this.log("error", "failed to fetch home timeline", {
+        message: err instanceof Error ? err.message : String(err),
+      });
+      throw err;
+    }
   }
 
-  /**
-   * Fetch list timeline tweets
-   */
-  private async fetchList(listId: string, count: number): Promise<BirdTweet[]> {
-    return this.execBird("list-timeline", [listId, "-n", String(count)]);
+  private async fetchListTimeline(listId: string, count: number): Promise<RettiwtTweet[]> {
+    const rettiwt = await this.initRettiwt();
+    this.log("debug", "fetching list timeline", { listId, count });
+
+    if (this.settings.authMode !== "user") {
+      this.log("warn", "list timeline requires user authentication");
+      return [];
+    }
+
+    try {
+      const timeline = await rettiwt.list.tweets(listId, count);
+      const tweets = (timeline?.list ?? []) as unknown as RettiwtTweet[];
+      this.log("info", `fetched ${tweets.length} tweets from list ${listId}`);
+      return tweets;
+    } catch (err) {
+      this.log("error", "failed to fetch list timeline", {
+        listId,
+        message: err instanceof Error ? err.message : String(err),
+      });
+      throw err;
+    }
   }
 
-  /**
-   * Fetch mentions
-   */
-  private async fetchMentions(count: number): Promise<BirdTweet[]> {
-    return this.execBird("mentions", ["-n", String(count)]);
+  private async fetchSearch(query: string, count: number): Promise<RettiwtTweet[]> {
+    const rettiwt = await this.initRettiwt();
+    this.log("debug", "fetching search results", { query, count });
+
+    if (this.settings.authMode !== "user") {
+      this.log("warn", "search requires user authentication");
+      return [];
+    }
+
+    try {
+      const results = await rettiwt.tweet.search({ includeWords: [query] }, count);
+      const tweets = (results?.list ?? []) as unknown as RettiwtTweet[];
+      this.log("info", `fetched ${tweets.length} tweets for search "${query}"`);
+      return tweets;
+    } catch (err) {
+      this.log("error", "failed to fetch search results", {
+        query,
+        message: err instanceof Error ? err.message : String(err),
+      });
+      throw err;
+    }
   }
 
-  /**
-   * Sleep utility for rate limit compliance
-   */
   private sleep(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
-  /**
-   * Parse tweet creation time from bird format
-   */
   private parseCreatedAt(createdAt: string): Date {
-    // bird format: "Mon Feb 02 12:00:00 +0000 2026"
     const date = new Date(createdAt);
     if (isNaN(date.getTime())) {
-      return new Date(); // fallback to now
+      return new Date();
     }
     return date;
   }
 
-  /**
-   * Generate AI summary for context
-   */
   private async aiGenerate(prompt: string): Promise<{
     summaryShort: string;
     summaryLong: string;
@@ -437,9 +420,6 @@ export class TwitterIngestor {
     }
   }
 
-  /**
-   * Generate embedding for text
-   */
   private async aiEmbed(text: string): Promise<number[]> {
     if (!this.apiBaseUrl || !this.internalToken) {
       throw new Error("AI embedding unavailable: missing API base URL or internal token");
@@ -468,9 +448,6 @@ export class TwitterIngestor {
     }
   }
 
-  /**
-   * Publish context update to NATS
-   */
   private async publishContextUpdate(params: {
     contextKey: string;
     messageId?: string;
@@ -499,23 +476,19 @@ export class TwitterIngestor {
     );
   }
 
-  /**
-   * Get feed source identifier for database storage
-   */
   private getFeedSourceId(source: FeedSource): string {
     switch (source.type) {
       case "home":
-        return `home:${source.variant}`;
+        return "home";
       case "list":
         return `list:${source.listId}`;
-      case "mentions":
-        return "mentions";
+      case "user":
+        return `user:${source.username}`;
+      case "search":
+        return `search:${source.query}`;
     }
   }
 
-  /**
-   * Initialize database schema
-   */
   async ensureSchema(): Promise<void> {
     await this.db.query(`CREATE EXTENSION IF NOT EXISTS vector`);
     await this.db.query("CREATE SCHEMA IF NOT EXISTS mod_twitter");
@@ -592,9 +565,6 @@ export class TwitterIngestor {
     }
   }
 
-  /**
-   * Main collection job: fetch tweets from all configured sources and persist
-   */
   async collectAndPersist(): Promise<{
     insertedOrUpdated: number;
     publishedNew: number;
@@ -602,31 +572,28 @@ export class TwitterIngestor {
     this.log("info", "twitter collect starting", {
       feedSources: this.settings.feedSources,
       tweetsPerRequest: this.settings.tweetsPerRequest,
+      authMode: this.settings.authMode,
     });
 
-    const allTweets: Array<{ tweet: BirdTweet; source: string }> = [];
+    const allTweets: Array<{ tweet: RettiwtTweet; source: string }> = [];
 
-    // Fetch from each source sequentially with delays
     for (const source of this.settings.feedSources) {
       try {
-        let tweets: BirdTweet[] = [];
+        let tweets: RettiwtTweet[] = [];
         const sourceId = this.getFeedSourceId(source);
 
         switch (source.type) {
           case "home":
-            tweets = await this.fetchHome(
-              source.variant,
-              this.settings.tweetsPerRequest
-            );
+            tweets = await this.fetchHomeTimeline();
             break;
           case "list":
-            tweets = await this.fetchList(
-              source.listId,
-              this.settings.tweetsPerRequest
-            );
+            tweets = await this.fetchListTimeline(source.listId, this.settings.tweetsPerRequest);
             break;
-          case "mentions":
-            tweets = await this.fetchMentions(this.settings.tweetsPerRequest);
+          case "user":
+            tweets = await this.fetchUserTimeline(source.username, this.settings.tweetsPerRequest);
+            break;
+          case "search":
+            tweets = await this.fetchSearch(source.query, this.settings.tweetsPerRequest);
             break;
         }
 
@@ -635,15 +602,10 @@ export class TwitterIngestor {
           allTweets.push({ tweet, source: sourceId });
         }
 
-        // Delay between requests to avoid rate limits
         if (this.settings.requestDelayMs > 0) {
           await this.sleep(this.settings.requestDelayMs);
         }
       } catch (err) {
-        if (err instanceof Error && err.message === "RATE_LIMIT") {
-          this.log("warn", "rate limit hit, stopping collection early");
-          break;
-        }
         this.log(
           "error",
           "failed to fetch feed source",
@@ -651,7 +613,6 @@ export class TwitterIngestor {
             ? { source, message: err.message }
             : { source, err }
         );
-        // Continue with other sources
       }
     }
 
@@ -660,7 +621,6 @@ export class TwitterIngestor {
       return { insertedOrUpdated: 0, publishedNew: 0 };
     }
 
-    // Persist tweets
     const client = await this.db.connect();
     try {
       await client.query("BEGIN");
@@ -669,11 +629,12 @@ export class TwitterIngestor {
 
       for (const { tweet, source } of allTweets) {
         const createdAt = this.parseCreatedAt(tweet.createdAt);
-        const authorId = tweet.authorId ?? tweet.author.id ?? tweet.author.username;
+        const authorId = tweet.tweetBy.id;
+        const authorUsername = tweet.tweetBy.userName;
+        const authorName = tweet.tweetBy.fullName;
         const isRetweet = Boolean(tweet.retweetedTweet);
-        const isQuote = Boolean(tweet.quotedTweet);
+        const isQuote = Boolean(tweet.quoted);
 
-        // Upsert tweet
         const upsert = (await client.query(
           `
           INSERT INTO mod_twitter.tweets (
@@ -702,9 +663,9 @@ export class TwitterIngestor {
             tweet.id,
             tweet.conversationId ?? tweet.id,
             authorId,
-            tweet.author.username,
-            tweet.author.name,
-            tweet.text,
+            authorUsername,
+            authorName,
+            tweet.fullText,
             createdAt,
             tweet.replyCount ?? 0,
             tweet.retweetCount ?? 0,
@@ -713,9 +674,9 @@ export class TwitterIngestor {
             tweet.viewCount ?? null,
             isRetweet,
             isQuote,
-            tweet.quotedTweet?.id ?? null,
+            tweet.quoted ?? null,
             tweet.retweetedTweet?.id ?? null,
-            tweet.inReplyToId ?? null,
+            tweet.replyTo ?? null,
             source,
             JSON.stringify(tweet),
           ]
@@ -724,18 +685,17 @@ export class TwitterIngestor {
 
         const inserted = Boolean(upsert.rows?.[0]?.inserted);
         if (inserted) {
-          // Publish to NATS bus
           const sourceId = `twitter-${tweet.id}`;
           const msgId = uuidv5(sourceId, UUID_NAMESPACE);
           const contextKey = `thread:${tweet.conversationId ?? tweet.id}`;
-          const tweetUrl = `https://x.com/${tweet.author.username}/status/${tweet.id}`;
+          const tweetUrl = `https://x.com/${authorUsername}/status/${tweet.id}`;
 
           const normalized = NormalizedMessageSchema.parse({
             id: msgId,
             createdAt: createdAt.toISOString(),
             source: { module: "twitter", stream: source },
             realtime: false,
-            Message: tweet.text,
+            Message: tweet.fullText,
             contextRef: { ownerModule: "twitter", sourceKey: contextKey },
             followMePanel: {
               module: "twitter",
@@ -743,14 +703,14 @@ export class TwitterIngestor {
               href: tweetUrl,
               label: "Open on X",
             },
-            From: `@${tweet.author.username}`,
-            isDirectMention: source === "mentions",
+            From: `@${authorUsername}`,
+            isDirectMention: false,
             isDigest: false,
             isSystemMessage: false,
             tags: {
               source: "twitter",
               authorId,
-              authorUsername: tweet.author.username,
+              authorUsername,
               isRetweet,
               isQuote,
               likeCount: tweet.likeCount ?? 0,
@@ -767,10 +727,9 @@ export class TwitterIngestor {
             this.sc.encode(JSON.stringify(event))
           );
 
-          // Generate and store embedding
-          if (tweet.text) {
+          if (tweet.fullText) {
             try {
-              const embedText = `@${tweet.author.username}: ${tweet.text}`;
+              const embedText = `@${authorUsername}: ${tweet.fullText}`;
               const embedding = await this.aiEmbed(embedText);
               const embedDim = Number.isFinite(this.embedDim) ? this.embedDim : 4096;
 
@@ -796,7 +755,6 @@ export class TwitterIngestor {
                 });
               }
             } catch (embedErr) {
-              // Log but don't fail the whole collection
               this.log(
                 "warn",
                 "failed to generate embedding",
@@ -832,9 +790,6 @@ export class TwitterIngestor {
     }
   }
 
-  /**
-   * Refresh context summaries from recent tweets
-   */
   async refreshContexts(params: { lookbackHours: number }): Promise<{
     updated: number;
     aiSummaries: number;
@@ -844,7 +799,6 @@ export class TwitterIngestor {
   }> {
     const cutoff = new Date(Date.now() - params.lookbackHours * 3600_000);
 
-    // Find distinct conversations in the lookback window
     const res = (await this.db.query(
       `
       SELECT DISTINCT conversation_id, MIN(created_at) as first_tweet
@@ -867,7 +821,6 @@ export class TwitterIngestor {
     for (const row of res.rows) {
       const contextKey = `thread:${row.conversation_id}`;
 
-      // Get tweets in this conversation
       const tweetsRes = (await this.db.query(
         `
         SELECT id, author_username, text, created_at
@@ -890,9 +843,8 @@ export class TwitterIngestor {
 
       if (tweets.length === 0) continue;
 
-      // Single tweet doesn't need a conversation summary
       if (tweets.length === 1) {
-        const tweet = tweets[0]!; // safe: length checked above
+        const tweet = tweets[0]!;
         const summaryShort = `Tweet by @${tweet.author_username}`.slice(0, 128);
         const sourceId = `twitter-${tweet.id}`;
         const msgId = uuidv5(sourceId, UUID_NAMESPACE);
@@ -909,7 +861,6 @@ export class TwitterIngestor {
         continue;
       }
 
-      // Build prompt for AI summary
       const tweetTexts = tweets
         .map((t, i) => `(${i + 1}) @${t.author_username}: ${t.text}`)
         .join("\n");
@@ -926,7 +877,7 @@ export class TwitterIngestor {
 
       try {
         const aiSummary = await this.aiGenerate(promptText);
-        const firstTweet = tweets[0]!; // safe: length > 1 checked above
+        const firstTweet = tweets[0]!;
         const sourceId = `twitter-${firstTweet.id}`;
         const msgId = uuidv5(sourceId, UUID_NAMESPACE);
 
@@ -956,8 +907,7 @@ export class TwitterIngestor {
             ? { contextKey, message: err.message }
             : { contextKey, err }
         );
-        // Fall back to simple summary
-        const firstTweet = tweets[0]!; // safe: length > 1 checked above
+        const firstTweet = tweets[0]!;
         const authorList = [...new Set(tweets.map((t) => `@${t.author_username}`))].slice(0, 3);
         const summaryShort = `Thread with ${authorList.join(", ")}`.slice(0, 128);
         const sourceId = `twitter-${firstTweet.id}`;

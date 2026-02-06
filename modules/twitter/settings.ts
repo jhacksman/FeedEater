@@ -2,32 +2,47 @@ import { z } from "zod";
 
 /**
  * Feed source configuration for Twitter collection.
- * - home: Home timeline (foryou or following variant)
+ * - home: Home timeline (following feed - requires auth)
  * - list: Twitter list timeline (requires listId)
- * - mentions: Mentions of the authenticated user
+ * - user: A specific user's tweets (by username)
+ * - search: Search results (requires query)
  */
 export const FeedSourceSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("home"),
-    variant: z.enum(["foryou", "following"]).default("foryou"),
   }),
   z.object({
     type: z.literal("list"),
     listId: z.string().min(1),
-    name: z.string().optional(), // human-readable name for display
+    name: z.string().optional(),
   }),
   z.object({
-    type: z.literal("mentions"),
+    type: z.literal("user"),
+    username: z.string().min(1),
+  }),
+  z.object({
+    type: z.literal("search"),
+    query: z.string().min(1),
   }),
 ]);
 
 export type FeedSource = z.infer<typeof FeedSourceSchema>;
 
+/**
+ * Authentication mode for Twitter/X access.
+ * - guest: No login required, limited access (user timelines, tweet details)
+ * - user: Full access with username/password login
+ */
+export const AuthModeSchema = z.enum(["guest", "user"]);
+
+export type AuthMode = z.infer<typeof AuthModeSchema>;
+
 export const TwitterSettingsSchema = z.object({
   enabled: z.boolean().default(true),
-  feedSources: z.string().default('[{"type":"home","variant":"foryou"}]'),
-  cookieSource: z.string().default(""),
-  tweetsPerRequest: z.number().positive().default(50),
+  authMode: z.string().default("guest"),
+  apiKey: z.string().default(""),
+  feedSources: z.string().default('[{"type":"user","username":"elonmusk"}]'),
+  tweetsPerRequest: z.number().positive().default(20),
   lookbackHours: z.number().positive().default(24),
   requestDelayMs: z.number().nonnegative().default(5000),
   contextPrompt: z.string().default(
