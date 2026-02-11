@@ -2,12 +2,12 @@ import type { Pool } from "pg";
 import { v5 as uuidv5 } from "uuid";
 import type { NatsConnection, StringCodec } from "nats";
 
-import { MessageCreatedEventSchema, NormalizedMessageSchema, subjectFor } from "@feedeater/core";
+import { ContextUpdatedEventSchema, MessageCreatedEventSchema, NormalizedMessageSchema, subjectFor } from "@feedeater/core";
 
 export type KalshiSettings = {
   enabled: boolean;
-  apiKey?: string;
-  apiSecret?: string;
+  apiKey?: string | undefined;
+  apiSecret?: string | undefined;
   watchedMarkets: string;
   collectTrades: boolean;
   collectOrderbook: boolean;
@@ -54,7 +54,8 @@ export function parseKalshiSettingsFromInternal(raw: Record<string, unknown>): K
 interface KalshiMarket {
   ticker: string;
   title: string;
-  subtitle?: string;
+  subtitle: string;
+  event_ticker: string;
   yes_bid: number;
   yes_ask: number;
   no_bid: number;
@@ -64,8 +65,8 @@ interface KalshiMarket {
   volume_24h: number;
   open_interest: number;
   status: string;
-  close_time?: string;
-  result?: string;
+  close_time: string;
+  result: string;
 }
 
 interface KalshiTrade {
@@ -74,11 +75,39 @@ interface KalshiTrade {
   count: number;
   yes_price: number;
   no_price: number;
-  taker_side: "yes" | "no";
+  taker_side: string;
   created_time: string;
 }
 
+interface KalshiMarketsResponse {
+  markets: KalshiMarket[];
+  cursor: string;
+}
+
+interface KalshiTradesResponse {
+  trades: KalshiTrade[];
+  cursor: string;
+}
+
+type KalshiMarketRow = {
+  ticker: string;
+  title: string;
+  subtitle: string | null;
+  last_price: number;
+  yes_bid: number;
+  yes_ask: number;
+  volume_24h: number;
+  open_interest: number;
+  status: string;
+};
+
 export class KalshiIngestor {
+  private feedApiBaseUrl: string;
+  private internalToken: string;
+  private contextTopK: number;
+  private embedDim: number;
+  private requestTimeoutMs: number;
+
   private log(level: "debug" | "info" | "warn" | "error", message: string, meta?: unknown) {
     try {
       this.nats.publish(
@@ -103,10 +132,34 @@ export class KalshiIngestor {
     private readonly settings: KalshiSettings,
     private readonly db: Pool,
     private readonly nats: NatsConnection,
-    private readonly sc: StringCodec
-  ) {}
+    private readonly sc: StringCodec,
+    opts: { apiBaseUrl: string; internalToken: string; contextTopK: number; embedDim: number }
+  ) {
+    this.feedApiBaseUrl = opts.apiBaseUrl.replace(/\/+$/, "");
+    this.internalToken = opts.internalToken;
+    this.contextTopK = opts.contextTopK;
+    this.embedDim = opts.embedDim;
+    this.requestTimeoutMs = 15_000;
+  }
+
+  private async fetchJson<T>(url: string, headers?: Record<string, string>): Promise<T> {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), this.requestTimeoutMs);
+    try {
+      const reqHeaders: Record<string, string> = {
+        accept: "application/json",
+        ...(headers ?? {}),
+      };
+      const res = await fetch(url, { signal: controller.signal, headers: reqHeaders });
+      if (!res.ok) throw new Error(`Kalshi API error (${res.status}) for ${url}`);
+      return (await res.json()) as T;
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
 
   async ensureSchema(): Promise<void> {
+    await this.db.query(`CREATE EXTENSION IF NOT EXISTS vector`);
     await this.db.query("CREATE SCHEMA IF NOT EXISTS mod_kalshi");
     await this.db.query(`
       CREATE TABLE IF NOT EXISTS mod_kalshi.markets (
@@ -137,19 +190,106 @@ export class KalshiIngestor {
       )
     `);
     await this.db.query(`CREATE INDEX IF NOT EXISTS kalshi_trades_ticker_idx ON mod_kalshi.trades (ticker, created_at)`);
+
+    const embedDim = Number.isFinite(this.embedDim) ? this.embedDim : 4096;
+    await this.db.query(`
+      CREATE TABLE IF NOT EXISTS mod_kalshi.market_embeddings (
+        id text PRIMARY KEY,
+        ticker text NOT NULL,
+        context_key text NOT NULL,
+        ts timestamptz NOT NULL,
+        embedding vector(${embedDim})
+      )
+    `);
+    if (Number.isFinite(embedDim) && embedDim > 0) {
+      await this.db.query(
+        `ALTER TABLE mod_kalshi.market_embeddings ALTER COLUMN embedding TYPE vector(${embedDim}) USING embedding::vector`
+      );
+    }
+    await this.db.query(
+      `CREATE INDEX IF NOT EXISTS kalshi_embeddings_ctx_idx ON mod_kalshi.market_embeddings (context_key, ts)`
+    );
+    if (Number.isFinite(embedDim) && embedDim <= 2000) {
+      await this.db.query(
+        `CREATE INDEX IF NOT EXISTS kalshi_embeddings_vec_idx ON mod_kalshi.market_embeddings USING ivfflat (embedding vector_cosine_ops)`
+      );
+    } else {
+      await this.db.query(`DROP INDEX IF EXISTS kalshi_embeddings_vec_idx`);
+      this.log("warn", "skipping ivfflat index (embedding dim > 2000)", { embedDim });
+    }
   }
 
   private async fetchMarkets(): Promise<KalshiMarket[]> {
-    // TODO: Implement actual Kalshi API call
-    // For now, return empty array - this is a stub
-    this.log("info", "kalshi collect stub - API integration not yet implemented");
-    return [];
+    const allMarkets: KalshiMarket[] = [];
+    let cursor: string | undefined;
+    const maxPages = 5;
+
+    let watchedTickers: string[] = [];
+    try {
+      watchedTickers = JSON.parse(this.settings.watchedMarkets) as string[];
+    } catch {
+      watchedTickers = [];
+    }
+
+    for (let page = 0; page < maxPages; page++) {
+      const params = new URLSearchParams();
+      params.set("limit", "100");
+      params.set("status", "open");
+      if (cursor) params.set("cursor", cursor);
+
+      const url = `${KALSHI_API_BASE}/markets?${params.toString()}`;
+      this.log("debug", "fetching markets from Kalshi API", { url, page });
+
+      try {
+        const data = await this.fetchJson<KalshiMarketsResponse>(url);
+        if (!data.markets || data.markets.length === 0) break;
+        allMarkets.push(...data.markets);
+        cursor = data.cursor;
+        if (!cursor) break;
+      } catch (err) {
+        this.log("error", "failed to fetch markets page", {
+          page,
+          err: err instanceof Error ? { name: err.name, message: err.message } : err,
+        });
+        break;
+      }
+    }
+
+    for (const ticker of watchedTickers) {
+      if (allMarkets.some((m) => m.ticker === ticker)) continue;
+      try {
+        const data = await this.fetchJson<{ market: KalshiMarket }>(`${KALSHI_API_BASE}/markets/${encodeURIComponent(ticker)}`);
+        if (data.market) allMarkets.push(data.market);
+      } catch (err) {
+        this.log("warn", "failed to fetch watched market", {
+          ticker,
+          err: err instanceof Error ? { name: err.name, message: err.message } : err,
+        });
+      }
+    }
+
+    this.log("info", "fetched markets from Kalshi API", { count: allMarkets.length });
+    return allMarkets;
   }
 
-  private async fetchTrades(_ticker: string): Promise<KalshiTrade[]> {
-    // TODO: Implement actual Kalshi API call
-    // For now, return empty array - this is a stub
-    return [];
+  private async fetchTrades(ticker: string): Promise<KalshiTrade[]> {
+    const params = new URLSearchParams();
+    params.set("limit", "100");
+    params.set("ticker", ticker);
+
+    const url = `${KALSHI_API_BASE}/markets/trades?${params.toString()}`;
+    this.log("debug", "fetching trades from Kalshi API", { url, ticker });
+
+    try {
+      const data = await this.fetchJson<KalshiTradesResponse>(url);
+      return data.trades ?? [];
+    } catch (err) {
+      this.log("warn", "failed to fetch trades", {
+        ticker,
+        err: err instanceof Error ? { name: err.name, message: err.message } : err,
+      });
+      return [];
+    }
   }
 
   async collectAndPersist(): Promise<{ marketsUpdated: number; tradesCollected: number; messagesPublished: number }> {
@@ -161,7 +301,6 @@ export class KalshiIngestor {
     let messagesPublished = 0;
 
     for (const market of markets) {
-      // Upsert market data
       await this.db.query(
         `INSERT INTO mod_kalshi.markets (ticker, title, subtitle, last_price, yes_bid, yes_ask, volume_24h, open_interest, status, close_time, payload)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
@@ -191,7 +330,6 @@ export class KalshiIngestor {
       );
       marketsUpdated++;
 
-      // Publish market update as message
       const messageId = uuidv5(`kalshi:market:${market.ticker}:${Date.now()}`, UUID_NAMESPACE);
       const pricePercent = (market.last_price * 100).toFixed(0);
       const messageText = `${market.title}: YES ${pricePercent}% | Vol: ${market.volume_24h.toLocaleString()}`;
@@ -209,20 +347,20 @@ export class KalshiIngestor {
         likes: market.volume_24h,
         tags: {
           ticker: market.ticker,
+          eventTicker: market.event_ticker,
           lastPrice: market.last_price,
           status: market.status,
         },
       });
 
-      const event = MessageCreatedEventSchema.parse({
+      const msgEvent = MessageCreatedEventSchema.parse({
         type: "MessageCreated",
         message: normalized,
       });
 
-      this.nats.publish(subjectFor("kalshi", "messageCreated"), this.sc.encode(JSON.stringify(event)));
+      this.nats.publish(subjectFor("kalshi", "messageCreated"), this.sc.encode(JSON.stringify(msgEvent)));
       messagesPublished++;
 
-      // Collect trades if enabled
       if (this.settings.collectTrades) {
         const trades = await this.fetchTrades(market.ticker);
         for (const trade of trades) {
@@ -249,9 +387,244 @@ export class KalshiIngestor {
     return { marketsUpdated, tradesCollected, messagesPublished };
   }
 
-  async refreshContexts(): Promise<{ updated: number }> {
-    // TODO: Implement context refresh with AI summaries
-    this.log("info", "kalshi updateContexts stub - not yet implemented");
-    return { updated: 0 };
+  private async aiGenerate(prompt: string): Promise<{
+    summaryShort: string;
+    summaryLong: string;
+    tokenRate?: number;
+    rawResponse?: string;
+  }> {
+    if (!this.feedApiBaseUrl || !this.internalToken) {
+      throw new Error("AI summary unavailable: missing API base URL or internal token");
+    }
+    try {
+      const res = await fetch(`${this.feedApiBaseUrl}/api/internal/ai/summary`, {
+        method: "POST",
+        headers: { "content-type": "application/json", authorization: `Bearer ${this.internalToken}` },
+        body: JSON.stringify({ prompt, system: this.settings.contextPrompt, format: "json" }),
+      });
+      if (!res.ok) {
+        const body = await res.text().catch(() => "");
+        throw new Error(`ai summary failed (${res.status}) ${body}`.trim());
+      }
+      const data = (await res.json()) as { response?: string; token_rate?: number | null };
+      const rawResponse = String(data.response ?? "").trim();
+      if (!rawResponse) throw new Error("invalid summary payload");
+      const parsed = this.parseSummaryJson(rawResponse);
+      if (!parsed) return await this.aiGenerateFallback(prompt);
+      const summaryShort = parsed.summaryShort.slice(0, 128);
+      const summaryLong = parsed.summaryLong;
+      if (!summaryShort || !summaryLong) throw new Error("invalid summary payload");
+      return {
+        summaryShort,
+        summaryLong,
+        ...(typeof data.token_rate === "number" ? { tokenRate: data.token_rate } : {}),
+        rawResponse,
+      };
+    } catch (err) {
+      this.log("error", "ai summary failed", err instanceof Error ? { message: err.message } : { err });
+      throw err;
+    }
+  }
+
+  private async aiGenerateFallback(prompt: string): Promise<{
+    summaryShort: string;
+    summaryLong: string;
+    tokenRate?: number;
+    rawResponse?: string;
+  }> {
+    const res = await fetch(`${this.feedApiBaseUrl}/api/internal/ai/summary`, {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: `Bearer ${this.internalToken}` },
+      body: JSON.stringify({ prompt, system: this.settings.contextPromptFallback }),
+    });
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      throw new Error(`ai summary fallback failed (${res.status}) ${body}`.trim());
+    }
+    const data = (await res.json()) as { response?: string; token_rate?: number | null };
+    const rawResponse = String(data.response ?? "").trim();
+    if (!rawResponse) throw new Error("invalid fallback summary payload");
+    return {
+      summaryShort: rawResponse.slice(0, 128),
+      summaryLong: rawResponse,
+      ...(typeof data.token_rate === "number" ? { tokenRate: data.token_rate } : {}),
+      rawResponse,
+    };
+  }
+
+  private parseSummaryJson(rawResponse: string): { summaryShort: string; summaryLong: string } | null {
+    const trimmed = rawResponse.trim();
+    const candidate = trimmed.startsWith("```")
+      ? trimmed.replace(/^```[a-zA-Z]*\n?/, "").replace(/```$/, "").trim()
+      : trimmed;
+    try {
+      const parsed = JSON.parse(candidate) as { summary_short?: string; summary_long?: string };
+      const summaryShort = String(parsed.summary_short ?? "").trim();
+      const summaryLong = String(parsed.summary_long ?? "").trim();
+      if (!summaryShort && !summaryLong) return null;
+      return {
+        summaryShort: summaryShort || summaryLong.slice(0, 128),
+        summaryLong: summaryLong || summaryShort,
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  private async aiEmbed(text: string): Promise<number[]> {
+    if (!this.feedApiBaseUrl || !this.internalToken) {
+      throw new Error("AI embedding unavailable: missing API base URL or internal token");
+    }
+    try {
+      const res = await fetch(`${this.feedApiBaseUrl}/api/internal/ai/embedding`, {
+        method: "POST",
+        headers: { "content-type": "application/json", authorization: `Bearer ${this.internalToken}` },
+        body: JSON.stringify({ text }),
+      });
+      if (!res.ok) throw new Error(`ai embeddings failed (${res.status})`);
+      const data = (await res.json()) as { embedding?: number[] };
+      if (!Array.isArray(data.embedding) || data.embedding.length === 0) throw new Error("empty embedding");
+      return data.embedding;
+    } catch (err) {
+      this.log("error", "ai embeddings failed", err instanceof Error ? { message: err.message } : { err });
+      throw err;
+    }
+  }
+
+  private async publishContextUpdate(params: {
+    contextKey: string;
+    messageId?: string;
+    summaryShort: string;
+    summaryLong: string;
+    keyPoints?: string[];
+    embedding?: number[];
+  }) {
+    const summaryShort = params.summaryShort.slice(0, 128);
+    const contextEvent = ContextUpdatedEventSchema.parse({
+      type: "ContextUpdated",
+      createdAt: new Date().toISOString(),
+      messageId: params.messageId,
+      context: {
+        ownerModule: "kalshi",
+        sourceKey: params.contextKey,
+        summaryShort,
+        summaryLong: params.summaryLong,
+        keyPoints: params.keyPoints ?? [],
+        embedding: params.embedding,
+      },
+    });
+    this.nats.publish(subjectFor("kalshi", "contextUpdated"), this.sc.encode(JSON.stringify(contextEvent)));
+  }
+
+  async refreshContexts(params: { lookbackHours: number }): Promise<{
+    updated: number;
+    aiSummaries: number;
+    fallbackSummaries: number;
+    embeddingsInserted: number;
+    avgTokenRate?: number;
+  }> {
+    const cutoff = new Date(Date.now() - params.lookbackHours * 3600_000);
+    const res = await this.db.query(
+      `SELECT ticker, title, subtitle, last_price, yes_bid, yes_ask, volume_24h, open_interest, status
+       FROM mod_kalshi.markets
+       WHERE collected_at >= $1
+       ORDER BY volume_24h DESC
+       LIMIT $2`,
+      [cutoff, this.contextTopK]
+    );
+
+    let updated = 0;
+    let aiSummaries = 0;
+    let fallbackSummaries = 0;
+    let embeddingsInserted = 0;
+    let tokenRateSum = 0;
+    let tokenRateCount = 0;
+
+    for (const row of res.rows as KalshiMarketRow[]) {
+      const contextKey = `market:${row.ticker}`;
+      const msgId = uuidv5(`kalshi:${row.ticker}`, UUID_NAMESPACE);
+
+      const prior = await this.db.query(
+        `SELECT "summaryLong" FROM bus_contexts WHERE "ownerModule" = $1 AND "sourceKey" = $2 LIMIT 1`,
+        ["kalshi", contextKey]
+      );
+      const priorSummary = String(prior.rows?.[0]?.summaryLong ?? "");
+
+      const yesPct = (Number(row.last_price) * 100).toFixed(1);
+      const bidPct = (Number(row.yes_bid) * 100).toFixed(1);
+      const askPct = (Number(row.yes_ask) * 100).toFixed(1);
+
+      const marketContent = [
+        `Market: ${row.title}`,
+        row.subtitle ? `Subtitle: ${row.subtitle}` : "",
+        `YES Price: ${yesPct}% (Bid: ${bidPct}%, Ask: ${askPct}%)`,
+        `24h Volume: ${Number(row.volume_24h).toLocaleString()} contracts`,
+        `Open Interest: ${Number(row.open_interest).toLocaleString()} contracts`,
+        `Status: ${row.status}`,
+      ].filter(Boolean).join("\n");
+
+      if (!marketContent) {
+        const summaryShort = `${row.title}`.slice(0, 128);
+        await this.publishContextUpdate({
+          contextKey,
+          messageId: msgId,
+          summaryShort,
+          summaryLong: summaryShort,
+          keyPoints: [],
+        });
+        fallbackSummaries++;
+        updated++;
+        continue;
+      }
+
+      const prompt = [
+        priorSummary ? `Prior summary:\n${priorSummary}` : "",
+        marketContent,
+      ].filter(Boolean).join("\n");
+      const maxPromptChars = 8000;
+      const promptText = prompt.length > maxPromptChars ? prompt.slice(0, maxPromptChars) : prompt;
+
+      try {
+        const aiSummary = await this.aiGenerate(promptText);
+        const contextEmbedding = await this.aiEmbed(aiSummary.summaryLong);
+        if (contextEmbedding.length) embeddingsInserted++;
+        if (typeof aiSummary.tokenRate === "number") {
+          tokenRateSum += aiSummary.tokenRate;
+          tokenRateCount += 1;
+        }
+        await this.publishContextUpdate({
+          contextKey,
+          messageId: msgId,
+          summaryShort: aiSummary.summaryShort,
+          summaryLong: aiSummary.summaryLong,
+          keyPoints: [],
+          ...(contextEmbedding.length ? { embedding: contextEmbedding } : {}),
+        });
+        aiSummaries++;
+      } catch (err) {
+        const summaryShort = `${row.title}`.slice(0, 128);
+        await this.publishContextUpdate({
+          contextKey,
+          messageId: msgId,
+          summaryShort,
+          summaryLong: marketContent,
+          keyPoints: [],
+        });
+        fallbackSummaries++;
+        this.log("warn", "ai summary failed, using fallback", {
+          ticker: row.ticker,
+          err: err instanceof Error ? { message: err.message } : err,
+        });
+      }
+      updated++;
+    }
+
+    return {
+      updated,
+      aiSummaries,
+      fallbackSummaries,
+      embeddingsInserted,
+      ...(tokenRateCount ? { avgTokenRate: tokenRateSum / tokenRateCount } : {}),
+    };
   }
 }
