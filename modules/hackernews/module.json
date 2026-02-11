@@ -1,0 +1,44 @@
+{
+  "name": "hackernews",
+  "version": "0.0.1",
+  "namespace": "feedeater.hackernews",
+  "runtime": { "entry": "dist/runtime.js" },
+  "queues": ["mod_hackernews"],
+  "jobs": [
+    {
+      "name": "collect",
+      "queue": "mod_hackernews",
+      "schedule": "*/5 * * * *",
+      "description": "Fetch stories from configured Hacker News feeds (top, new, best, ask, show, job) and persist raw extracts into mod_hackernews."
+    },
+    {
+      "name": "updateContexts",
+      "queue": "mod_hackernews",
+      "schedule": "*/30 * * * *",
+      "description": "Refresh context summaries from recent Hacker News stories and comments."
+    }
+  ],
+  "settings": [
+    { "key": "enabled", "type": "boolean", "default": true },
+    { "key": "feedTypes", "type": "string", "default": "top,best,new,ask,show" },
+    { "key": "maxStoriesPerFeed", "type": "number", "default": 30 },
+    { "key": "lookbackHours", "type": "number", "default": 24 },
+    { "key": "includeComments", "type": "boolean", "default": false },
+    { "key": "maxCommentsPerStory", "type": "number", "default": 5 },
+    { "key": "requestTimeoutSeconds", "type": "number", "default": 15 },
+    {
+      "key": "contextPrompt",
+      "type": "string",
+      "default": "You are summarizing Hacker News stories and discussions. Summarize ONLY the content provided. Do not make suggestions, ask questions, or add commentary. Return strict JSON with keys: summary_short and summary_long. summary_short must be <= 128 characters. summary_long should be 1-3 short paragraphs."
+    },
+    {
+      "key": "contextPromptFallback",
+      "type": "string",
+      "default": "Summarize ONLY the provided Hacker News content in plain text. 1-3 short sentences. Do not return JSON. Do not make suggestions or ask questions."
+    }
+  ],
+  "cards": [
+    { "id": "hackernewsStatus", "title": "Hacker News Collector" },
+    { "id": "hackernewsFeeds", "title": "HN Feed Types" }
+  ]
+}
