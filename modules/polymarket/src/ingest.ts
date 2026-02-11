@@ -2,7 +2,7 @@ import type { Pool } from "pg";
 import { v5 as uuidv5 } from "uuid";
 import type { NatsConnection, StringCodec } from "nats";
 
-import { MessageCreatedEventSchema, NormalizedMessageSchema, subjectFor } from "@feedeater/core";
+import { ContextUpdatedEventSchema, MessageCreatedEventSchema, NormalizedMessageSchema, subjectFor } from "@feedeater/core";
 
 export type PolymarketSettings = {
   enabled: boolean;
@@ -17,7 +17,6 @@ export type PolymarketSettings = {
 
 const UUID_NAMESPACE = "c3d5e7f9-2b4c-6d8e-0f1a-3b5c7d9e1f2a";
 const POLYMARKET_API_BASE = "https://gamma-api.polymarket.com";
-const POLYMARKET_CLOB_API = "https://clob.polymarket.com";
 
 export function parsePolymarketSettingsFromInternal(raw: Record<string, unknown>): PolymarketSettings {
   const enabled = String(raw.enabled ?? "false") === "true";
@@ -53,9 +52,9 @@ interface PolymarketEvent {
   id: string;
   slug: string;
   title: string;
-  description?: string;
-  startDate?: string;
-  endDate?: string;
+  description: string;
+  startDate: string;
+  endDate: string;
   markets: PolymarketMarket[];
 }
 
@@ -64,16 +63,36 @@ interface PolymarketMarket {
   question: string;
   conditionId: string;
   slug: string;
-  outcomePrices: string; // JSON string of prices
+  outcomePrices: string;
   volume: string;
   volume24hr: number;
   liquidity: string;
-  endDate?: string;
+  endDate: string;
   closed: boolean;
-  outcomes: string; // JSON string of outcome names
+  outcomes: string;
 }
 
+type MarketRow = {
+  id: string;
+  event_id: string;
+  question: string;
+  condition_id: string;
+  slug: string;
+  outcome_prices: number[] | null;
+  outcomes: string[] | null;
+  volume: number;
+  volume_24h: number;
+  liquidity: number;
+  closed: boolean;
+};
+
 export class PolymarketIngestor {
+  private apiBaseUrl: string;
+  private internalToken: string;
+  private contextTopK: number;
+  private embedDim: number;
+  private requestTimeoutMs: number;
+
   private log(level: "debug" | "info" | "warn" | "error", message: string, meta?: unknown) {
     try {
       this.nats.publish(
@@ -98,10 +117,30 @@ export class PolymarketIngestor {
     private readonly settings: PolymarketSettings,
     private readonly db: Pool,
     private readonly nats: NatsConnection,
-    private readonly sc: StringCodec
-  ) {}
+    private readonly sc: StringCodec,
+    opts: { apiBaseUrl: string; internalToken: string; contextTopK: number; embedDim: number }
+  ) {
+    this.apiBaseUrl = opts.apiBaseUrl.replace(/\/+$/, "");
+    this.internalToken = opts.internalToken;
+    this.contextTopK = opts.contextTopK;
+    this.embedDim = opts.embedDim;
+    this.requestTimeoutMs = 15_000;
+  }
+
+  private async fetchJson<T>(url: string): Promise<T> {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), this.requestTimeoutMs);
+    try {
+      const res = await fetch(url, { signal: controller.signal });
+      if (!res.ok) throw new Error(`Polymarket API error (${res.status}) for ${url}`);
+      return (await res.json()) as T;
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
 
   async ensureSchema(): Promise<void> {
+    await this.db.query(`CREATE EXTENSION IF NOT EXISTS vector`);
     await this.db.query("CREATE SCHEMA IF NOT EXISTS mod_polymarket");
     await this.db.query(`
       CREATE TABLE IF NOT EXISTS mod_polymarket.events (
@@ -135,13 +174,98 @@ export class PolymarketIngestor {
     `);
     await this.db.query(`CREATE INDEX IF NOT EXISTS polymarket_markets_event_idx ON mod_polymarket.markets (event_id)`);
     await this.db.query(`CREATE INDEX IF NOT EXISTS polymarket_markets_volume_idx ON mod_polymarket.markets (volume_24h DESC)`);
+
+    const embedDim = Number.isFinite(this.embedDim) ? this.embedDim : 4096;
+    await this.db.query(`
+      CREATE TABLE IF NOT EXISTS mod_polymarket.market_embeddings (
+        id text PRIMARY KEY,
+        market_id text NOT NULL,
+        context_key text NOT NULL,
+        ts timestamptz NOT NULL,
+        embedding vector(${embedDim})
+      )
+    `);
+    if (Number.isFinite(embedDim) && embedDim > 0) {
+      await this.db.query(
+        `ALTER TABLE mod_polymarket.market_embeddings ALTER COLUMN embedding TYPE vector(${embedDim}) USING embedding::vector`
+      );
+    }
+    await this.db.query(
+      `CREATE INDEX IF NOT EXISTS polymarket_embeddings_ctx_idx ON mod_polymarket.market_embeddings (context_key, ts)`
+    );
+    if (Number.isFinite(embedDim) && embedDim <= 2000) {
+      await this.db.query(
+        `CREATE INDEX IF NOT EXISTS polymarket_embeddings_vec_idx ON mod_polymarket.market_embeddings USING ivfflat (embedding vector_cosine_ops)`
+      );
+    } else {
+      await this.db.query(`DROP INDEX IF EXISTS polymarket_embeddings_vec_idx`);
+      this.log("warn", "skipping ivfflat index (embedding dim > 2000)", { embedDim });
+    }
   }
 
   private async fetchEvents(): Promise<PolymarketEvent[]> {
-    // TODO: Implement actual Polymarket API call
-    // For now, return empty array - this is a stub
-    this.log("info", "polymarket collect stub - API integration not yet implemented");
-    return [];
+    let categories: string[] = [];
+    try {
+      categories = JSON.parse(this.settings.watchedCategories) as string[];
+    } catch {
+      categories = ["politics", "crypto", "sports"];
+    }
+
+    const allEvents: PolymarketEvent[] = [];
+    const seenIds = new Set<string>();
+
+    const params = new URLSearchParams();
+    params.set("closed", "false");
+    params.set("limit", "100");
+    params.set("order", "volume24hr");
+    params.set("ascending", "false");
+
+    if (categories.length > 0) {
+      params.set("tag_slug", categories.join(","));
+    }
+
+    const url = `${POLYMARKET_API_BASE}/events?${params.toString()}`;
+    this.log("debug", "fetching events from Gamma API", { url });
+
+    try {
+      const events = await this.fetchJson<PolymarketEvent[]>(url);
+      for (const ev of events) {
+        if (!seenIds.has(ev.id)) {
+          seenIds.add(ev.id);
+          allEvents.push(ev);
+        }
+      }
+    } catch (err) {
+      this.log("error", "failed to fetch events by category", {
+        err: err instanceof Error ? { name: err.name, message: err.message } : err,
+      });
+    }
+
+    let watchedIds: string[] = [];
+    try {
+      watchedIds = JSON.parse(this.settings.watchedMarkets) as string[];
+    } catch {
+      watchedIds = [];
+    }
+
+    for (const slug of watchedIds) {
+      if (seenIds.has(slug)) continue;
+      try {
+        const ev = await this.fetchJson<PolymarketEvent>(`${POLYMARKET_API_BASE}/events/${encodeURIComponent(slug)}`);
+        if (ev && ev.id) {
+          seenIds.add(ev.id);
+          allEvents.push(ev);
+        }
+      } catch (err) {
+        this.log("warn", "failed to fetch watched event", {
+          slug,
+          err: err instanceof Error ? { name: err.name, message: err.message } : err,
+        });
+      }
+    }
+
+    this.log("info", "fetched events from Gamma API", { count: allEvents.length });
+    return allEvents;
   }
 
   async collectAndPersist(): Promise<{ eventsUpdated: number; marketsUpdated: number; messagesPublished: number }> {
@@ -157,7 +281,6 @@ export class PolymarketIngestor {
     let messagesPublished = 0;
 
     for (const event of events) {
-      // Upsert event
       await this.db.query(
         `INSERT INTO mod_polymarket.events (id, slug, title, description, start_date, end_date, payload)
          VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -178,18 +301,21 @@ export class PolymarketIngestor {
       );
       eventsUpdated++;
 
-      for (const market of event.markets) {
-        // Parse prices
+      const markets = Array.isArray(event.markets) ? event.markets : [];
+      for (const market of markets) {
         let outcomePrices: number[] = [];
         let outcomes: string[] = [];
         try {
-          outcomePrices = JSON.parse(market.outcomePrices);
-          outcomes = JSON.parse(market.outcomes);
+          outcomePrices = JSON.parse(market.outcomePrices) as number[];
         } catch {
-          // ignore parse errors
+          outcomePrices = [];
+        }
+        try {
+          outcomes = JSON.parse(market.outcomes) as string[];
+        } catch {
+          outcomes = [];
         }
 
-        // Upsert market
         await this.db.query(
           `INSERT INTO mod_polymarket.markets (id, event_id, condition_id, question, slug, outcome_prices, outcomes, volume, volume_24h, liquidity, closed, end_date, payload)
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
@@ -220,10 +346,8 @@ export class PolymarketIngestor {
         );
         marketsUpdated++;
 
-        // Skip low-volume markets
         if (market.volume24hr < this.settings.minVolume) continue;
 
-        // Publish market update as message
         const messageId = uuidv5(`polymarket:market:${market.id}:${Date.now()}`, UUID_NAMESPACE);
         const yesPrice = outcomePrices[0] ?? 0;
         const pricePercent = (yesPrice * 100).toFixed(0);
@@ -265,9 +389,248 @@ export class PolymarketIngestor {
     return { eventsUpdated, marketsUpdated, messagesPublished };
   }
 
-  async refreshContexts(): Promise<{ updated: number }> {
-    // TODO: Implement context refresh with AI summaries
-    this.log("info", "polymarket updateContexts stub - not yet implemented");
-    return { updated: 0 };
+  private async aiGenerate(prompt: string): Promise<{
+    summaryShort: string;
+    summaryLong: string;
+    tokenRate?: number;
+    rawResponse?: string;
+  }> {
+    if (!this.apiBaseUrl || !this.internalToken) {
+      throw new Error("AI summary unavailable: missing API base URL or internal token");
+    }
+    try {
+      const res = await fetch(`${this.apiBaseUrl}/api/internal/ai/summary`, {
+        method: "POST",
+        headers: { "content-type": "application/json", authorization: `Bearer ${this.internalToken}` },
+        body: JSON.stringify({ prompt, system: this.settings.contextPrompt, format: "json" }),
+      });
+      if (!res.ok) {
+        const body = await res.text().catch(() => "");
+        throw new Error(`ai summary failed (${res.status}) ${body}`.trim());
+      }
+      const data = (await res.json()) as { response?: string; token_rate?: number | null };
+      const rawResponse = String(data.response ?? "").trim();
+      if (!rawResponse) throw new Error("invalid summary payload");
+      const parsed = this.parseSummaryJson(rawResponse);
+      if (!parsed) return await this.aiGenerateFallback(prompt);
+      const summaryShort = parsed.summaryShort.slice(0, 128);
+      const summaryLong = parsed.summaryLong;
+      if (!summaryShort || !summaryLong) throw new Error("invalid summary payload");
+      return {
+        summaryShort,
+        summaryLong,
+        ...(typeof data.token_rate === "number" ? { tokenRate: data.token_rate } : {}),
+        rawResponse,
+      };
+    } catch (err) {
+      this.log("error", "ai summary failed", err instanceof Error ? { message: err.message } : { err });
+      throw err;
+    }
+  }
+
+  private async aiGenerateFallback(prompt: string): Promise<{
+    summaryShort: string;
+    summaryLong: string;
+    tokenRate?: number;
+    rawResponse?: string;
+  }> {
+    const res = await fetch(`${this.apiBaseUrl}/api/internal/ai/summary`, {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: `Bearer ${this.internalToken}` },
+      body: JSON.stringify({ prompt, system: this.settings.contextPromptFallback }),
+    });
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      throw new Error(`ai summary fallback failed (${res.status}) ${body}`.trim());
+    }
+    const data = (await res.json()) as { response?: string; token_rate?: number | null };
+    const rawResponse = String(data.response ?? "").trim();
+    if (!rawResponse) throw new Error("invalid fallback summary payload");
+    return {
+      summaryShort: rawResponse.slice(0, 128),
+      summaryLong: rawResponse,
+      ...(typeof data.token_rate === "number" ? { tokenRate: data.token_rate } : {}),
+      rawResponse,
+    };
+  }
+
+  private parseSummaryJson(rawResponse: string): { summaryShort: string; summaryLong: string } | null {
+    const trimmed = rawResponse.trim();
+    const candidate = trimmed.startsWith("```")
+      ? trimmed.replace(/^```[a-zA-Z]*\n?/, "").replace(/```$/, "").trim()
+      : trimmed;
+    try {
+      const parsed = JSON.parse(candidate) as { summary_short?: string; summary_long?: string };
+      const summaryShort = String(parsed.summary_short ?? "").trim();
+      const summaryLong = String(parsed.summary_long ?? "").trim();
+      if (!summaryShort && !summaryLong) return null;
+      return {
+        summaryShort: summaryShort || summaryLong.slice(0, 128),
+        summaryLong: summaryLong || summaryShort,
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  private async aiEmbed(text: string): Promise<number[]> {
+    if (!this.apiBaseUrl || !this.internalToken) {
+      throw new Error("AI embedding unavailable: missing API base URL or internal token");
+    }
+    try {
+      const res = await fetch(`${this.apiBaseUrl}/api/internal/ai/embedding`, {
+        method: "POST",
+        headers: { "content-type": "application/json", authorization: `Bearer ${this.internalToken}` },
+        body: JSON.stringify({ text }),
+      });
+      if (!res.ok) throw new Error(`ai embeddings failed (${res.status})`);
+      const data = (await res.json()) as { embedding?: number[] };
+      if (!Array.isArray(data.embedding) || data.embedding.length === 0) throw new Error("empty embedding");
+      return data.embedding;
+    } catch (err) {
+      this.log("error", "ai embeddings failed", err instanceof Error ? { message: err.message } : { err });
+      throw err;
+    }
+  }
+
+  private async publishContextUpdate(params: {
+    contextKey: string;
+    messageId?: string;
+    summaryShort: string;
+    summaryLong: string;
+    keyPoints?: string[];
+    embedding?: number[];
+  }) {
+    const summaryShort = params.summaryShort.slice(0, 128);
+    const contextEvent = ContextUpdatedEventSchema.parse({
+      type: "ContextUpdated",
+      createdAt: new Date().toISOString(),
+      messageId: params.messageId,
+      context: {
+        ownerModule: "polymarket",
+        sourceKey: params.contextKey,
+        summaryShort,
+        summaryLong: params.summaryLong,
+        keyPoints: params.keyPoints ?? [],
+        embedding: params.embedding,
+      },
+    });
+    this.nats.publish(subjectFor("polymarket", "contextUpdated"), this.sc.encode(JSON.stringify(contextEvent)));
+  }
+
+  async refreshContexts(params: { lookbackHours: number }): Promise<{
+    updated: number;
+    aiSummaries: number;
+    fallbackSummaries: number;
+    embeddingsInserted: number;
+    avgTokenRate?: number;
+  }> {
+    const cutoff = new Date(Date.now() - params.lookbackHours * 3600_000);
+    const res = await this.db.query(
+      `SELECT m.id, m.event_id, m.question, m.condition_id, m.slug,
+              m.outcome_prices, m.outcomes, m.volume, m.volume_24h, m.liquidity, m.closed
+       FROM mod_polymarket.markets m
+       WHERE m.collected_at >= $1 AND m.volume_24h >= $2
+       ORDER BY m.volume_24h DESC
+       LIMIT $3`,
+      [cutoff, this.settings.minVolume, this.contextTopK]
+    );
+
+    let updated = 0;
+    let aiSummaries = 0;
+    let fallbackSummaries = 0;
+    let embeddingsInserted = 0;
+    let tokenRateSum = 0;
+    let tokenRateCount = 0;
+
+    for (const row of res.rows as MarketRow[]) {
+      const contextKey = `market:${row.condition_id}`;
+      const msgId = uuidv5(`polymarket:${row.id}`, UUID_NAMESPACE);
+
+      const prior = await this.db.query(
+        `SELECT "summaryLong" FROM bus_contexts WHERE "ownerModule" = $1 AND "sourceKey" = $2 LIMIT 1`,
+        ["polymarket", contextKey]
+      );
+      const priorSummary = String(prior.rows?.[0]?.summaryLong ?? "");
+
+      const prices = Array.isArray(row.outcome_prices) ? row.outcome_prices : [];
+      const outcomeNames = Array.isArray(row.outcomes) ? row.outcomes : [];
+      const priceLines = outcomeNames.map((name: string, i: number) => {
+        const p = prices[i] ?? 0;
+        return `${name}: ${(p * 100).toFixed(1)}%`;
+      });
+
+      const marketContent = [
+        `Market: ${row.question}`,
+        priceLines.length > 0 ? `Prices: ${priceLines.join(", ")}` : "",
+        `24h Volume: $${Number(row.volume_24h).toLocaleString()}`,
+        `Total Volume: $${Number(row.volume).toLocaleString()}`,
+        `Liquidity: $${Number(row.liquidity).toLocaleString()}`,
+        row.closed ? "Status: CLOSED" : "Status: OPEN",
+      ].filter(Boolean).join("\n");
+
+      if (!marketContent) {
+        const summaryShort = `${row.question}`.slice(0, 128);
+        await this.publishContextUpdate({
+          contextKey,
+          messageId: msgId,
+          summaryShort,
+          summaryLong: summaryShort,
+          keyPoints: [],
+        });
+        fallbackSummaries++;
+        updated++;
+        continue;
+      }
+
+      const prompt = [
+        priorSummary ? `Prior summary:\n${priorSummary}` : "",
+        marketContent,
+      ].filter(Boolean).join("\n");
+      const maxPromptChars = 8000;
+      const promptText = prompt.length > maxPromptChars ? prompt.slice(0, maxPromptChars) : prompt;
+
+      try {
+        const aiSummary = await this.aiGenerate(promptText);
+        const contextEmbedding = await this.aiEmbed(aiSummary.summaryLong);
+        if (contextEmbedding.length) embeddingsInserted++;
+        if (typeof aiSummary.tokenRate === "number") {
+          tokenRateSum += aiSummary.tokenRate;
+          tokenRateCount += 1;
+        }
+        await this.publishContextUpdate({
+          contextKey,
+          messageId: msgId,
+          summaryShort: aiSummary.summaryShort,
+          summaryLong: aiSummary.summaryLong,
+          keyPoints: [],
+          ...(contextEmbedding.length ? { embedding: contextEmbedding } : {}),
+        });
+        aiSummaries++;
+      } catch (err) {
+        const summaryShort = `${row.question}`.slice(0, 128);
+        await this.publishContextUpdate({
+          contextKey,
+          messageId: msgId,
+          summaryShort,
+          summaryLong: marketContent,
+          keyPoints: [],
+        });
+        fallbackSummaries++;
+        this.log("warn", "ai summary failed, using fallback", {
+          marketId: row.id,
+          err: err instanceof Error ? { message: err.message } : err,
+        });
+      }
+      updated++;
+    }
+
+    return {
+      updated,
+      aiSummaries,
+      fallbackSummaries,
+      embeddingsInserted,
+      ...(tokenRateCount ? { avgTokenRate: tokenRateSum / tokenRateCount } : {}),
+    };
   }
 }
