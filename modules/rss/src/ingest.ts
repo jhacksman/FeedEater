@@ -24,7 +24,7 @@ export interface RSSSettings {
   maxEntriesPerFeed: number;
   contextPrompt: string;
   contextPromptFallback: string;
-};
+}
 
 export interface Feed {
   id: string;
@@ -35,7 +35,7 @@ export interface Feed {
   pollIntervalMinutes: number | null;
   enabled: boolean;
   tags: Record<string, unknown>;
-};
+}
 
 export interface PollState {
   feedId: string;
@@ -47,7 +47,7 @@ export interface PollState {
   lastErrorAt: Date | null;
   consecutiveErrors: number;
   consecutive304s: number;
-};
+}
 
 type ParsedEntry = {
   guid: string;
@@ -673,7 +673,7 @@ export class RSSIngestor {
   private publishMessageCreated(
     entry: ParsedEntry,
     feed: Feed,
-    entryId: string
+    _entryId: string
   ) {
     const contextKey = `feed:${feed.id}`;
     const msgId = uuidv5(`rss-${feed.id}-${entry.guid}`, UUID_NAMESPACE);

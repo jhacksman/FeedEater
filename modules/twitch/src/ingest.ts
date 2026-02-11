@@ -1148,8 +1148,7 @@ export class TwitchIngestor {
         });
         aiSummaries++;
         updated++;
-      } catch (err) {
-        // Fallback to simple summary
+      } catch {
         const summaryShort = `${row.user_name} streaming ${row.game_name || "Unknown"}`.slice(
           0,
           128

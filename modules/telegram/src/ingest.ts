@@ -3,9 +3,7 @@ import { StringSession } from "telegram/sessions/index.js";
 import { FloodWaitError } from "telegram/errors/index.js";
 import type { Dialog } from "telegram/tl/custom/dialog.js";
 import bigInt from "big-integer";
-import type { Pool } from "pg";
 import { v5 as uuidv5 } from "uuid";
-import type { NatsConnection } from "nats";
 
 import {
   ContextUpdatedEventSchema,

@@ -14,7 +14,7 @@
   "scripts": {
     "build": "tsup src/index.ts --format esm --dts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "lint": "echo \"(no lint configured yet)\""
+    "lint": "eslint src/ --ext .ts"
   },
   "dependencies": {
     "zod": "^3.25.76"
@@ -24,5 +24,3 @@
     "typescript": "^5.9.2"
   }
 }
-
-

@@ -2,7 +2,7 @@ import { consumerOpts, RetentionPolicy, StorageType, StringCodec } from "nats";
 import type { NatsConnection } from "nats";
 import type { Pool } from "pg";
 
-import { BusEventSchema, MessageCreatedEventSchema, TagAppendedEventSchema } from "@feedeater/core";
+import { BusEventSchema } from "@feedeater/core";
 
 const STREAM_NAME = "feedeater_bus";
 const DURABLE_NAME = "feedeater_archiver";
