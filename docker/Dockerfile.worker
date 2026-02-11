@@ -23,6 +23,8 @@ COPY modules/twitter/package.json modules/twitter/package.json
 COPY modules/youtube/package.json modules/youtube/package.json
 COPY modules/kalshi/package.json modules/kalshi/package.json
 COPY modules/polymarket/package.json modules/polymarket/package.json
+COPY modules/github/package.json modules/github/package.json
+COPY modules/hackernews/package.json modules/hackernews/package.json
 
 RUN npm install
 
@@ -51,6 +53,8 @@ RUN npm run -w @feedeater/module-twitter build
 RUN npm run -w @feedeater/module-youtube build
 RUN npm run -w @feedeater/module-kalshi build
 RUN npm run -w @feedeater/module-polymarket build
+RUN npm run -w @feedeater/module-github build
+RUN npm run -w @feedeater/module-hackernews build
 RUN npm run -w @feedeater/worker build
 
 FROM node:20-alpine
