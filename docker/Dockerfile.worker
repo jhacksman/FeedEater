@@ -11,6 +11,8 @@ COPY packages/db/package.json packages/db/package.json
 COPY modules/bluesky/package.json modules/bluesky/package.json
 COPY modules/discord/package.json modules/discord/package.json
 COPY modules/example/package.json modules/example/package.json
+COPY modules/github/package.json modules/github/package.json
+COPY modules/hackernews/package.json modules/hackernews/package.json
 COPY modules/mastodon/package.json modules/mastodon/package.json
 COPY modules/reddit/package.json modules/reddit/package.json
 COPY modules/rss/package.json modules/rss/package.json
@@ -39,6 +41,8 @@ RUN npm run -w @feedeater/db build
 RUN npm run -w @feedeater/module-bluesky build
 RUN npm run -w @feedeater/module-discord build
 RUN npm run -w @feedeater/module-example build
+RUN npm run -w @feedeater/module-github build
+RUN npm run -w @feedeater/module-hackernews build
 RUN npm run -w @feedeater/module-mastodon build
 RUN npm run -w @feedeater/module-reddit build
 RUN npm run -w @feedeater/module-rss build
