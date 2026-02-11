@@ -8,9 +8,23 @@ COPY apps/web/package.json apps/web/package.json
 COPY packages/core/package.json packages/core/package.json
 COPY packages/module-sdk/package.json packages/module-sdk/package.json
 COPY packages/db/package.json packages/db/package.json
+COPY modules/bluesky/package.json modules/bluesky/package.json
+COPY modules/discord/package.json modules/discord/package.json
 COPY modules/example/package.json modules/example/package.json
+COPY modules/github/package.json modules/github/package.json
+COPY modules/hackernews/package.json modules/hackernews/package.json
+COPY modules/kalshi/package.json modules/kalshi/package.json
+COPY modules/mastodon/package.json modules/mastodon/package.json
+COPY modules/polymarket/package.json modules/polymarket/package.json
+COPY modules/reddit/package.json modules/reddit/package.json
+COPY modules/rss/package.json modules/rss/package.json
+COPY modules/signal/package.json modules/signal/package.json
 COPY modules/slack/package.json modules/slack/package.json
 COPY modules/system/package.json modules/system/package.json
+COPY modules/telegram/package.json modules/telegram/package.json
+COPY modules/twitch/package.json modules/twitch/package.json
+COPY modules/twitter/package.json modules/twitter/package.json
+COPY modules/youtube/package.json modules/youtube/package.json
 
 RUN npm install
 
