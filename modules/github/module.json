@@ -1,0 +1,59 @@
+{
+  "name": "github",
+  "version": "0.0.1",
+  "namespace": "feedeater.github",
+  "runtime": { "entry": "dist/runtime.js" },
+  "queues": ["mod_github"],
+  "jobs": [
+    {
+      "name": "collectNotifications",
+      "queue": "mod_github",
+      "schedule": "*/5 * * * *",
+      "description": "Poll GitHub notifications (issues, PRs, commits) for the authenticated user."
+    },
+    {
+      "name": "collectEvents",
+      "queue": "mod_github",
+      "schedule": "*/5 * * * *",
+      "description": "Poll the authenticated user's received events feed (stars, forks, PRs, issues from followed repos/users)."
+    },
+    {
+      "name": "collectReleases",
+      "queue": "mod_github",
+      "schedule": "*/15 * * * *",
+      "description": "Poll new releases from watched repositories."
+    },
+    {
+      "name": "updateContexts",
+      "queue": "mod_github",
+      "schedule": "*/30 * * * *",
+      "description": "Refresh context summaries from recent GitHub activity."
+    }
+  ],
+  "settings": [
+    { "key": "enabled", "type": "boolean", "default": true },
+    { "key": "accessToken", "type": "secret", "required": true },
+    { "key": "username", "type": "string", "required": true },
+    { "key": "watchedRepos", "type": "string", "default": "" },
+    { "key": "collectNotifications", "type": "boolean", "default": true },
+    { "key": "collectEvents", "type": "boolean", "default": true },
+    { "key": "collectReleases", "type": "boolean", "default": true },
+    { "key": "lookbackHours", "type": "number", "default": 24 },
+    { "key": "maxEventsPerPoll", "type": "number", "default": 100 },
+    { "key": "requestTimeoutSeconds", "type": "number", "default": 15 },
+    {
+      "key": "contextPrompt",
+      "type": "string",
+      "default": "You are summarizing GitHub activity (notifications, events, releases). Summarize ONLY the content provided. Do not make suggestions, ask questions, or add commentary. Return strict JSON with keys: summary_short and summary_long. summary_short must be <= 128 characters. summary_long should be 1-3 short paragraphs."
+    },
+    {
+      "key": "contextPromptFallback",
+      "type": "string",
+      "default": "Summarize ONLY the provided GitHub activity in plain text. 1-3 short sentences. Do not return JSON. Do not make suggestions or ask questions."
+    }
+  ],
+  "cards": [
+    { "id": "githubStatus", "title": "GitHub Collector" },
+    { "id": "githubRepos", "title": "Watched Repositories" }
+  ]
+}
