@@ -1,44 +1,19 @@
-declare module "@feedeater/core" {
-  export const MessageCreatedEventSchema: import("zod").ZodType<{
-    type: "MessageCreated";
-    message: NormalizedMessage;
-  }>;
-  export const NormalizedMessageSchema: import("zod").ZodType<NormalizedMessage>;
-  export const ContextUpdatedEventSchema: import("zod").ZodType<unknown>;
-  export function subjectFor(module: string, event: string): string;
+declare var process: any;
 
-  export interface NormalizedMessage {
-    id: string;
-    createdAt: string;
-    source: { module: string; stream?: string };
-    contextRef?: { ownerModule: string; sourceKey: string };
-    Message?: string;
-    From?: string;
-    isDirectMention: boolean;
-    isDigest: boolean;
-    isSystemMessage: boolean;
-    likes?: number;
-    tags?: Record<string, unknown>;
+declare module "pg" {
+  export type PoolClient = any;
+  export class Pool {
+    constructor(opts: any);
+    query(sql: string, params?: any[]): Promise<any>;
+    connect(): Promise<any>;
   }
 }
 
-declare module "@feedeater/module-sdk" {
-  import type { Pool } from "pg";
-  import type { NatsConnection, StringCodec } from "nats";
+declare module "uuid" {
+  export function v5(name: string, namespace: string): string;
+}
 
-  export interface JobContext {
-    db: Pool;
-    nats: NatsConnection;
-    sc: StringCodec;
-    fetchInternalSettings(module: string): Promise<Record<string, unknown>>;
-  }
-
-  export interface JobHandler {
-    (params: { ctx: JobContext }): Promise<{ metrics?: Record<string, unknown> }>;
-  }
-
-  export interface ModuleRuntime {
-    moduleName: string;
-    handlers: Record<string, Record<string, JobHandler>>;
-  }
+declare module "nats" {
+  export type NatsConnection = any;
+  export type StringCodec = any;
 }
