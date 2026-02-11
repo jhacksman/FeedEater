@@ -13,7 +13,8 @@
       "@feedeater/module-slack": ["modules/slack/src/index.ts"],
       "@feedeater/module-bluesky": ["modules/bluesky/src/index.ts"],
       "@feedeater/module-discord": ["modules/discord/src/index.ts"],
-      "@feedeater/module-twitch": ["modules/twitch/src/index.ts"]
+      "@feedeater/module-twitch": ["modules/twitch/src/index.ts"],
+      "@feedeater/module-hackernews": ["modules/hackernews/src/index.ts"]
     },
     "strict": true,
     "noUncheckedIndexedAccess": true,
