@@ -672,7 +672,7 @@ export class GitHubIngestor {
       let releases: GHRelease[];
       try {
         const result = await this.ghFetch<GHRelease[]>(
-          `${GH_API_BASE}/repos/${encodeURIComponent(repoFullName)}/releases?per_page=10`
+          `${GH_API_BASE}/repos/${repoFullName}/releases?per_page=10`
         );
         releases = result.data;
       } catch (err) {
