@@ -1049,7 +1049,7 @@ export class SignalIngestor {
         ["signal", contextKey]
       )) as { rows: Array<{ summaryLong?: string }> };
       const priorSummary = String(prior.rows?.[0]?.summaryLong ?? "");
-      const queryText = priorSummary || String(row.body ?? "");
+      const _queryText = priorSummary || String(row.body ?? "");
 
       // Get recent messages for this conversation
       const topK = Number.isFinite(this.contextTopK) ? this.contextTopK : 20;

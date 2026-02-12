@@ -6,7 +6,7 @@
   "scripts": {
     "build": "tsup src/runtime.ts --format esm --dts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "lint": "echo \"(no lint)\""
+    "lint": "eslint src/ --ext .ts"
   },
   "dependencies": {
     "@feedeater/module-sdk": "0.0.1"
@@ -17,5 +17,3 @@
     "typescript": "^5.9.2"
   }
 }
-
-

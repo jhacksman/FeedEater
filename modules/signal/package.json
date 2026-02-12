@@ -14,7 +14,7 @@
   "scripts": {
     "build": "tsup src/index.ts src/runtime.ts --format esm --dts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "lint": "echo \"(no lint configured yet)\""
+    "lint": "eslint src/ --ext .ts"
   },
   "dependencies": {
     "@feedeater/core": "0.0.1",
