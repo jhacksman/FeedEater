@@ -1,0 +1,49 @@
+{
+  "name": "aromer-strategy",
+  "version": "0.0.1",
+  "description": "AROMER cross-venue quant strategy. Subscribes to all venue NATS feeds, aggregates cross-venue signals using event-resolver mappings, runs paper trading with realistic fees/slippage/latency, and tracks P&L/Sharpe/drawdown with a configurable kill switch.",
+  "namespace": "feedeater.aromer-strategy",
+  "runtime": { "entry": "dist/runtime.js" },
+  "queues": ["mod_aromer_strategy"],
+  "jobs": [
+    {
+      "name": "paperTrade",
+      "queue": "mod_aromer_strategy",
+      "schedule": "*/1 * * * *",
+      "description": "Paper trading cycle: subscribe to all venue NATS feeds, aggregate cross-venue signals, simulate trades."
+    },
+    {
+      "name": "reportMetrics",
+      "queue": "mod_aromer_strategy",
+      "schedule": "*/5 * * * *",
+      "description": "Snapshot current P&L, Sharpe, win rate, max drawdown, per-venue edge to NATS + Postgres."
+    },
+    {
+      "name": "backtest",
+      "queue": "mod_aromer_strategy",
+      "triggeredBy": "manual",
+      "description": "Run backtest using historical trades from all venues. Requires start_time and end_time in job data."
+    }
+  ],
+  "settings": [
+    { "key": "enabled", "type": "boolean", "default": false },
+    { "key": "minConfidence", "type": "number", "default": 0.6, "description": "Minimum event-resolver mapping confidence to act on a signal" },
+    { "key": "venueWeights", "type": "string", "default": "{\"kalshi\":1.0,\"polymarket\":1.0,\"coinbase\":1.5,\"kraken\":1.2,\"binance\":1.5,\"uniswap\":0.8,\"arbitrum-dex\":0.8}", "description": "JSON: venue name -> signal weight multiplier" },
+    { "key": "positionSizeUsd", "type": "number", "default": 1000, "description": "Default notional per trade in USD" },
+    { "key": "maxPositionSizeUsd", "type": "number", "default": 5000, "description": "Kill switch: max notional per position in USD" },
+    { "key": "maxConcurrentPositions", "type": "number", "default": 10, "description": "Kill switch: max open positions at any time" },
+    { "key": "maxDailyLossUsd", "type": "number", "default": 5000, "description": "Kill switch: max loss per day before halting" },
+    { "key": "signalThresholdPct", "type": "number", "default": 0.5, "description": "Minimum price move % on leader venue to generate a signal" },
+    { "key": "signalDecayMs", "type": "number", "default": 60000, "description": "Milliseconds before a signal expires" },
+    { "key": "slippageBps", "type": "number", "default": 10, "description": "Simulated slippage in basis points" },
+    { "key": "feesBps", "type": "number", "default": 25, "description": "Simulated fees in basis points" },
+    { "key": "latencyMs", "type": "number", "default": 200, "description": "Simulated order latency in milliseconds" },
+    { "key": "initialCapitalUsd", "type": "number", "default": 100000, "description": "Starting capital for P&L tracking" },
+    { "key": "riskFreeRate", "type": "number", "default": 0.05, "description": "Annual risk-free rate for Sharpe ratio" }
+  ],
+  "cards": [
+    { "id": "aromerStatus", "title": "AROMER Strategy" },
+    { "id": "aromerPnL", "title": "P&L Summary" },
+    { "id": "aromerSignals", "title": "Signal Feed" }
+  ]
+}
