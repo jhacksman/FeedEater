@@ -6,6 +6,10 @@ export const PolymarketSettingsSchema = z.object({
   watchedCategories: z.string().default("[\"politics\", \"crypto\", \"sports\"]"),
   minVolume: z.number().positive().default(10000),
   collectComments: z.boolean().default(false),
+  collectAllTrades: z.boolean().default(true),
+  whaleThreshold: z.number().positive().default(50000),
+  orderbookEnabled: z.boolean().default(true),
+  orderbookIntervalMs: z.number().positive().default(60000),
   lookbackHours: z.number().positive().default(24),
   contextPrompt: z.string().default(
     "You are summarizing prediction market activity on Polymarket. Summarize ONLY the market data provided. Include current probabilities, volume, and notable movements. Return strict JSON with keys: summary_short and summary_long. summary_short must be <= 128 characters. summary_long should be 1-3 short paragraphs. Do not return empty strings."

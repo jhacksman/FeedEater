@@ -1,8 +1,11 @@
 import type { Pool } from "pg";
 import { v5 as uuidv5 } from "uuid";
 import type { NatsConnection, StringCodec } from "nats";
+import WebSocket from "ws";
 
 import { ContextUpdatedEventSchema, MessageCreatedEventSchema, NormalizedMessageSchema, subjectFor } from "@feedeater/core";
+
+const POLYMARKET_CLOB_WS = "wss://ws-subscriptions-clob.polymarket.com/ws/";
 
 export type PolymarketSettings = {
   enabled: boolean;
@@ -10,6 +13,10 @@ export type PolymarketSettings = {
   watchedCategories: string;
   minVolume: number;
   collectComments: boolean;
+  collectAllTrades: boolean;
+  whaleThreshold: number;
+  orderbookEnabled: boolean;
+  orderbookIntervalMs: number;
   lookbackHours: number;
   contextPrompt: string;
   contextPromptFallback: string;
@@ -24,6 +31,10 @@ export function parsePolymarketSettingsFromInternal(raw: Record<string, unknown>
   const watchedCategories = String(raw.watchedCategories ?? "[\"politics\", \"crypto\", \"sports\"]");
   const minVolume = raw.minVolume ? Number(raw.minVolume) : 10000;
   const collectComments = String(raw.collectComments ?? "false") === "true";
+  const collectAllTrades = String(raw.collectAllTrades ?? "true") === "true";
+  const whaleThreshold = raw.whaleThreshold ? Number(raw.whaleThreshold) : 50000;
+  const orderbookEnabled = String(raw.orderbookEnabled ?? "true") === "true";
+  const orderbookIntervalMs = raw.orderbookIntervalMs ? Number(raw.orderbookIntervalMs) : 60000;
   const lookbackHours = raw.lookbackHours ? Number(raw.lookbackHours) : 24;
   const defaultContextPrompt =
     "You are summarizing prediction market activity on Polymarket. Summarize ONLY the market data provided. Include current probabilities, volume, and notable movements. Return strict JSON with keys: summary_short and summary_long. summary_short must be <= 128 characters. summary_long should be 1-3 short paragraphs. Do not return empty strings.";
@@ -35,6 +46,9 @@ export function parsePolymarketSettingsFromInternal(raw: Record<string, unknown>
   if (!Number.isFinite(lookbackHours) || lookbackHours <= 0) {
     throw new Error('Polymarket setting "lookbackHours" must be a positive number');
   }
+  if (!Number.isFinite(whaleThreshold) || whaleThreshold <= 0) {
+    throw new Error('Polymarket setting "whaleThreshold" must be a positive number');
+  }
 
   return {
     enabled,
@@ -42,6 +56,10 @@ export function parsePolymarketSettingsFromInternal(raw: Record<string, unknown>
     watchedCategories,
     minVolume,
     collectComments,
+    collectAllTrades,
+    whaleThreshold,
+    orderbookEnabled,
+    orderbookIntervalMs,
     lookbackHours,
     contextPrompt,
     contextPromptFallback,
@@ -175,6 +193,47 @@ export class PolymarketIngestor {
     await this.db.query(`CREATE INDEX IF NOT EXISTS polymarket_markets_event_idx ON mod_polymarket.markets (event_id)`);
     await this.db.query(`CREATE INDEX IF NOT EXISTS polymarket_markets_volume_idx ON mod_polymarket.markets (volume_24h DESC)`);
 
+    await this.db.query(`
+      CREATE TABLE IF NOT EXISTS mod_polymarket.trades (
+        id text PRIMARY KEY,
+        market_id text NOT NULL,
+        condition_id text NOT NULL,
+        asset_id text NOT NULL,
+        outcome text,
+        side text NOT NULL,
+        size numeric NOT NULL,
+        price numeric NOT NULL,
+        notional_usd numeric NOT NULL,
+        size_category text NOT NULL,
+        is_whale boolean NOT NULL DEFAULT false,
+        taker_order_id text,
+        timestamp_ms bigint NOT NULL,
+        created_at timestamptz NOT NULL,
+        collected_at timestamptz NOT NULL DEFAULT now()
+      )
+    `);
+    await this.db.query(`CREATE INDEX IF NOT EXISTS polymarket_trades_market_idx ON mod_polymarket.trades (market_id, created_at)`);
+    await this.db.query(`CREATE INDEX IF NOT EXISTS polymarket_trades_timestamp_idx ON mod_polymarket.trades (timestamp_ms DESC)`);
+    await this.db.query(`CREATE INDEX IF NOT EXISTS polymarket_trades_whale_idx ON mod_polymarket.trades (is_whale, created_at) WHERE is_whale = true`);
+    await this.db.query(`CREATE INDEX IF NOT EXISTS polymarket_trades_condition_idx ON mod_polymarket.trades (condition_id, created_at)`);
+
+    await this.db.query(`
+      CREATE TABLE IF NOT EXISTS mod_polymarket.orderbook_snapshots (
+        id text PRIMARY KEY,
+        market_id text NOT NULL,
+        condition_id text NOT NULL,
+        asset_id text NOT NULL,
+        bids_json text NOT NULL,
+        asks_json text NOT NULL,
+        mid_price numeric NOT NULL,
+        spread_bps numeric NOT NULL,
+        snapshot_at timestamptz NOT NULL,
+        collected_at timestamptz NOT NULL DEFAULT now()
+      )
+    `);
+    await this.db.query(`CREATE INDEX IF NOT EXISTS polymarket_orderbook_market_idx ON mod_polymarket.orderbook_snapshots (market_id, snapshot_at)`);
+    await this.db.query(`CREATE INDEX IF NOT EXISTS polymarket_orderbook_condition_idx ON mod_polymarket.orderbook_snapshots (condition_id, snapshot_at)`);
+
     const embedDim = Number.isFinite(this.embedDim) ? this.embedDim : 4096;
     await this.db.query(`
       CREATE TABLE IF NOT EXISTS mod_polymarket.market_embeddings (
@@ -200,6 +259,351 @@ export class PolymarketIngestor {
     } else {
       await this.db.query(`DROP INDEX IF EXISTS polymarket_embeddings_vec_idx`);
       this.log("warn", "skipping ivfflat index (embedding dim > 2000)", { embedDim });
+    }
+  }
+
+  private getSizeCategory(notionalUsd: number): string {
+    if (notionalUsd >= this.settings.whaleThreshold) return "whale";
+    if (notionalUsd >= 10000) return "large";
+    if (notionalUsd >= 1000) return "medium";
+    return "small";
+  }
+
+  private async getActiveAssetIds(): Promise<{ assetId: string; conditionId: string; marketId: string; outcome: string }[]> {
+    const res = await this.db.query(
+      `SELECT m.id as market_id, m.condition_id, m.outcomes, m.payload
+       FROM mod_polymarket.markets m
+       WHERE m.closed = false AND m.volume_24h >= $1
+       ORDER BY m.volume_24h DESC
+       LIMIT 50`,
+      [this.settings.minVolume]
+    );
+
+    const assetIds: { assetId: string; conditionId: string; marketId: string; outcome: string }[] = [];
+    for (const row of res.rows) {
+      try {
+        const payload = typeof row.payload === "string" ? JSON.parse(row.payload) : row.payload;
+        const outcomes = typeof row.outcomes === "string" ? JSON.parse(row.outcomes) : row.outcomes;
+        const tokens = payload?.tokens || payload?.clobTokenIds || [];
+        if (Array.isArray(tokens)) {
+          for (let i = 0; i < tokens.length; i++) {
+            const tokenId = typeof tokens[i] === "object" ? tokens[i]?.token_id : tokens[i];
+            if (tokenId) {
+              assetIds.push({
+                assetId: String(tokenId),
+                conditionId: row.condition_id,
+                marketId: row.market_id,
+                outcome: outcomes?.[i] ?? `Outcome ${i}`,
+              });
+            }
+          }
+        }
+      } catch (err) {
+        this.log("warn", "failed to parse market payload for asset IDs", { marketId: row.market_id });
+      }
+    }
+    return assetIds;
+  }
+
+  private ws: WebSocket | null = null;
+  private isStreaming = false;
+  private reconnectDelay = 1000;
+  private maxReconnectDelay = 60000;
+  private orderbook: Map<string, { bids: { price: number; size: number }[]; asks: { price: number; size: number }[] }> = new Map();
+  private lastOrderbookSnapshot: Map<string, number> = new Map();
+  private assetToMarketMap: Map<string, { conditionId: string; marketId: string; outcome: string }> = new Map();
+  private tradesCollected = 0;
+  private snapshotsSaved = 0;
+  private messagesPublished = 0;
+
+  async startStreaming(): Promise<{ tradesCollected: number; snapshotsSaved: number; messagesPublished: number }> {
+    this.isStreaming = true;
+    this.tradesCollected = 0;
+    this.snapshotsSaved = 0;
+    this.messagesPublished = 0;
+
+    const assetInfos = await this.getActiveAssetIds();
+    if (assetInfos.length === 0) {
+      this.log("warn", "no active markets found for streaming");
+      return { tradesCollected: 0, snapshotsSaved: 0, messagesPublished: 0 };
+    }
+
+    this.assetToMarketMap.clear();
+    for (const info of assetInfos) {
+      this.assetToMarketMap.set(info.assetId, { conditionId: info.conditionId, marketId: info.marketId, outcome: info.outcome });
+    }
+
+    const assetIds = assetInfos.map((a) => a.assetId);
+    this.log("info", "starting WebSocket stream", { assetCount: assetIds.length });
+
+    try {
+      await this.connectWebSocket(assetIds);
+
+      await new Promise<void>((resolve) => {
+        const checkInterval = setInterval(() => {
+          if (!this.isStreaming) {
+            clearInterval(checkInterval);
+            resolve();
+          }
+        }, 1000);
+
+        setTimeout(() => {
+          this.isStreaming = false;
+          clearInterval(checkInterval);
+          resolve();
+        }, 55000);
+      });
+    } catch (err) {
+      this.log("error", "streaming error", { err: err instanceof Error ? err.message : err });
+    } finally {
+      if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+        this.ws.close();
+      }
+      this.isStreaming = false;
+    }
+
+    return { tradesCollected: this.tradesCollected, snapshotsSaved: this.snapshotsSaved, messagesPublished: this.messagesPublished };
+  }
+
+  private async connectWebSocket(assetIds: string[]): Promise<void> {
+    return new Promise((resolve, reject) => {
+      this.ws = new WebSocket(POLYMARKET_CLOB_WS);
+
+      this.ws.on("open", () => {
+        this.log("info", "WebSocket connected to Polymarket CLOB");
+        this.reconnectDelay = 1000;
+
+        const subscribeMsg = {
+          type: "MARKET",
+          assets_ids: assetIds,
+        };
+        this.ws!.send(JSON.stringify(subscribeMsg));
+        this.log("debug", "subscribed to market channel", { assetCount: assetIds.length });
+        resolve();
+      });
+
+      this.ws.on("message", async (data: Buffer) => {
+        try {
+          const msg = JSON.parse(data.toString());
+          await this.handleWebSocketMessage(msg);
+        } catch (err) {
+          this.log("error", "failed to parse WebSocket message", { err: err instanceof Error ? err.message : err });
+        }
+      });
+
+      this.ws.on("error", (err) => {
+        this.log("error", "WebSocket error", { err: err.message });
+        reject(err);
+      });
+
+      this.ws.on("close", () => {
+        this.log("warn", "WebSocket closed");
+        if (this.isStreaming) {
+          this.scheduleReconnect(assetIds);
+        }
+      });
+    });
+  }
+
+  private scheduleReconnect(assetIds: string[]): void {
+    this.log("info", `scheduling reconnect in ${this.reconnectDelay}ms`);
+    setTimeout(async () => {
+      try {
+        await this.connectWebSocket(assetIds);
+      } catch (err) {
+        this.reconnectDelay = Math.min(this.reconnectDelay * 2, this.maxReconnectDelay);
+        if (this.isStreaming) {
+          this.scheduleReconnect(assetIds);
+        }
+      }
+    }, this.reconnectDelay);
+  }
+
+  private async handleWebSocketMessage(msg: any): Promise<void> {
+    const eventType = msg.event_type;
+
+    if (eventType === "book") {
+      await this.handleBookMessage(msg);
+    } else if (eventType === "price_change") {
+      await this.handlePriceChangeMessage(msg);
+    } else if (eventType === "last_trade_price") {
+      await this.handleTradeMessage(msg);
+    }
+  }
+
+  private async handleBookMessage(msg: any): Promise<void> {
+    const assetId = msg.asset_id;
+    const marketInfo = this.assetToMarketMap.get(assetId);
+    if (!marketInfo) return;
+
+    const bids = (msg.bids || msg.buys || []).map((b: any) => ({
+      price: parseFloat(b.price),
+      size: parseFloat(b.size),
+    }));
+    const asks = (msg.asks || msg.sells || []).map((a: any) => ({
+      price: parseFloat(a.price),
+      size: parseFloat(a.size),
+    }));
+
+    this.orderbook.set(assetId, { bids, asks });
+
+    if (this.settings.orderbookEnabled) {
+      await this.maybeSnapshotOrderbook(assetId, marketInfo);
+    }
+  }
+
+  private async maybeSnapshotOrderbook(assetId: string, marketInfo: { conditionId: string; marketId: string; outcome: string }): Promise<void> {
+    const now = Date.now();
+    const lastSnapshot = this.lastOrderbookSnapshot.get(assetId) ?? 0;
+    if (now - lastSnapshot < this.settings.orderbookIntervalMs) return;
+
+    const book = this.orderbook.get(assetId);
+    if (!book || book.bids.length === 0 || book.asks.length === 0) return;
+
+    const topBids = book.bids.slice(0, 20);
+    const topAsks = book.asks.slice(0, 20);
+    const bestBid = topBids[0]?.price ?? 0;
+    const bestAsk = topAsks[0]?.price ?? 0;
+    const midPrice = (bestBid + bestAsk) / 2;
+    const spreadBps = midPrice > 0 ? ((bestAsk - bestBid) / midPrice) * 10000 : 0;
+
+    const snapshotId = uuidv5(`polymarket:orderbook:${assetId}:${now}`, UUID_NAMESPACE);
+    const snapshotTime = new Date(now);
+
+    try {
+      await this.db.query(
+        `INSERT INTO mod_polymarket.orderbook_snapshots (id, market_id, condition_id, asset_id, bids_json, asks_json, mid_price, spread_bps, snapshot_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+         ON CONFLICT (id) DO NOTHING`,
+        [snapshotId, marketInfo.marketId, marketInfo.conditionId, assetId, JSON.stringify(topBids), JSON.stringify(topAsks), midPrice, spreadBps, snapshotTime]
+      );
+      this.lastOrderbookSnapshot.set(assetId, now);
+      this.snapshotsSaved++;
+      this.log("debug", "saved orderbook snapshot", { assetId, midPrice, spreadBps });
+    } catch (err) {
+      this.log("error", "failed to save orderbook snapshot", { assetId, err: err instanceof Error ? err.message : err });
+    }
+  }
+
+  private async handlePriceChangeMessage(msg: any): Promise<void> {
+    const assetId = msg.asset_id;
+    const marketInfo = this.assetToMarketMap.get(assetId);
+    if (!marketInfo) return;
+
+    const price = parseFloat(msg.price || "0");
+    const size = parseFloat(msg.size || "0");
+    const side = msg.side?.toUpperCase() === "BUY" ? "buy" : "sell";
+    const timestampMs = parseInt(msg.timestamp || String(Date.now()), 10);
+
+    if (size > 0 && this.settings.collectAllTrades) {
+      await this.storeTrade({
+        tradeId: `pm_pc_${assetId}_${timestampMs}`,
+        marketId: marketInfo.marketId,
+        conditionId: marketInfo.conditionId,
+        assetId,
+        outcome: marketInfo.outcome,
+        side,
+        size,
+        price,
+        timestampMs,
+      });
+    }
+  }
+
+  private async handleTradeMessage(msg: any): Promise<void> {
+    const assetId = msg.asset_id;
+    const marketInfo = this.assetToMarketMap.get(assetId);
+    if (!marketInfo) return;
+
+    const price = parseFloat(msg.price || "0");
+    const size = parseFloat(msg.size || "0");
+    const side = msg.side?.toUpperCase() === "BUY" ? "buy" : "sell";
+    const timestampMs = parseInt(msg.timestamp || String(Date.now()), 10);
+
+    if (size > 0 && this.settings.collectAllTrades) {
+      await this.storeTrade({
+        tradeId: `pm_ltp_${assetId}_${timestampMs}`,
+        marketId: marketInfo.marketId,
+        conditionId: marketInfo.conditionId,
+        assetId,
+        outcome: marketInfo.outcome,
+        side,
+        size,
+        price,
+        timestampMs,
+      });
+    }
+  }
+
+  private async storeTrade(trade: {
+    tradeId: string;
+    marketId: string;
+    conditionId: string;
+    assetId: string;
+    outcome: string;
+    side: string;
+    size: number;
+    price: number;
+    timestampMs: number;
+    takerOrderId?: string;
+  }): Promise<void> {
+    const notionalUsd = trade.size * trade.price;
+    const sizeCategory = this.getSizeCategory(notionalUsd);
+    const isWhale = sizeCategory === "whale";
+    const createdAt = new Date(trade.timestampMs);
+
+    try {
+      await this.db.query(
+        `INSERT INTO mod_polymarket.trades (id, market_id, condition_id, asset_id, outcome, side, size, price, notional_usd, size_category, is_whale, taker_order_id, timestamp_ms, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+         ON CONFLICT (id) DO NOTHING`,
+        [trade.tradeId, trade.marketId, trade.conditionId, trade.assetId, trade.outcome, trade.side, trade.size, trade.price, notionalUsd, sizeCategory, isWhale, trade.takerOrderId ?? null, trade.timestampMs, createdAt]
+      );
+      this.tradesCollected++;
+
+      const messageId = uuidv5(`polymarket:trade:${trade.tradeId}`, UUID_NAMESPACE);
+      const direction = trade.side === "buy" ? "bullish" : "bearish";
+      const messageText = `${trade.outcome} ${trade.side.toUpperCase()} ${trade.size.toFixed(2)} @ ${(trade.price * 100).toFixed(1)}% = $${notionalUsd.toLocaleString()}`;
+
+      const normalized = NormalizedMessageSchema.parse({
+        id: messageId,
+        createdAt: createdAt.toISOString(),
+        source: { module: "polymarket", stream: trade.conditionId },
+        contextRef: { ownerModule: "polymarket", sourceKey: `market:${trade.conditionId}` },
+        Message: messageText,
+        From: "Polymarket",
+        isDirectMention: false,
+        isDigest: false,
+        isSystemMessage: false,
+        likes: Math.floor(notionalUsd),
+        tags: {
+          marketId: trade.marketId,
+          conditionId: trade.conditionId,
+          assetId: trade.assetId,
+          outcome: trade.outcome,
+          side: trade.side,
+          size: trade.size,
+          price: trade.price,
+          notionalUsd,
+          sizeCategory,
+          isWhale,
+          direction,
+        },
+      });
+
+      const msgEvent = MessageCreatedEventSchema.parse({
+        type: "MessageCreated",
+        message: normalized,
+      });
+
+      this.nats.publish(subjectFor("polymarket", "messageCreated"), this.sc.encode(JSON.stringify(msgEvent)));
+      this.messagesPublished++;
+
+      if (isWhale) {
+        this.log("info", "whale trade detected", { tradeId: trade.tradeId, notionalUsd, outcome: trade.outcome, side: trade.side });
+      }
+    } catch (err) {
+      this.log("error", "failed to store trade", { tradeId: trade.tradeId, err: err instanceof Error ? err.message : err });
     }
   }
 
