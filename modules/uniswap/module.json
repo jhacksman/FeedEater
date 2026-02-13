@@ -1,0 +1,23 @@
+{
+  "name": "uniswap",
+  "version": "0.0.1",
+  "description": "Uniswap V2/V3 swap collector for Ethereum L1.",
+  "namespace": "feedeater.uniswap",
+  "runtime": { "entry": "dist/runtime.js" },
+  "queues": ["mod_uniswap"],
+  "jobs": [
+    {
+      "name": "listen",
+      "queue": "mod_uniswap",
+      "schedule": "* * * * *",
+      "description": "Ensure the Uniswap WebSocket listener is running (auto-reconnect)."
+    }
+  ],
+  "settings": [
+    { "key": "enabled", "type": "boolean", "default": true },
+    { "key": "rpcUrl", "type": "string", "default": "ws://192.168.0.134:8546", "description": "Ethereum L1 WebSocket RPC" },
+    { "key": "whaleThreshold", "type": "number", "default": 50000, "description": "USD threshold to flag whale swaps" },
+    { "key": "watchedPairs", "type": "string", "default": "[\"0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640\",\"0x11b815efB8f581194ae5486326430326078dF15A\",\"0xCBCdF9626bC03E24f779434178A73a0B4bad62eD\"]", "description": "JSON array of pair/pool addresses to monitor" }
+  ],
+  "cards": [ { "id": "uniswapStatus", "title": "Uniswap Collector" } ]
+}
