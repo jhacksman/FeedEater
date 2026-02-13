@@ -1,0 +1,33 @@
+{
+  "name": "replay",
+  "version": "0.0.1",
+  "description": "Historical replay engine. Replays collected data from all modules at accelerated speed, measuring cross-venue lead-lag timing for backtesting.",
+  "namespace": "feedeater.replay",
+  "runtime": { "entry": "dist/runtime.js" },
+  "queues": ["mod_replay"],
+  "jobs": [
+    {
+      "name": "startReplay",
+      "queue": "mod_replay",
+      "description": "Start a historical replay session with configurable speed and time range."
+    },
+    {
+      "name": "analyzeLeadLag",
+      "queue": "mod_replay",
+      "description": "Analyze cross-venue lead-lag relationships from collected data."
+    }
+  ],
+  "settings": [
+    { "key": "enabled", "type": "boolean", "default": false },
+    { "key": "replaySpeed", "type": "number", "default": 10, "description": "Replay speed multiplier (1x, 10x, 100x)" },
+    { "key": "startTime", "type": "string", "default": "", "description": "ISO timestamp to start replay from (empty = 24h ago)" },
+    { "key": "endTime", "type": "string", "default": "", "description": "ISO timestamp to end replay at (empty = now)" },
+    { "key": "includeKalshi", "type": "boolean", "default": true, "description": "Include Kalshi trades in replay" },
+    { "key": "includePolymarket", "type": "boolean", "default": true, "description": "Include Polymarket markets in replay" },
+    { "key": "replayChannelPrefix", "type": "string", "default": "replay", "description": "NATS channel prefix for replayed events" }
+  ],
+  "cards": [
+    { "id": "replayStatus", "title": "Replay Engine" },
+    { "id": "leadLagAnalysis", "title": "Lead-Lag Analysis" }
+  ]
+}
