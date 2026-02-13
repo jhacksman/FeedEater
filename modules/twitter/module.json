@@ -1,6 +1,6 @@
 {
   "name": "twitter",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "namespace": "feedeater.twitter",
   "runtime": { "entry": "dist/runtime.js" },
   "queues": ["mod_twitter"],
@@ -9,7 +9,7 @@
       "name": "collect",
       "queue": "mod_twitter",
       "schedule": "*/15 * * * *",
-      "description": "Collect tweets from configured feeds (home, lists, mentions) and persist into mod_twitter."
+      "description": "Collect tweets from configured feeds (user timelines, home, lists, search) and persist into mod_twitter."
     },
     {
       "name": "updateContexts",
@@ -21,18 +21,24 @@
   "settings": [
     { "key": "enabled", "type": "boolean", "default": true },
     {
-      "key": "feedSources",
+      "key": "authMode",
       "type": "string",
-      "default": "[{\"type\":\"home\",\"variant\":\"foryou\"}]",
-      "description": "JSON array of feed sources. Types: home (variants: foryou/following), list (id required), mentions"
+      "default": "guest",
+      "description": "Authentication mode: 'guest' (limited, no login) or 'user' (full access with login)"
     },
     {
-      "key": "cookieSource",
+      "key": "apiKey",
       "type": "string",
       "default": "",
-      "description": "Browser cookie source. Format: 'chrome:Profile Name' or 'firefox:profile-name'. Leave empty to auto-detect."
+      "description": "Rettiwt API key from browser extension (required for 'user' auth mode)"
     },
-    { "key": "tweetsPerRequest", "type": "number", "default": 50 },
+    {
+      "key": "feedSources",
+      "type": "string",
+      "default": "[{\"type\":\"user\",\"username\":\"elonmusk\"}]",
+      "description": "JSON array of feed sources. Types: user (username required), home (requires auth), list (listId required), search (query required)"
+    },
+    { "key": "tweetsPerRequest", "type": "number", "default": 20 },
     { "key": "lookbackHours", "type": "number", "default": 24 },
     { "key": "requestDelayMs", "type": "number", "default": 5000, "description": "Delay between feed requests to avoid rate limits" },
     {
