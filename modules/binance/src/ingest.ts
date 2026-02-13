@@ -90,6 +90,7 @@ export class BinanceIngestor {
   private orderbook: Map<string, { bids: OrderbookLevel[]; asks: OrderbookLevel[] }> = new Map();
   private lastOrderbookSnapshot: Map<string, number> = new Map();
   private tradeCounter = 0;
+  private snapshotCounter = 0;
 
   private log(level: "debug" | "info" | "warn" | "error", message: string, meta?: unknown) {
     try {
@@ -211,7 +212,7 @@ export class BinanceIngestor {
       );
 
       if (isWhale) {
-        const direction = trade.side === "sell" ? "bullish" : "bearish";
+        const direction = trade.side === "buy" ? "bullish" : "bearish";
         const messageId = uuidv5(`binance:whale:${trade.trade_id}`, UUID_NAMESPACE);
         const messageText = `WHALE TRADE: ${trade.symbol} ${trade.side.toUpperCase()} ${trade.size.toFixed(4)} @ $${trade.price.toLocaleString()} = $${notionalUsd.toLocaleString()}`;
 
@@ -357,6 +358,7 @@ export class BinanceIngestor {
         [snapshotId, symbol, JSON.stringify(book.bids.slice(0, 20)), JSON.stringify(book.asks.slice(0, 20)), midPrice, spreadBps, snapshotTime]
       );
       this.lastOrderbookSnapshot.set(symbol, now);
+      this.snapshotCounter++;
       this.log("debug", "saved orderbook snapshot", { symbol, midPrice, spreadBps });
     } catch (err) {
       this.log("error", "failed to save orderbook snapshot", { symbol, err: err instanceof Error ? err.message : err });
@@ -456,9 +458,9 @@ export class BinanceIngestor {
 
   async startStreaming(): Promise<{ tradesCollected: number; candlesFlushed: number; snapshotsSaved: number }> {
     this.isRunning = true;
-    let tradesCollected = 0;
+    this.tradeCounter = 0;
+    this.snapshotCounter = 0;
     let candlesFlushed = 0;
-    let snapshotsSaved = 0;
 
     try {
       await this.connectWebSocket();
@@ -493,7 +495,7 @@ export class BinanceIngestor {
       this.isRunning = false;
     }
 
-    return { tradesCollected, candlesFlushed, snapshotsSaved };
+    return { tradesCollected: this.tradeCounter, candlesFlushed, snapshotsSaved: this.snapshotCounter };
   }
 
   async collectViaRest(): Promise<{ tradesCollected: number; messagesPublished: number }> {

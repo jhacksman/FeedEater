@@ -89,6 +89,8 @@ export class CoinbaseIngestor {
   private lastCandleFlush: Map<string, number> = new Map();
   private orderbook: Map<string, { bids: OrderbookLevel[]; asks: OrderbookLevel[] }> = new Map();
   private lastOrderbookSnapshot: Map<string, number> = new Map();
+  private tradeCounter = 0;
+  private snapshotCounter = 0;
 
   private log(level: "debug" | "info" | "warn" | "error", message: string, meta?: unknown) {
     try {
@@ -212,7 +214,7 @@ export class CoinbaseIngestor {
       );
 
       if (isWhale) {
-        const direction = trade.side === "sell" ? "bullish" : "bearish";
+        const direction = trade.side === "buy" ? "bullish" : "bearish";
         const messageId = uuidv5(`coinbase:whale:${trade.trade_id}`, UUID_NAMESPACE);
         const messageText = `WHALE TRADE: ${trade.product_id} ${trade.side.toUpperCase()} ${size.toFixed(4)} @ $${price.toLocaleString()} = $${notionalUsd.toLocaleString()}`;
 
@@ -358,6 +360,7 @@ export class CoinbaseIngestor {
         [snapshotId, pair, JSON.stringify(book.bids.slice(0, 20)), JSON.stringify(book.asks.slice(0, 20)), midPrice, spreadBps, snapshotTime]
       );
       this.lastOrderbookSnapshot.set(pair, now);
+      this.snapshotCounter++;
       this.log("debug", "saved orderbook snapshot", { pair, midPrice, spreadBps });
     } catch (err) {
       this.log("error", "failed to save orderbook snapshot", { pair, err: err instanceof Error ? err.message : err });
@@ -416,6 +419,7 @@ export class CoinbaseIngestor {
     const msgType = msg.type;
 
     if (msgType === "match" || msgType === "last_match") {
+      this.tradeCounter++;
       const trade: CoinbaseTrade = {
         trade_id: String(msg.trade_id),
         product_id: msg.product_id,
@@ -467,9 +471,9 @@ export class CoinbaseIngestor {
 
   async startStreaming(): Promise<{ tradesCollected: number; candlesFlushed: number; snapshotsSaved: number }> {
     this.isRunning = true;
-    let tradesCollected = 0;
+    this.tradeCounter = 0;
+    this.snapshotCounter = 0;
     let candlesFlushed = 0;
-    let snapshotsSaved = 0;
 
     try {
       await this.connectWebSocket();
@@ -504,7 +508,7 @@ export class CoinbaseIngestor {
       this.isRunning = false;
     }
 
-    return { tradesCollected, candlesFlushed, snapshotsSaved };
+    return { tradesCollected: this.tradeCounter, candlesFlushed, snapshotsSaved: this.snapshotCounter };
   }
 
   async collectViaRest(): Promise<{ tradesCollected: number; messagesPublished: number }> {
