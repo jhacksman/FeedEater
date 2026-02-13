@@ -1,0 +1,27 @@
+{
+  "name": "arbitrum-dex",
+  "version": "0.0.1",
+  "description": "Arbitrum DEX collector for Uniswap V3 swaps and GMX V2 position events via Infura WebSocket.",
+  "namespace": "feedeater.arbitrum_dex",
+  "runtime": { "entry": "dist/runtime.js" },
+  "queues": ["mod_arbitrum_dex"],
+  "jobs": [
+    {
+      "name": "listen",
+      "queue": "mod_arbitrum_dex",
+      "schedule": "* * * * *",
+      "description": "Ensure the Arbitrum DEX WebSocket listener is running (auto-reconnect)."
+    }
+  ],
+  "settings": [
+    { "key": "enabled", "type": "boolean", "default": true },
+    { "key": "rpcUrl", "type": "string", "default": "wss://arbitrum-mainnet.infura.io/ws/v3/7792954778014ea7a9d6b88268ef912c", "description": "Arbitrum WebSocket RPC URL" },
+    { "key": "whaleThreshold", "type": "number", "default": 50000, "description": "USD threshold to flag whale swaps/positions" },
+    { "key": "watchedUniswapPools", "type": "string", "default": "[\"0xC31E54c7a869B9FcBEcc14363CF510d1c41fa443\",\"0xC6962004f452bE9203591991D15f6b388e09E8D0\",\"0x641C00A822e8b671738d32a431a4Fb6074E5c79d\"]", "description": "JSON array of Uniswap V3 pool addresses on Arbitrum (WETH/USDC, WETH/USDT, WBTC/WETH)" },
+    { "key": "enableGmx", "type": "boolean", "default": true, "description": "Enable GMX V2 position event collection" }
+  ],
+  "cards": [
+    { "id": "arbitrumDexStatus", "title": "Arbitrum DEX Collector" },
+    { "id": "gmxPositions", "title": "GMX Positions" }
+  ]
+}
