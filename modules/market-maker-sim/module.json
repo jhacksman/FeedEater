@@ -1,0 +1,46 @@
+{
+  "name": "market-maker-sim",
+  "version": "0.0.1",
+  "description": "Market maker simulator for prediction markets. Simulates liquidity provision strategies on Kalshi/Polymarket using historical trade data, with backtest and paper trading modes.",
+  "namespace": "feedeater.market-maker-sim",
+  "runtime": { "entry": "dist/runtime.js" },
+  "queues": ["mod_market_maker_sim"],
+  "jobs": [
+    {
+      "name": "backtest",
+      "queue": "mod_market_maker_sim",
+      "description": "Run backtest simulation using historical trades from Postgres. Replays trades and simulates market maker P&L."
+    },
+    {
+      "name": "paperTrade",
+      "queue": "mod_market_maker_sim",
+      "schedule": "*/1 * * * *",
+      "description": "Paper trading mode: consume live NATS events, simulate fills at quoted prices, track real-time P&L."
+    },
+    {
+      "name": "reportStats",
+      "queue": "mod_market_maker_sim",
+      "schedule": "*/5 * * * *",
+      "description": "Output summary stats (fill rate, P&L, Sharpe, inventory) to NATS and Postgres."
+    }
+  ],
+  "settings": [
+    { "key": "enabled", "type": "boolean", "default": false },
+    { "key": "mode", "type": "string", "default": "paper", "description": "Simulation mode: 'backtest' or 'paper'" },
+    { "key": "spreadBps", "type": "number", "default": 100, "description": "Quote spread in basis points (100 = 1%)" },
+    { "key": "positionLimitUsd", "type": "number", "default": 10000, "description": "Maximum position size in USD" },
+    { "key": "inventorySkewFactor", "type": "number", "default": 0.5, "description": "How much to skew quotes based on inventory (0-1)" },
+    { "key": "includeKalshi", "type": "boolean", "default": true, "description": "Include Kalshi markets in simulation" },
+    { "key": "includePolymarket", "type": "boolean", "default": true, "description": "Include Polymarket markets in simulation" },
+    { "key": "backtestStartTime", "type": "string", "default": "", "description": "ISO timestamp to start backtest from (empty = 24h ago)" },
+    { "key": "backtestEndTime", "type": "string", "default": "", "description": "ISO timestamp to end backtest at (empty = now)" },
+    { "key": "backtestSpeedMultiplier", "type": "number", "default": 100, "description": "Backtest replay speed multiplier" },
+    { "key": "initialCapitalUsd", "type": "number", "default": 100000, "description": "Initial capital for simulation in USD" },
+    { "key": "riskFreeRate", "type": "number", "default": 0.05, "description": "Annual risk-free rate for Sharpe calculation" }
+  ],
+  "cards": [
+    { "id": "mmSimStatus", "title": "Market Maker Simulator" },
+    { "id": "mmSimPnL", "title": "P&L Summary" },
+    { "id": "mmSimMetrics", "title": "Performance Metrics" }
+  ]
+}
