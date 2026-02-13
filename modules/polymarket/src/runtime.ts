@@ -51,6 +51,41 @@ export function createModuleRuntime(): ModuleRuntime {
           };
         },
 
+        async stream({ ctx }) {
+          const raw = await ctx.fetchInternalSettings("polymarket");
+          const settings = parsePolymarketSettingsFromInternal(raw);
+          if (!settings.enabled) {
+            return {
+              metrics: {
+                skipped: true,
+                reason: "module disabled",
+              },
+            };
+          }
+
+          const sysRaw = await ctx.fetchInternalSettings("system");
+          const sys = parseSystemContextSettings(sysRaw);
+          const apiBaseUrl = process.env.FEED_API_BASE_URL ?? "http://localhost:4000";
+          const internalToken = process.env.FEED_INTERNAL_TOKEN ?? "";
+          const ingestor = new PolymarketIngestor(settings, ctx.db, ctx.nats, ctx.sc, {
+            apiBaseUrl,
+            internalToken,
+            contextTopK: sys.contextTopK,
+            embedDim: sys.embedDim,
+          });
+
+          await ingestor.ensureSchema();
+          const result = await ingestor.startStreaming();
+
+          return {
+            metrics: {
+              trades_collected: result.tradesCollected,
+              snapshots_saved: result.snapshotsSaved,
+              messages_published: result.messagesPublished,
+            },
+          };
+        },
+
         async updateContexts({ ctx }) {
           const raw = await ctx.fetchInternalSettings("polymarket");
           const settings = parsePolymarketSettingsFromInternal(raw);

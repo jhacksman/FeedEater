@@ -1,7 +1,7 @@
 {
   "name": "polymarket",
-  "version": "0.0.1",
-  "description": "Polymarket prediction market integration. Collects market data and trading activity from the decentralized prediction market.",
+  "version": "0.1.0",
+  "description": "Polymarket prediction market integration. Full trade stream collection via CLOB WebSocket, order book snapshots, and whale detection.",
   "namespace": "feedeater.polymarket",
   "runtime": { "entry": "dist/runtime.js" },
   "queues": ["mod_polymarket"],
@@ -11,6 +11,12 @@
       "queue": "mod_polymarket",
       "schedule": "*/5 * * * *",
       "description": "Collect market data and recent activity from Polymarket and persist into mod_polymarket."
+    },
+    {
+      "name": "stream",
+      "queue": "mod_polymarket",
+      "schedule": "*/1 * * * *",
+      "description": "Maintain WebSocket connection to CLOB API for real-time trade streaming and order book snapshots."
     },
     {
       "name": "updateContexts",
@@ -25,6 +31,10 @@
     { "key": "watchedCategories", "type": "string", "default": "[\"politics\", \"crypto\", \"sports\"]", "description": "JSON array of categories to watch" },
     { "key": "minVolume", "type": "number", "default": 10000, "description": "Minimum 24h volume to include market" },
     { "key": "collectComments", "type": "boolean", "default": false, "description": "Collect market comments/discussion" },
+    { "key": "collectAllTrades", "type": "boolean", "default": true, "description": "Collect ALL trades (not just whales)" },
+    { "key": "whaleThreshold", "type": "number", "default": 50000, "description": "Minimum trade size in USD to flag as whale" },
+    { "key": "orderbookEnabled", "type": "boolean", "default": true, "description": "Collect order book snapshots" },
+    { "key": "orderbookIntervalMs", "type": "number", "default": 60000, "description": "Order book snapshot interval in milliseconds" },
     { "key": "lookbackHours", "type": "number", "default": 24, "description": "How many hours of history to collect" },
     {
       "key": "contextPrompt",
@@ -39,6 +49,7 @@
   ],
   "cards": [
     { "id": "polymarketStatus", "title": "Polymarket Collector" },
-    { "id": "polymarketMarkets", "title": "Watched Markets" }
+    { "id": "polymarketMarkets", "title": "Watched Markets" },
+    { "id": "polymarketTrades", "title": "Trade Stream" }
   ]
 }
