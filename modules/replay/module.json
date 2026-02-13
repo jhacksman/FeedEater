@@ -1,0 +1,32 @@
+{
+  "name": "replay",
+  "version": "0.0.1",
+  "description": "Historical replay engine. Replays all FeedEater messages at accelerated speed, preserving chronological ordering across venues. Measures cross-venue lead-lag for matched events.",
+  "namespace": "feedeater.replay",
+  "runtime": { "entry": "dist/runtime.js" },
+  "queues": ["mod_replay"],
+  "jobs": [
+    {
+      "name": "replay",
+      "queue": "mod_replay",
+      "triggeredBy": "manual",
+      "description": "Replay historical messages onto NATS at accelerated speed. Requires start_time and end_time in job data."
+    },
+    {
+      "name": "leadLagReport",
+      "queue": "mod_replay",
+      "triggeredBy": "manual",
+      "description": "Generate cross-venue lead-lag report from event-resolver mappings. Requires start_time and end_time in job data."
+    }
+  ],
+  "settings": [
+    { "key": "enabled", "type": "boolean", "default": false },
+    { "key": "speedMultiplier", "type": "number", "default": 100, "description": "Replay speed: 10x, 100x, or 1000x real-time" },
+    { "key": "filterModules", "type": "string", "default": "[]", "description": "JSON array of module names to filter (empty = all modules)" },
+    { "key": "batchSize", "type": "number", "default": 1000, "description": "Number of messages to load per batch from DB" }
+  ],
+  "cards": [
+    { "id": "replayStatus", "title": "Replay Engine" },
+    { "id": "leadLagReport", "title": "Lead-Lag Report" }
+  ]
+}
