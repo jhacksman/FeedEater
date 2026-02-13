@@ -1,0 +1,45 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model PolygonSwap {
+  id            String   @id @default(uuid())
+  createdAt     DateTime @default(now())
+  chain         String   @default("polygon")
+  dex           String
+  pool          String
+  txHash        String
+  block         BigInt
+  timestampMs   BigInt
+  token0Amount  Decimal  @db.Decimal(38, 18)
+  token1Amount  Decimal  @db.Decimal(38, 18)
+  usdValue      Decimal  @db.Decimal(38, 2)
+  sender        String
+  isWhale       Boolean
+
+  @@schema("mod_polygon_dex")
+}
+
+model PolymarketSettlement {
+  id              String   @id @default(uuid())
+  createdAt       DateTime @default(now())
+  eventType       String
+  txHash          String
+  block           BigInt
+  timestampMs     BigInt
+  conditionId     String
+  questionId      String?
+  payoutNumerators String?
+  redeemer        String?
+  collateralToken String?
+  indexSets       String?
+  payout          Decimal? @db.Decimal(38, 18)
+  isWhale         Boolean
+
+  @@schema("mod_polygon_dex")
+}
