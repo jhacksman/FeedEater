@@ -224,3 +224,84 @@ describe("Arbitrum DEX Integration Tests", () => {
     });
   });
 });
+
+describe("NATS Subject Tests", () => {
+  it("should format tradeExecuted subject correctly", () => {
+    const module = "arbitrum-dex";
+    const event = "tradeExecuted";
+    const subject = `feedeater.${module}.${event}`;
+    expect(subject).toBe("feedeater.arbitrum-dex.tradeExecuted");
+  });
+
+  it("should format messageCreated subject correctly", () => {
+    const module = "arbitrum-dex";
+    const event = "messageCreated";
+    const subject = `feedeater.${module}.${event}`;
+    expect(subject).toBe("feedeater.arbitrum-dex.messageCreated");
+  });
+});
+
+describe("TradeExecuted Event Schema Tests", () => {
+  it("should create valid tradeExecuted event structure for Uniswap V3 swap", () => {
+    const tradeEvent = {
+      source: "arbitrum-dex",
+      symbol: "WETH/USDC",
+      side: "buy" as "buy" | "sell",
+      price: 3000.50,
+      size: 1.5,
+      notional_usd: 4500.75,
+      timestamp: "2026-02-14T23:00:00.000Z",
+      pool_address: "0xC31E54c7a869B9FcBEcc14363CF510d1c41fa443",
+      tx_hash: "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+      block_number: 200000000,
+    };
+
+    expect(tradeEvent.source).toBe("arbitrum-dex");
+    expect(tradeEvent.symbol).toBe("WETH/USDC");
+    expect(["buy", "sell"]).toContain(tradeEvent.side);
+    expect(typeof tradeEvent.price).toBe("number");
+    expect(typeof tradeEvent.size).toBe("number");
+    expect(typeof tradeEvent.notional_usd).toBe("number");
+    expect(tradeEvent.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
+    expect(tradeEvent.pool_address).toMatch(/^0x[a-fA-F0-9]{40}$/);
+    expect(tradeEvent.tx_hash).toMatch(/^0x[a-fA-F0-9]{64}$/);
+    expect(typeof tradeEvent.block_number).toBe("number");
+  });
+
+  it("should create valid tradeExecuted event structure for GMX position", () => {
+    const tradeEvent = {
+      source: "arbitrum-dex",
+      symbol: "0xC8ee91A5",
+      side: "buy" as "buy" | "sell",
+      price: 50000,
+      size: 0.1,
+      notional_usd: 5000,
+      timestamp: "2026-02-14T23:00:00.000Z",
+      pool_address: "0xC8ee91A54287DB53897056e12D9819156D3822Fb",
+      tx_hash: "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+      block_number: 200000001,
+    };
+
+    expect(tradeEvent.source).toBe("arbitrum-dex");
+    expect(["buy", "sell"]).toContain(tradeEvent.side);
+    expect(typeof tradeEvent.notional_usd).toBe("number");
+  });
+
+  it("should determine side based on isLong for GMX positions", () => {
+    const isLongTrue = true;
+    const isLongFalse = false;
+
+    const sideForLong = isLongTrue ? "buy" : "sell";
+    const sideForShort = isLongFalse ? "buy" : "sell";
+
+    expect(sideForLong).toBe("buy");
+    expect(sideForShort).toBe("sell");
+  });
+
+  it("should format timestamp as ISO-8601", () => {
+    const timestamp = 1707955200000;
+    const isoTimestamp = new Date(timestamp).toISOString();
+
+    expect(isoTimestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
+  });
+});

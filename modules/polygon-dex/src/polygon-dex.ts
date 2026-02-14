@@ -303,7 +303,22 @@ export class PolygonDexCollector {
       message: normalized,
     });
 
-    this.nats.publish(subjectFor("polygon-dex", "tradeExecuted"), this.sc.encode(JSON.stringify(msgEvent)));
+    this.nats.publish(subjectFor("polygon-dex", "messageCreated"), this.sc.encode(JSON.stringify(msgEvent)));
+
+    const tradeEvent = {
+      source: "polygon-dex",
+      symbol: pairLabel,
+      side: swap.amount0 > 0n ? "sell" : "buy" as "buy" | "sell",
+      price: swap.usdValue / Math.abs(Number(swap.amount0) / Math.pow(10, token0Info.decimals) || 1),
+      size: Math.abs(Number(swap.amount0) / Math.pow(10, token0Info.decimals)),
+      notional_usd: swap.usdValue,
+      timestamp: new Date(swap.timestamp).toISOString(),
+      pool_address: swap.pool,
+      tx_hash: swap.txHash,
+      block_number: swap.blockNumber,
+    };
+
+    this.nats.publish(subjectFor("polygon-dex", "tradeExecuted"), this.sc.encode(JSON.stringify(tradeEvent)));
 
     if (swap.isWhale) {
       this.log("info", "Whale swap detected", {
