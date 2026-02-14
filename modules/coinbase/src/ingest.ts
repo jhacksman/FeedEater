@@ -213,6 +213,20 @@ export class CoinbaseIngestor {
         [trade.trade_id, trade.product_id, price, size, trade.side, notionalUsd, isWhale, trade.time]
       );
 
+      const tradeEvent = {
+        source: "coinbase",
+        symbol: trade.product_id,
+        side: trade.side as "buy" | "sell",
+        price,
+        size,
+        notional_usd: notionalUsd,
+        timestamp: trade.time,
+      };
+      this.nats.publish(
+        subjectFor("coinbase", "tradeExecuted"),
+        this.sc.encode(JSON.stringify(tradeEvent))
+      );
+
       if (isWhale) {
         const direction = trade.side === "buy" ? "bullish" : "bearish";
         const messageId = uuidv5(`coinbase:whale:${trade.trade_id}`, UUID_NAMESPACE);

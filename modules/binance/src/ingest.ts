@@ -211,6 +211,20 @@ export class BinanceIngestor {
         [trade.trade_id, trade.symbol, trade.price, trade.size, trade.side, notionalUsd, isWhale, trade.time]
       );
 
+      const tradeEvent = {
+        source: "binance",
+        symbol: trade.symbol,
+        side: trade.side as "buy" | "sell",
+        price: trade.price,
+        size: trade.size,
+        notional_usd: notionalUsd,
+        timestamp: trade.time,
+      };
+      this.nats.publish(
+        subjectFor("binance", "tradeExecuted"),
+        this.sc.encode(JSON.stringify(tradeEvent))
+      );
+
       if (isWhale) {
         const direction = trade.side === "buy" ? "bullish" : "bearish";
         const messageId = uuidv5(`binance:whale:${trade.trade_id}`, UUID_NAMESPACE);
