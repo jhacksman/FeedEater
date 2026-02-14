@@ -19,6 +19,12 @@
       "description": "Maintain WebSocket connection to CLOB API for real-time trade streaming and order book snapshots."
     },
     {
+      "name": "collectTrades",
+      "queue": "mod_polymarket",
+      "schedule": "*/5 * * * *",
+      "description": "Fetch recent trades via REST API from data-api.polymarket.com and persist into mod_polymarket.trades."
+    },
+    {
       "name": "updateContexts",
       "queue": "mod_polymarket",
       "schedule": "*/30 * * * *",
