@@ -12,12 +12,19 @@ services:
       interval: 5s
       timeout: 5s
       retries: 20
+    restart: unless-stopped
 
   nats:
     image: nats:2.10-alpine
-    command: ["-js", "-sd", "/data"]
+    command: ["-js", "-sd", "/data", "-m", "8222"]
     volumes:
       - nats_data:/data
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8222/healthz"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
 
   api:
     build:
@@ -31,13 +38,30 @@ services:
       FEED_MODULES_DIR: /app/modules
       FEED_INTERNAL_TOKEN: ${FEED_INTERNAL_TOKEN:-dev-internal-token}
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-}
+      # Financial module API keys (optional)
+      COINBASE_API_KEY: ${COINBASE_API_KEY:-}
+      COINBASE_API_SECRET: ${COINBASE_API_SECRET:-}
+      KRAKEN_API_KEY: ${KRAKEN_API_KEY:-}
+      KRAKEN_API_SECRET: ${KRAKEN_API_SECRET:-}
+      BINANCE_API_KEY: ${BINANCE_API_KEY:-}
+      BINANCE_API_SECRET: ${BINANCE_API_SECRET:-}
+      KALSHI_API_KEY: ${KALSHI_API_KEY:-}
+      POLYMARKET_API_KEY: ${POLYMARKET_API_KEY:-}
+      UNISWAP_RPC_URL: ${UNISWAP_RPC_URL:-ws://localhost:8546}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
       postgres:
         condition: service_healthy
       nats:
-        condition: service_started
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:4000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
 
   worker:
     build:
@@ -50,13 +74,32 @@ services:
       FEED_INTERNAL_TOKEN: ${FEED_INTERNAL_TOKEN:-dev-internal-token}
       FEED_API_BASE_URL: ${FEED_API_BASE_URL:-http://api:4000}
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-}
+      # Financial module API keys (optional)
+      COINBASE_API_KEY: ${COINBASE_API_KEY:-}
+      COINBASE_API_SECRET: ${COINBASE_API_SECRET:-}
+      KRAKEN_API_KEY: ${KRAKEN_API_KEY:-}
+      KRAKEN_API_SECRET: ${KRAKEN_API_SECRET:-}
+      BINANCE_API_KEY: ${BINANCE_API_KEY:-}
+      BINANCE_API_SECRET: ${BINANCE_API_SECRET:-}
+      KALSHI_API_KEY: ${KALSHI_API_KEY:-}
+      POLYMARKET_API_KEY: ${POLYMARKET_API_KEY:-}
+      UNISWAP_RPC_URL: ${UNISWAP_RPC_URL:-ws://localhost:8546}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
       postgres:
         condition: service_healthy
       nats:
-        condition: service_started
+        condition: service_healthy
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "pgrep", "-f", "node"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
 
   web:
     build:
@@ -65,21 +108,35 @@ services:
     environment:
       PORT: "3000"
       NEXT_PUBLIC_BASE_PATH: ""
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://api:4000}
     depends_on:
       api:
-        condition: service_started
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
 
   proxy:
     image: caddy:2-alpine
     ports:
-      - "666:666"
+      - "${PROXY_PORT:-666}:666"
     volumes:
       - ./docker/Caddyfile:/etc/caddy/Caddyfile:ro
     depends_on:
       web:
-        condition: service_started
+        condition: service_healthy
       api:
-        condition: service_started
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:666"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
 
 volumes:
   postgres_data:
