@@ -37,7 +37,7 @@ interface CoinbaseSubscriptionsMessage {
 
 describe("Coinbase WebSocket Integration Tests", () => {
   describe("WebSocket Connection", () => {
-    it("should connect to Coinbase WebSocket", async () => {
+    it("should connect to Coinbase WebSocket", { timeout: CONNECTION_TIMEOUT }, async () => {
       const connected = await new Promise<boolean>((resolve) => {
         const ws = new WebSocket(COINBASE_WS_URL);
         const timeout = setTimeout(() => {
@@ -61,7 +61,7 @@ describe("Coinbase WebSocket Integration Tests", () => {
       expect(connected).toBe(true);
     });
 
-    it("should receive subscriptions confirmation after subscribing", async () => {
+    it("should receive subscriptions confirmation after subscribing", { timeout: CONNECTION_TIMEOUT }, async () => {
       const result = await new Promise<{ subscribed: boolean; channels: string[] }>((resolve) => {
         const ws = new WebSocket(COINBASE_WS_URL);
         
@@ -202,14 +202,13 @@ describe("Coinbase WebSocket Integration Tests", () => {
         });
       });
 
-      if (result) {
-        expect(["buy", "sell"]).toContain(result.side);
-      }
+      expect(result).not.toBeNull();
+      expect(["buy", "sell"]).toContain(result!.side);
     });
   });
 
   describe("Orderbook Stream (Level2)", () => {
-    it("should receive orderbook snapshot after subscribing to level2", async () => {
+    it("should receive orderbook snapshot after subscribing to level2", { timeout: MESSAGE_TIMEOUT }, async () => {
       const result = await new Promise<{ received: boolean; snapshot: CoinbaseSnapshotMessage | null }>((resolve) => {
         const ws = new WebSocket(COINBASE_WS_URL);
         let snapshot: CoinbaseSnapshotMessage | null = null;
@@ -261,7 +260,7 @@ describe("Coinbase WebSocket Integration Tests", () => {
       }
     });
 
-    it("should parse orderbook snapshot levels correctly", async () => {
+    it("should parse orderbook snapshot levels correctly", { timeout: MESSAGE_TIMEOUT }, async () => {
       const result = await new Promise<CoinbaseSnapshotMessage | null>((resolve) => {
         const ws = new WebSocket(COINBASE_WS_URL);
         
@@ -325,7 +324,7 @@ describe("Coinbase WebSocket Integration Tests", () => {
       }
     });
 
-    it("should receive l2update messages after snapshot", async () => {
+    it("should receive l2update messages after snapshot", { timeout: MESSAGE_TIMEOUT }, async () => {
       const result = await new Promise<{ snapshot: boolean; updates: number }>((resolve) => {
         const ws = new WebSocket(COINBASE_WS_URL);
         let snapshot = false;
@@ -374,7 +373,7 @@ describe("Coinbase WebSocket Integration Tests", () => {
       expect(result.updates).toBeGreaterThan(0);
     });
 
-    it("should parse l2update changes correctly", async () => {
+    it("should parse l2update changes correctly", { timeout: MESSAGE_TIMEOUT }, async () => {
       const result = await new Promise<CoinbaseL2UpdateMessage | null>((resolve) => {
         const ws = new WebSocket(COINBASE_WS_URL);
         
@@ -412,21 +411,20 @@ describe("Coinbase WebSocket Integration Tests", () => {
         });
       });
 
-      if (result) {
-        expect(result.type).toBe("l2update");
-        expect(result.product_id).toBe(TEST_PAIR);
-        expect(Array.isArray(result.changes)).toBe(true);
+      expect(result).not.toBeNull();
+      expect(result!.type).toBe("l2update");
+      expect(result!.product_id).toBe(TEST_PAIR);
+      expect(Array.isArray(result!.changes)).toBe(true);
+      
+      for (const change of result!.changes) {
+        expect(change.length).toBe(3);
+        const side = change[0];
+        const price = parseFloat(change[1]);
+        const size = parseFloat(change[2]);
         
-        for (const change of result.changes) {
-          expect(change.length).toBe(3);
-          const side = change[0];
-          const price = parseFloat(change[1]);
-          const size = parseFloat(change[2]);
-          
-          expect(["buy", "sell"]).toContain(side);
-          expect(price).toBeGreaterThan(0);
-          expect(size).toBeGreaterThanOrEqual(0);
-        }
+        expect(["buy", "sell"]).toContain(side);
+        expect(price).toBeGreaterThan(0);
+        expect(size).toBeGreaterThanOrEqual(0);
       }
     });
   });
@@ -481,6 +479,7 @@ describe("Coinbase WebSocket Integration Tests", () => {
         });
       });
 
+      expect(result.matches).toBeGreaterThan(0);
       expect(result.snapshots).toBeGreaterThan(0);
       expect(result.updates).toBeGreaterThan(0);
     });

@@ -40,7 +40,7 @@ interface KrakenBookMessage {
 
 describe("Kraken WebSocket Integration Tests", () => {
   describe("WebSocket Connection", () => {
-    it("should connect to Kraken WebSocket v2", async () => {
+    it("should connect to Kraken WebSocket v2", { timeout: CONNECTION_TIMEOUT }, async () => {
       const connected = await new Promise<boolean>((resolve) => {
         const ws = new WebSocket(KRAKEN_WS_URL);
         const timeout = setTimeout(() => {
@@ -64,7 +64,7 @@ describe("Kraken WebSocket Integration Tests", () => {
       expect(connected).toBe(true);
     });
 
-    it("should receive heartbeat or status message after connection", async () => {
+    it("should receive heartbeat or status message after connection", { timeout: CONNECTION_TIMEOUT }, async () => {
       const result = await new Promise<{ received: boolean; messageType: string | null }>((resolve) => {
         const ws = new WebSocket(KRAKEN_WS_URL);
         
@@ -202,14 +202,13 @@ describe("Kraken WebSocket Integration Tests", () => {
         });
       });
 
-      if (result) {
-        expect(["buy", "sell"]).toContain(result.side);
-      }
+      expect(result).not.toBeNull();
+      expect(["buy", "sell"]).toContain(result!.side);
     });
   });
 
   describe("Orderbook Stream Subscription", () => {
-    it("should subscribe to book channel and receive orderbook data", async () => {
+    it("should subscribe to book channel and receive orderbook data", { timeout: MESSAGE_TIMEOUT }, async () => {
       const result = await new Promise<{ subscribed: boolean; book: KrakenBookMessage | null }>((resolve) => {
         const ws = new WebSocket(KRAKEN_WS_URL);
         let subscribed = false;
@@ -270,7 +269,7 @@ describe("Kraken WebSocket Integration Tests", () => {
       }
     });
 
-    it("should parse orderbook levels correctly", async () => {
+    it("should parse orderbook levels correctly", { timeout: MESSAGE_TIMEOUT }, async () => {
       const result = await new Promise<KrakenBookData | null>((resolve) => {
         const ws = new WebSocket(KRAKEN_WS_URL);
         
@@ -314,23 +313,22 @@ describe("Kraken WebSocket Integration Tests", () => {
         });
       });
 
-      if (result) {
-        if (result.bids && result.bids.length > 0) {
-          for (const bid of result.bids) {
-            const price = parseFloat(bid.price);
-            const qty = parseFloat(bid.qty);
-            expect(price).toBeGreaterThan(0);
-            expect(qty).toBeGreaterThanOrEqual(0);
-          }
+      expect(result).not.toBeNull();
+      if (result!.bids && result!.bids.length > 0) {
+        for (const bid of result!.bids) {
+          const price = parseFloat(bid.price);
+          const qty = parseFloat(bid.qty);
+          expect(price).toBeGreaterThan(0);
+          expect(qty).toBeGreaterThanOrEqual(0);
         }
-        
-        if (result.asks && result.asks.length > 0) {
-          for (const ask of result.asks) {
-            const price = parseFloat(ask.price);
-            const qty = parseFloat(ask.qty);
-            expect(price).toBeGreaterThan(0);
-            expect(qty).toBeGreaterThanOrEqual(0);
-          }
+      }
+      
+      if (result!.asks && result!.asks.length > 0) {
+        for (const ask of result!.asks) {
+          const price = parseFloat(ask.price);
+          const qty = parseFloat(ask.qty);
+          expect(price).toBeGreaterThan(0);
+          expect(qty).toBeGreaterThanOrEqual(0);
         }
       }
     });
@@ -395,6 +393,7 @@ describe("Kraken WebSocket Integration Tests", () => {
         });
       });
 
+      expect(result.trades).toBeGreaterThan(0);
       expect(result.books).toBeGreaterThan(0);
     });
   });

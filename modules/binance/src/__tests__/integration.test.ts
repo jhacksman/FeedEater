@@ -26,7 +26,7 @@ interface BinanceDepthMessage {
 
 describe("Binance WebSocket Integration Tests", () => {
   describe("WebSocket Connection", () => {
-    it("should connect to Binance WebSocket", async () => {
+    it("should connect to Binance WebSocket", { timeout: CONNECTION_TIMEOUT }, async () => {
       const wsUrl = `${BINANCE_WS_URL}/${TEST_PAIR}@trade`;
       
       const connected = await new Promise<boolean>((resolve) => {
@@ -52,7 +52,7 @@ describe("Binance WebSocket Integration Tests", () => {
       expect(connected).toBe(true);
     });
 
-    it("should handle connection to multiple streams", async () => {
+    it("should handle connection to multiple streams", { timeout: CONNECTION_TIMEOUT }, async () => {
       const streams = [`${TEST_PAIR}@trade`, `${TEST_PAIR}@depth@100ms`];
       const wsUrl = `${BINANCE_WS_URL}/${streams.join("/")}`;
       
@@ -165,15 +165,17 @@ describe("Binance WebSocket Integration Tests", () => {
       });
 
       expect(result).not.toBeNull();
-      if (result) {
-        const side = result.m ? "sell" : "buy";
-        expect(["buy", "sell"]).toContain(side);
-      }
+      // Binance uses maker flag (m) to determine trade side:
+      // m=true means the buyer is the maker, so the trade is a sell (taker sold)
+      // m=false means the seller is the maker, so the trade is a buy (taker bought)
+      expect(typeof result!.m).toBe("boolean");
+      const side = result!.m ? "sell" : "buy";
+      expect(["buy", "sell"]).toContain(side);
     });
   });
 
   describe("Orderbook Snapshot Parsing", () => {
-    it("should receive and parse depth update messages", async () => {
+    it("should receive and parse depth update messages", { timeout: MESSAGE_TIMEOUT }, async () => {
       const wsUrl = `${BINANCE_WS_URL}/${TEST_PAIR}@depth@100ms`;
       
       const result = await new Promise<{ received: boolean; depth: BinanceDepthMessage | null }>((resolve) => {
@@ -217,7 +219,7 @@ describe("Binance WebSocket Integration Tests", () => {
       }
     });
 
-    it("should parse orderbook levels correctly", async () => {
+    it("should parse orderbook levels correctly", { timeout: MESSAGE_TIMEOUT }, async () => {
       const wsUrl = `${BINANCE_WS_URL}/${TEST_PAIR}@depth@100ms`;
       
       const result = await new Promise<BinanceDepthMessage | null>((resolve) => {
