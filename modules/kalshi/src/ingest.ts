@@ -28,7 +28,7 @@ export function parseKalshiSettingsFromInternal(raw: Record<string, unknown>): K
   const collectTrades = String(raw.collectTrades ?? "true") !== "false";
   const collectOrderbook = String(raw.collectOrderbook ?? "false") === "true";
   const collectCandles = String(raw.collectCandles ?? "true") !== "false";
-  const lookbackHours= raw.lookbackHours ? Number(raw.lookbackHours) : 24;
+  const lookbackHours = raw.lookbackHours ? Number(raw.lookbackHours) : 24;
   const defaultContextPrompt =
     "You are summarizing prediction market activity. Summarize ONLY the market data provided. Include current prices, volume, and notable movements. Return strict JSON with keys: summary_short and summary_long. summary_short must be <= 128 characters. summary_long should be 1-3 short paragraphs. Do not return empty strings.";
   const defaultContextPromptFallback =
