@@ -47,6 +47,9 @@ export function createModuleRuntime(): ModuleRuntime {
               markets_updated: result.marketsUpdated,
               trades_collected: result.tradesCollected,
               messages_published: result.messagesPublished,
+              orderbook_snapshots: result.orderbookSnapshots,
+              candles_collected: result.candlesCollected,
+              settlements_detected: result.settlementsDetected,
             },
           };
         },

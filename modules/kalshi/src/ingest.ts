@@ -11,6 +11,7 @@ export type KalshiSettings = {
   watchedMarkets: string;
   collectTrades: boolean;
   collectOrderbook: boolean;
+  collectCandles: boolean;
   lookbackHours: number;
   contextPrompt: string;
   contextPromptFallback: string;
@@ -26,6 +27,7 @@ export function parseKalshiSettingsFromInternal(raw: Record<string, unknown>): K
   const watchedMarkets = String(raw.watchedMarkets ?? "[]");
   const collectTrades = String(raw.collectTrades ?? "true") !== "false";
   const collectOrderbook = String(raw.collectOrderbook ?? "false") === "true";
+  const collectCandles = String(raw.collectCandles ?? "true") !== "false";
   const lookbackHours = raw.lookbackHours ? Number(raw.lookbackHours) : 24;
   const defaultContextPrompt =
     "You are summarizing prediction market activity. Summarize ONLY the market data provided. Include current prices, volume, and notable movements. Return strict JSON with keys: summary_short and summary_long. summary_short must be <= 128 characters. summary_long should be 1-3 short paragraphs. Do not return empty strings.";
@@ -45,6 +47,7 @@ export function parseKalshiSettingsFromInternal(raw: Record<string, unknown>): K
     watchedMarkets,
     collectTrades,
     collectOrderbook,
+    collectCandles,
     lookbackHours,
     contextPrompt,
     contextPromptFallback,
@@ -89,7 +92,22 @@ interface KalshiTradesResponse {
   cursor: string;
 }
 
-type KalshiMarketRow = {
+interface KalshiCandle {
+  end_period_ts: number;
+  price: number;
+  volume: number;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+}
+
+interface KalshiCandlesResponse {
+  candlesticks: KalshiCandle[];
+  ticker: string;
+}
+
+type KalshiMarketRow= {
   ticker: string;
   title: string;
   subtitle: string | null;
@@ -107,6 +125,7 @@ export class KalshiIngestor {
   private contextTopK: number;
   private embedDim: number;
   private requestTimeoutMs: number;
+  private lastOrderbookSnapshot = new Map<string, number>();
 
   private log(level: "debug" | "info" | "warn" | "error", message: string, meta?: unknown) {
     try {
@@ -217,6 +236,48 @@ export class KalshiIngestor {
       await this.db.query(`DROP INDEX IF EXISTS kalshi_embeddings_vec_idx`);
       this.log("warn", "skipping ivfflat index (embedding dim > 2000)", { embedDim });
     }
+
+    await this.db.query(`
+      CREATE TABLE IF NOT EXISTS mod_kalshi.orderbook_snapshots (
+        id text PRIMARY KEY,
+        ticker text NOT NULL,
+        yes_bid numeric,
+        yes_ask numeric,
+        no_bid numeric,
+        no_ask numeric,
+        mid_price numeric,
+        spread numeric,
+        snapshot_at timestamptz NOT NULL
+      )
+    `);
+    await this.db.query(`CREATE INDEX IF NOT EXISTS kalshi_ob_ticker_idx ON mod_kalshi.orderbook_snapshots (ticker, snapshot_at)`);
+
+    await this.db.query(`
+      CREATE TABLE IF NOT EXISTS mod_kalshi.candles (
+        id text PRIMARY KEY,
+        ticker text NOT NULL,
+        end_period_ts bigint NOT NULL,
+        period_interval int NOT NULL DEFAULT 1,
+        open numeric NOT NULL,
+        high numeric NOT NULL,
+        low numeric NOT NULL,
+        close numeric NOT NULL,
+        volume numeric NOT NULL,
+        collected_at timestamptz NOT NULL DEFAULT now()
+      )
+    `);
+    await this.db.query(`CREATE INDEX IF NOT EXISTS kalshi_candles_ticker_idx ON mod_kalshi.candles (ticker, end_period_ts)`);
+
+    await this.db.query(`
+      CREATE TABLE IF NOT EXISTS mod_kalshi.settlements (
+        id text PRIMARY KEY,
+        ticker text NOT NULL,
+        title text NOT NULL,
+        result text NOT NULL,
+        settled_at timestamptz NOT NULL DEFAULT now()
+      )
+    `);
+    await this.db.query(`CREATE INDEX IF NOT EXISTS kalshi_settlements_ticker_idx ON mod_kalshi.settlements (ticker)`);
   }
 
   private async fetchMarkets(): Promise<KalshiMarket[]> {
@@ -292,13 +353,32 @@ export class KalshiIngestor {
     }
   }
 
-  async collectAndPersist(): Promise<{ marketsUpdated: number; tradesCollected: number; messagesPublished: number }> {
+  private async fetchCandles(ticker: string, startTs: number, endTs: number): Promise<KalshiCandle[]> {
+    const url = `${KALSHI_API_BASE}/markets/${encodeURIComponent(ticker)}/candlesticks?start_ts=${startTs}&end_ts=${endTs}&period_interval=1`;
+    this.log("debug", "fetching candles from Kalshi API", { url, ticker });
+
+    try {
+      const data = await this.fetchJson<KalshiCandlesResponse>(url);
+      return data.candlesticks ?? [];
+    } catch (err) {
+      this.log("warn", "failed to fetch candles", {
+        ticker,
+        err: err instanceof Error ? { name: err.name, message: err.message } : err,
+      });
+      return [];
+    }
+  }
+
+  async collectAndPersist(): Promise<{ marketsUpdated: number; tradesCollected: number; messagesPublished: number; orderbookSnapshots: number; candlesCollected: number; settlementsDetected: number }> {
     this.log("info", "kalshi collect starting", { watchedMarkets: this.settings.watchedMarkets });
 
     const markets = await this.fetchMarkets();
     let marketsUpdated = 0;
     let tradesCollected = 0;
     let messagesPublished = 0;
+    let orderbookSnapshots = 0;
+    let candlesCollected = 0;
+    let settlementsDetected = 0;
 
     for (const market of markets) {
       await this.db.query(
@@ -379,12 +459,160 @@ export class KalshiIngestor {
             ]
           );
           tradesCollected++;
+
+          const tradeMessageId = uuidv5(`kalshi:trade:${trade.trade_id}`, UUID_NAMESPACE);
+          const tradeNormalized = NormalizedMessageSchema.parse({
+            id: tradeMessageId,
+            createdAt: trade.created_time,
+            source: { module: "kalshi", stream: trade.ticker },
+            contextRef: { ownerModule: "kalshi", sourceKey: trade.ticker },
+            Message: `Trade: ${trade.ticker} ${trade.count} @ ${(trade.yes_price * 100).toFixed(0)}¢ YES (${trade.taker_side})`,
+            From: "Kalshi",
+            isDirectMention: false,
+            isDigest: false,
+            isSystemMessage: false,
+            likes: trade.count,
+            tags: {
+              ticker: trade.ticker,
+              tradeId: trade.trade_id,
+              yesPrice: trade.yes_price,
+              count: trade.count,
+              takerSide: trade.taker_side,
+            },
+          });
+          const tradeEvent = MessageCreatedEventSchema.parse({
+            type: "MessageCreated",
+            message: tradeNormalized,
+          });
+          this.nats.publish(subjectFor("kalshi", "tradeExecuted"), this.sc.encode(JSON.stringify(tradeEvent)));
+        }
+      }
+
+      if (this.settings.collectOrderbook) {
+        const now = Date.now();
+        const lastSnapshot = this.lastOrderbookSnapshot.get(market.ticker) ?? 0;
+        if (now - lastSnapshot >= 60000) {
+          const midPrice = (market.yes_bid + market.yes_ask) / 2;
+          const spread = market.yes_ask - market.yes_bid;
+          const snapshotId = uuidv5(`kalshi:orderbook:${market.ticker}:${now}`, UUID_NAMESPACE);
+          const snapshotTime = new Date(now);
+
+          try {
+            await this.db.query(
+              `INSERT INTO mod_kalshi.orderbook_snapshots (id, ticker, yes_bid, yes_ask, no_bid, no_ask, mid_price, spread, snapshot_at)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+               ON CONFLICT (id) DO NOTHING`,
+              [snapshotId, market.ticker, market.yes_bid, market.yes_ask, market.no_bid, market.no_ask, midPrice, spread, snapshotTime]
+            );
+            this.lastOrderbookSnapshot.set(market.ticker, now);
+            orderbookSnapshots++;
+
+            const obNormalized = NormalizedMessageSchema.parse({
+              id: snapshotId,
+              createdAt: snapshotTime.toISOString(),
+              source: { module: "kalshi", stream: market.ticker },
+              contextRef: { ownerModule: "kalshi", sourceKey: market.ticker },
+              Message: `Orderbook: ${market.ticker} YES bid ${(market.yes_bid * 100).toFixed(0)}¢ / ask ${(market.yes_ask * 100).toFixed(0)}¢ (spread ${(spread * 100).toFixed(1)}¢)`,
+              From: "Kalshi",
+              isDirectMention: false,
+              isDigest: false,
+              isSystemMessage: false,
+              likes: 0,
+              tags: {
+                ticker: market.ticker,
+                yesBid: market.yes_bid,
+                yesAsk: market.yes_ask,
+                noBid: market.no_bid,
+                noAsk: market.no_ask,
+                midPrice,
+                spread,
+              },
+            });
+            const obEvent = MessageCreatedEventSchema.parse({
+              type: "MessageCreated",
+              message: obNormalized,
+            });
+            this.nats.publish(subjectFor("kalshi", "orderbookSnapshot"), this.sc.encode(JSON.stringify(obEvent)));
+          } catch (err) {
+            this.log("warn", "failed to store orderbook snapshot", {
+              ticker: market.ticker,
+              err: err instanceof Error ? err.message : err,
+            });
+          }
+        }
+      }
+
+      if (this.settings.collectCandles) {
+        const endTs = Math.floor(Date.now() / 1000);
+        const startTs = endTs - 3600;
+        const candles = await this.fetchCandles(market.ticker, startTs, endTs);
+        for (const candle of candles) {
+          const candleId = uuidv5(`kalshi:candle:${market.ticker}:${candle.end_period_ts}`, UUID_NAMESPACE);
+          try {
+            await this.db.query(
+              `INSERT INTO mod_kalshi.candles (id, ticker, end_period_ts, period_interval, open, high, low, close, volume)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+               ON CONFLICT (id) DO NOTHING`,
+              [candleId, market.ticker, candle.end_period_ts, 1, candle.open, candle.high, candle.low, candle.close, candle.volume]
+            );
+            candlesCollected++;
+
+            const candleNormalized = NormalizedMessageSchema.parse({
+              id: candleId,
+              createdAt: new Date(candle.end_period_ts * 1000).toISOString(),
+              source: { module: "kalshi", stream: market.ticker },
+              contextRef: { ownerModule: "kalshi", sourceKey: market.ticker },
+              Message: `Candle: ${market.ticker} O:${(candle.open * 100).toFixed(0)}¢ H:${(candle.high * 100).toFixed(0)}¢ L:${(candle.low * 100).toFixed(0)}¢ C:${(candle.close * 100).toFixed(0)}¢ Vol:${candle.volume}`,
+              From: "Kalshi",
+              isDirectMention: false,
+              isDigest: false,
+              isSystemMessage: false,
+              likes: candle.volume,
+              tags: {
+                ticker: market.ticker,
+                open: candle.open,
+                high: candle.high,
+                low: candle.low,
+                close: candle.close,
+                volume: candle.volume,
+                endPeriodTs: candle.end_period_ts,
+              },
+            });
+            const candleEvent = MessageCreatedEventSchema.parse({
+              type: "MessageCreated",
+              message: candleNormalized,
+            });
+            this.nats.publish(subjectFor("kalshi", "candleClosed"), this.sc.encode(JSON.stringify(candleEvent)));
+          } catch (err) {
+            this.log("warn", "failed to store candle", {
+              ticker: market.ticker,
+              err: err instanceof Error ? err.message : err,
+            });
+          }
+        }
+      }
+
+      if (market.result && market.result !== "") {
+        const settlementId = uuidv5(`kalshi:settlement:${market.ticker}:${market.result}`, UUID_NAMESPACE);
+        try {
+          await this.db.query(
+            `INSERT INTO mod_kalshi.settlements (id, ticker, title, result)
+             VALUES ($1, $2, $3, $4)
+             ON CONFLICT (id) DO NOTHING`,
+            [settlementId, market.ticker, market.title, market.result]
+          );
+          settlementsDetected++;
+        } catch (err) {
+          this.log("warn", "failed to store settlement", {
+            ticker: market.ticker,
+            err: err instanceof Error ? err.message : err,
+          });
         }
       }
     }
 
-    this.log("info", "kalshi collect complete", { marketsUpdated, tradesCollected, messagesPublished });
-    return { marketsUpdated, tradesCollected, messagesPublished };
+    this.log("info", "kalshi collect complete", { marketsUpdated, tradesCollected, messagesPublished, orderbookSnapshots, candlesCollected, settlementsDetected });
+    return { marketsUpdated, tradesCollected, messagesPublished, orderbookSnapshots, candlesCollected, settlementsDetected };
   }
 
   private async aiGenerate(prompt: string): Promise<{

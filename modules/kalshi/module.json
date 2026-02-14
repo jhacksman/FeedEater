@@ -1,7 +1,7 @@
 {
   "name": "kalshi",
   "version": "0.0.1",
-  "description": "Kalshi prediction market integration. Collects market data, trades, and price movements.",
+  "description": "Kalshi prediction market integration. Collects market data, trades, orderbook snapshots, candles, and settlement events.",
   "namespace": "feedeater.kalshi",
   "runtime": { "entry": "dist/runtime.js" },
   "queues": ["mod_kalshi"],
@@ -26,6 +26,7 @@
     { "key": "watchedMarkets", "type": "string", "default": "[]", "description": "JSON array of market tickers to watch (empty = trending markets)" },
     { "key": "collectTrades", "type": "boolean", "default": true, "description": "Collect recent trades" },
     { "key": "collectOrderbook", "type": "boolean", "default": false, "description": "Collect orderbook snapshots" },
+    { "key": "collectCandles", "type": "boolean", "default": true, "description": "Collect 1-minute candle data" },
     { "key": "lookbackHours", "type": "number", "default": 24, "description": "How many hours of history to collect" },
     {
       "key": "contextPrompt",
