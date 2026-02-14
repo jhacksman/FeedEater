@@ -1,22 +1,28 @@
 {
   "name": "arbitrum-dex",
-  "version": "0.0.1",
-  "description": "Arbitrum DEX collector for Uniswap V3 swaps and GMX V2 position events via Infura WebSocket.",
+  "version": "0.1.0",
+  "description": "Arbitrum DEX collector for Uniswap V3 swaps and GMX V2 position events via configurable RPC WebSocket.",
   "namespace": "feedeater.arbitrum_dex",
   "runtime": { "entry": "dist/runtime.js" },
   "queues": ["mod_arbitrum_dex"],
   "jobs": [
     {
-      "name": "listen",
+      "name": "stream",
       "queue": "mod_arbitrum_dex",
-      "schedule": "* * * * *",
-      "description": "Ensure the Arbitrum DEX WebSocket listener is running (auto-reconnect)."
+      "schedule": "*/1 * * * *",
+      "description": "Maintain WebSocket connection to Arbitrum RPC for real-time Uniswap V3 swaps and GMX V2 position events."
+    },
+    {
+      "name": "collectSwaps",
+      "queue": "mod_arbitrum_dex",
+      "schedule": "*/5 * * * *",
+      "description": "Fetch recent Uniswap V3 swap events via eth_getLogs and persist into mod_arbitrum_dex.swaps."
     }
   ],
   "settings": [
     { "key": "enabled", "type": "boolean", "default": true },
-    { "key": "rpcUrl", "type": "string", "default": "wss://arbitrum-mainnet.infura.io/ws/v3/7792954778014ea7a9d6b88268ef912c", "description": "Arbitrum WebSocket RPC URL" },
-    { "key": "whaleThreshold", "type": "number", "default": 50000, "description": "USD threshold to flag whale swaps/positions" },
+    { "key": "rpcUrl", "type": "string", "default": "wss://arbitrum-mainnet.infura.io/ws/v3/YOUR_KEY", "description": "Arbitrum WebSocket or HTTPS RPC URL (Infura, Alchemy, etc.)" },
+    { "key": "whaleThreshold", "type": "number", "default": 50000, "description": "USD threshold to flag large swaps/positions" },
     { "key": "watchedUniswapPools", "type": "string", "default": "[\"0xC31E54c7a869B9FcBEcc14363CF510d1c41fa443\",\"0xC6962004f452bE9203591991D15f6b388e09E8D0\",\"0x641C00A822e8b671738d32a431a4Fb6074E5c79d\"]", "description": "JSON array of Uniswap V3 pool addresses on Arbitrum (WETH/USDC, WETH/USDT, WBTC/WETH)" },
     { "key": "enableGmx", "type": "boolean", "default": true, "description": "Enable GMX V2 position event collection" }
   ],
