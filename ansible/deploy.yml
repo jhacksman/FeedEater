@@ -1,5 +1,5 @@
 - name: Deploy FeedEater (docker-compose)
-  hosts: djx_spark
+  hosts: quato
   become: true
   vars:
     feedeater_root: /opt/feedeater

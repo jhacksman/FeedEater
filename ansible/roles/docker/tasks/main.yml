@@ -26,6 +26,5 @@
     name: docker
     state: started
     enabled: true
-  when: docker_version.rc == 0
 
 
