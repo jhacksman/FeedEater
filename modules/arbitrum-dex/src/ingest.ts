@@ -232,9 +232,23 @@ export class ArbitrumDexIngestor {
         subjectFor("arbitrum-dex", "messageCreated"),
         this.sc.encode(JSON.stringify(msgEvent))
       );
+
+      const tradeEvent = {
+        source: "arbitrum-dex",
+        symbol: `WETH/USDC`,
+        side: BigInt(swap.token0Amount) > 0n ? "sell" : "buy" as "buy" | "sell",
+        price: swap.usdValue / Math.abs(Number(swap.token0Amount) / 1e18 || 1),
+        size: Math.abs(Number(swap.token0Amount) / 1e18),
+        notional_usd: swap.usdValue,
+        timestamp: new Date(swap.timestampMs).toISOString(),
+        pool_address: swap.pool,
+        tx_hash: swap.txHash,
+        block_number: swap.blockNumber,
+      };
+
       this.nats.publish(
         subjectFor("arbitrum-dex", "tradeExecuted"),
-        this.sc.encode(JSON.stringify(msgEvent))
+        this.sc.encode(JSON.stringify(tradeEvent))
       );
       this.messagesPublished++;
     } catch (err) {
@@ -320,9 +334,23 @@ export class ArbitrumDexIngestor {
         subjectFor("arbitrum-dex", "messageCreated"),
         this.sc.encode(JSON.stringify(msgEvent))
       );
+
+      const tradeEvent = {
+        source: "arbitrum-dex",
+        symbol: pos.market.slice(0, 10),
+        side: pos.isLong ? "buy" : "sell" as "buy" | "sell",
+        price: usdValue / (Number(pos.sizeInTokens) / 1e18 || 1),
+        size: Number(pos.sizeInTokens) / 1e18,
+        notional_usd: usdValue,
+        timestamp: new Date(pos.timestampMs).toISOString(),
+        pool_address: pos.market,
+        tx_hash: pos.txHash,
+        block_number: pos.blockNumber,
+      };
+
       this.nats.publish(
         subjectFor("arbitrum-dex", "tradeExecuted"),
-        this.sc.encode(JSON.stringify(msgEvent))
+        this.sc.encode(JSON.stringify(tradeEvent))
       );
       this.messagesPublished++;
     } catch (err) {

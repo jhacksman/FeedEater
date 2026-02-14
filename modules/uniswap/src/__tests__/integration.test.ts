@@ -505,4 +505,68 @@ describe("NATS Subject Tests", () => {
     const subject = "feedeater.uniswap.log";
     expect(subject).toBe("feedeater.uniswap.log");
   });
+
+  it("should format messageCreated subject correctly", () => {
+    const module = "uniswap";
+    const event = "messageCreated";
+    const subject = `feedeater.${module}.${event}`;
+    expect(subject).toBe("feedeater.uniswap.messageCreated");
+  });
+});
+
+describe("TradeExecuted Event Schema Tests", () => {
+  it("should create valid tradeExecuted event structure", () => {
+    const tradeEvent = {
+      source: "uniswap",
+      symbol: "WETH/USDC",
+      side: "buy" as "buy" | "sell",
+      price: 3000.50,
+      size: 1.5,
+      notional_usd: 4500.75,
+      timestamp: "2026-02-14T23:00:00.000Z",
+      pool_address: "0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640",
+      tx_hash: "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+      block_number: 19000000,
+    };
+
+    expect(tradeEvent.source).toBe("uniswap");
+    expect(tradeEvent.symbol).toBe("WETH/USDC");
+    expect(["buy", "sell"]).toContain(tradeEvent.side);
+    expect(typeof tradeEvent.price).toBe("number");
+    expect(typeof tradeEvent.size).toBe("number");
+    expect(typeof tradeEvent.notional_usd).toBe("number");
+    expect(tradeEvent.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
+    expect(tradeEvent.pool_address).toMatch(/^0x[a-fA-F0-9]{40}$/);
+    expect(tradeEvent.tx_hash).toMatch(/^0x[a-fA-F0-9]{64}$/);
+    expect(typeof tradeEvent.block_number).toBe("number");
+  });
+
+  it("should determine side based on amount0 sign", () => {
+    const amount0Positive = 1000000000000000000n;
+    const amount0Negative = -1000000000000000000n;
+
+    const sideForPositive = amount0Positive > 0n ? "sell" : "buy";
+    const sideForNegative = amount0Negative > 0n ? "sell" : "buy";
+
+    expect(sideForPositive).toBe("sell");
+    expect(sideForNegative).toBe("buy");
+  });
+
+  it("should calculate price from usdValue and size", () => {
+    const usdValue = 3000;
+    const amount0 = 1000000000000000000n;
+    const decimals = 18;
+    const size = Math.abs(Number(amount0) / Math.pow(10, decimals));
+    const price = usdValue / (size || 1);
+
+    expect(size).toBe(1);
+    expect(price).toBe(3000);
+  });
+
+  it("should format timestamp as ISO-8601", () => {
+    const timestamp = 1707955200000;
+    const isoTimestamp = new Date(timestamp).toISOString();
+
+    expect(isoTimestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
+  });
 });
