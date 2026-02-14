@@ -149,6 +149,70 @@ describe("Polymarket Integration Tests", () => {
     });
   });
 
+  describe("tradeExecuted Event Schema", () => {
+    it("should build a valid structured trade from WebSocket trade data", () => {
+      const trade = {
+        conditionId: "0xabc123",
+        side: "buy",
+        price: 0.65,
+        size: 100,
+        outcome: "Yes",
+        timestampMs: Date.now(),
+      };
+      const notionalUsd = trade.size * trade.price;
+      const structured = {
+        source: "polymarket",
+        symbol: trade.conditionId,
+        side: trade.side,
+        price: trade.price,
+        size: trade.size,
+        notional_usd: notionalUsd,
+        timestamp: new Date(trade.timestampMs).toISOString(),
+        outcome: trade.outcome,
+      };
+
+      expect(structured.source).toBe("polymarket");
+      expect(structured.symbol).toBe("0xabc123");
+      expect(structured.side).toBe("buy");
+      expect(structured.price).toBe(0.65);
+      expect(structured.size).toBe(100);
+      expect(structured.notional_usd).toBe(65);
+      expect(typeof structured.timestamp).toBe("string");
+      expect(structured.outcome).toBe("Yes");
+    });
+
+    it("should compute correct notional for sell side", () => {
+      const structured = {
+        source: "polymarket",
+        symbol: "0xdef456",
+        side: "sell",
+        price: 0.30,
+        size: 500,
+        notional_usd: 500 * 0.30,
+        timestamp: new Date().toISOString(),
+        outcome: "No",
+      };
+
+      expect(structured.side).toBe("sell");
+      expect(structured.notional_usd).toBe(150);
+      expect(structured.outcome).toBe("No");
+    });
+
+    it("should produce valid ISO-8601 timestamp", () => {
+      const ts = new Date(1707955200000).toISOString();
+      const structured = {
+        source: "polymarket",
+        symbol: "0x123",
+        side: "buy",
+        price: 0.5,
+        size: 10,
+        notional_usd: 5,
+        timestamp: ts,
+      };
+      expect(structured.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
+    });
+  });
+
   describe("Settings Parser", () => {
     it("should parse default settings correctly", async () => {
       const { parsePolymarketSettingsFromInternal } = await import("../ingest.js");

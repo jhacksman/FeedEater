@@ -484,7 +484,21 @@ export class KalshiIngestor {
             type: "MessageCreated",
             message: tradeNormalized,
           });
-          this.nats.publish(subjectFor("kalshi", "tradeExecuted"), this.sc.encode(JSON.stringify(tradeEvent)));
+          this.nats.publish(subjectFor("kalshi", "messageCreated"), this.sc.encode(JSON.stringify(tradeEvent)));
+          messagesPublished++;
+
+          const noPrice = trade.no_price ?? (1 - trade.yes_price);
+          const price = trade.taker_side === "yes" ? trade.yes_price : noPrice;
+          this.nats.publish(subjectFor("kalshi", "tradeExecuted"), this.sc.encode(JSON.stringify({
+            source: "kalshi",
+            symbol: trade.ticker,
+            side: trade.taker_side,
+            price,
+            size: trade.count,
+            notional_usd: trade.count * price,
+            timestamp: trade.created_time,
+            market_title: market.title,
+          })));
         }
       }
 
