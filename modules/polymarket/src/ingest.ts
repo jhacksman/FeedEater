@@ -612,8 +612,18 @@ export class PolymarketIngestor {
       });
 
       this.nats.publish(subjectFor("polymarket", "messageCreated"), this.sc.encode(JSON.stringify(msgEvent)));
-      this.nats.publish(subjectFor("polymarket", "tradeExecuted"), this.sc.encode(JSON.stringify(msgEvent)));
       this.messagesPublished++;
+
+      this.nats.publish(subjectFor("polymarket", "tradeExecuted"), this.sc.encode(JSON.stringify({
+        source: "polymarket",
+        symbol: trade.conditionId,
+        side: trade.side,
+        price: trade.price,
+        size: trade.size,
+        notional_usd: notionalUsd,
+        timestamp: createdAt.toISOString(),
+        outcome: trade.outcome,
+      })));
     } catch (err) {
       this.log("error", "failed to store trade", { tradeId: trade.tradeId, err: err instanceof Error ? err.message : err });
     }

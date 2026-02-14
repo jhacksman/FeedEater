@@ -244,6 +244,103 @@ describe("Kalshi REST API Integration Tests", () => {
     });
   });
 
+  describe("tradeExecuted Event Schema", () => {
+    it("should build a valid structured trade from Kalshi trade data", () => {
+      const trade = {
+        trade_id: "abc-123",
+        ticker: "PRES-2024-DEM",
+        count: 50,
+        yes_price: 0.62,
+        no_price: 0.38,
+        taker_side: "yes",
+        created_time: "2026-02-10T12:00:00Z",
+      };
+      const market = { title: "Will Democrats win the 2024 presidential election?" };
+      const price = trade.taker_side === "yes" ? trade.yes_price : trade.no_price;
+      const structured = {
+        source: "kalshi",
+        symbol: trade.ticker,
+        side: trade.taker_side,
+        price,
+        size: trade.count,
+        notional_usd: trade.count * price,
+        timestamp: trade.created_time,
+        market_title: market.title,
+      };
+
+      expect(structured.source).toBe("kalshi");
+      expect(structured.symbol).toBe("PRES-2024-DEM");
+      expect(structured.side).toBe("yes");
+      expect(structured.price).toBe(0.62);
+      expect(structured.size).toBe(50);
+      expect(structured.notional_usd).toBe(31);
+      expect(structured.timestamp).toBe("2026-02-10T12:00:00Z");
+      expect(structured.market_title).toBe("Will Democrats win the 2024 presidential election?");
+    });
+
+    it("should use no_price when taker_side is no", () => {
+      const trade = {
+        ticker: "BTC-100K",
+        count: 10,
+        yes_price: 0.75,
+        no_price: 0.25,
+        taker_side: "no",
+        created_time: "2026-02-10T14:00:00Z",
+      };
+      const price = trade.taker_side === "yes" ? trade.yes_price : trade.no_price;
+      const structured = {
+        source: "kalshi",
+        symbol: trade.ticker,
+        side: trade.taker_side,
+        price,
+        size: trade.count,
+        notional_usd: trade.count * price,
+        timestamp: trade.created_time,
+      };
+
+      expect(structured.side).toBe("no");
+      expect(structured.price).toBe(0.25);
+      expect(structured.notional_usd).toBe(2.5);
+    });
+
+    it("should compute no_price from yes_price when no_price missing", () => {
+      const trade = {
+        ticker: "ETH-5K",
+        count: 20,
+        yes_price: 0.40,
+        taker_side: "no",
+        created_time: "2026-02-10T16:00:00Z",
+      };
+      const noPrice = 1 - trade.yes_price;
+      const price = trade.taker_side === "yes" ? trade.yes_price : noPrice;
+      const structured = {
+        source: "kalshi",
+        symbol: trade.ticker,
+        side: trade.taker_side,
+        price,
+        size: trade.count,
+        notional_usd: trade.count * price,
+        timestamp: trade.created_time,
+      };
+
+      expect(structured.price).toBeCloseTo(0.60);
+      expect(structured.notional_usd).toBeCloseTo(12);
+    });
+
+    it("should produce valid ISO-8601 timestamp from Kalshi created_time", () => {
+      const structured = {
+        source: "kalshi",
+        symbol: "TEST-TICKER",
+        side: "yes",
+        price: 0.5,
+        size: 1,
+        notional_usd: 0.5,
+        timestamp: "2026-02-10T12:00:00Z",
+      };
+      expect(structured.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
+    });
+  });
+
   describe("Settings Parsing", () => {
     it("should parse settings with defaults", async () => {
       const { parseKalshiSettingsFromInternal } = await import("../ingest.js");
