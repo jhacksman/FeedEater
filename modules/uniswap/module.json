@@ -1,7 +1,7 @@
 {
   "name": "uniswap",
-  "version": "0.0.1",
-  "description": "Uniswap V2/V3 swap collector for Ethereum L1.",
+  "version": "0.1.0",
+  "description": "Uniswap V2/V3 swap collector for Ethereum L1. Subscribes to factory events for new pool discovery and collects real-time swap events.",
   "namespace": "feedeater.uniswap",
   "runtime": { "entry": "dist/runtime.js" },
   "queues": ["mod_uniswap"],
@@ -15,9 +15,12 @@
   ],
   "settings": [
     { "key": "enabled", "type": "boolean", "default": true },
-    { "key": "rpcUrl", "type": "string", "default": "ws://192.168.0.134:8546", "description": "Ethereum L1 WebSocket RPC" },
+    { "key": "rpcUrl", "type": "string", "default": "ws://localhost:8546", "description": "Ethereum L1 WebSocket RPC endpoint" },
     { "key": "whaleThreshold", "type": "number", "default": 50000, "description": "USD threshold to flag whale swaps" },
-    { "key": "watchedPairs", "type": "string", "default": "[\"0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640\",\"0x11b815efB8f581194ae5486326430326078dF15A\",\"0xCBCdF9626bC03E24f779434178A73a0B4bad62eD\"]", "description": "JSON array of pair/pool addresses to monitor" }
+    { "key": "watchedPairs", "type": "string", "default": "[\"0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640\",\"0x11b815efB8f581194ae5486326430326078dF15A\",\"0xCBCdF9626bC03E24f779434178A73a0B4bad62eD\"]", "description": "JSON array of pair/pool addresses to monitor" },
+    { "key": "filterMode", "type": "string", "default": "all", "description": "Pool filter mode: all, weth_only, stablecoin_only, top_pools, custom" },
+    { "key": "customTokenFilter", "type": "string", "default": "[]", "description": "JSON array of token addresses to filter by (used when filterMode=custom)" },
+    { "key": "topPoolCount", "type": "number", "default": 50, "description": "Number of top pools by TVL to monitor (used when filterMode=top_pools)" }
   ],
   "cards": [ { "id": "uniswapStatus", "title": "Uniswap Collector" } ]
 }
