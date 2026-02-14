@@ -24,6 +24,7 @@ export type PolymarketSettings = {
 
 const UUID_NAMESPACE = "c3d5e7f9-2b4c-6d8e-0f1a-3b5c7d9e1f2a";
 const POLYMARKET_API_BASE = "https://gamma-api.polymarket.com";
+const POLYMARKET_DATA_API = "https://data-api.polymarket.com";
 
 export function parsePolymarketSettingsFromInternal(raw: Record<string, unknown>): PolymarketSettings {
   const enabled = String(raw.enabled ?? "false") === "true";
@@ -479,6 +480,20 @@ export class PolymarketIngestor {
       );
       this.lastOrderbookSnapshot.set(assetId, now);
       this.snapshotsSaved++;
+
+      const snapshotPayload = {
+        id: snapshotId,
+        marketId: marketInfo.marketId,
+        conditionId: marketInfo.conditionId,
+        assetId,
+        outcome: marketInfo.outcome,
+        midPrice,
+        spreadBps,
+        bidsDepth: topBids.length,
+        asksDepth: topAsks.length,
+        snapshotAt: snapshotTime.toISOString(),
+      };
+      this.nats.publish(subjectFor("polymarket", "orderbookSnapshot"), this.sc.encode(JSON.stringify(snapshotPayload)));
       this.log("debug", "saved orderbook snapshot", { assetId, midPrice, spreadBps });
     } catch (err) {
       this.log("error", "failed to save orderbook snapshot", { assetId, err: err instanceof Error ? err.message : err });
@@ -545,7 +560,7 @@ export class PolymarketIngestor {
     size: number;
     price: number;
     timestampMs: number;
-    takerOrderId?: string;
+    takerOrderId?: string | undefined;
   }): Promise<void> {
     const notionalUsd = trade.size * trade.price;
     const sizeCategory = this.getSizeCategory(notionalUsd);
@@ -597,14 +612,112 @@ export class PolymarketIngestor {
       });
 
       this.nats.publish(subjectFor("polymarket", "messageCreated"), this.sc.encode(JSON.stringify(msgEvent)));
+      this.nats.publish(subjectFor("polymarket", "tradeExecuted"), this.sc.encode(JSON.stringify(msgEvent)));
       this.messagesPublished++;
-
-      if (isWhale) {
-        this.log("info", "whale trade detected", { tradeId: trade.tradeId, notionalUsd, outcome: trade.outcome, side: trade.side });
-      }
     } catch (err) {
       this.log("error", "failed to store trade", { tradeId: trade.tradeId, err: err instanceof Error ? err.message : err });
     }
+  }
+
+  async collectTrades(params: { lookbackHours: number }): Promise<{ tradesCollected: number; messagesPublished: number }> {
+    this.tradesCollected = 0;
+    this.messagesPublished = 0;
+
+    const cutoffMs = Date.now() - params.lookbackHours * 3600_000;
+    const markets = await this.db.query(
+      `SELECT m.id as market_id, m.condition_id, m.outcomes, m.payload
+       FROM mod_polymarket.markets m
+       WHERE m.closed = false AND m.volume_24h >= $1
+       ORDER BY m.volume_24h DESC
+       LIMIT 50`,
+      [this.settings.minVolume]
+    );
+
+    for (const row of markets.rows) {
+      let outcomes: string[] = [];
+      let tokenToOutcome: Map<string, string> = new Map();
+      try {
+        outcomes = typeof row.outcomes === "string" ? JSON.parse(row.outcomes) : (row.outcomes ?? []);
+        const payload = typeof row.payload === "string" ? JSON.parse(row.payload) : row.payload;
+        const tokens = payload?.tokens || payload?.clobTokenIds || [];
+        if (Array.isArray(tokens)) {
+          for (let i = 0; i < tokens.length; i++) {
+            const tokenId = typeof tokens[i] === "object" ? tokens[i]?.token_id : tokens[i];
+            if (tokenId) tokenToOutcome.set(String(tokenId), outcomes[i] ?? `Outcome ${i}`);
+          }
+        }
+      } catch {
+        this.log("warn", "failed to parse market payload for REST trades", { marketId: row.market_id });
+      }
+
+      const conditionId = row.condition_id;
+      let cursor: string | undefined;
+      let pageCount = 0;
+      const maxPages = 10;
+
+      while (pageCount < maxPages) {
+        const tradeParams = new URLSearchParams();
+        tradeParams.set("condition_id", conditionId);
+        tradeParams.set("limit", "100");
+        if (cursor) tradeParams.set("next_cursor", cursor);
+
+        const url = `${POLYMARKET_DATA_API}/trades?${tradeParams.toString()}`;
+        try {
+          const resp = await this.fetchJson<{ data?: any[]; next_cursor?: string }>(url);
+          const trades = resp.data ?? (Array.isArray(resp) ? resp : []);
+          if (trades.length === 0) break;
+
+          let reachedCutoff = false;
+          for (const t of trades) {
+            const timestampMs = parseInt(t.timestamp || t.match_time || String(Date.now()), 10);
+            if (timestampMs < cutoffMs) {
+              reachedCutoff = true;
+              break;
+            }
+
+            const assetId = String(t.asset_id ?? t.token_id ?? "");
+            const outcome = tokenToOutcome.get(assetId) ?? outcomes[0] ?? "Unknown";
+            const size = parseFloat(t.size ?? t.amount ?? "0");
+            const price = parseFloat(t.price ?? "0");
+            const side = (t.side ?? "buy").toLowerCase() === "buy" ? "buy" : "sell";
+            const tradeId = t.id ? String(t.id) : `pm_rest_${conditionId}_${timestampMs}_${assetId}`;
+
+            if (size > 0) {
+              await this.storeTrade({
+                tradeId,
+                marketId: row.market_id,
+                conditionId,
+                assetId,
+                outcome,
+                side,
+                size,
+                price,
+                timestampMs,
+                takerOrderId: t.taker_order_id ? String(t.taker_order_id) : undefined,
+              });
+            }
+          }
+
+          if (reachedCutoff) break;
+          cursor = resp.next_cursor;
+          if (!cursor) break;
+          pageCount++;
+        } catch (err) {
+          this.log("error", "failed to fetch REST trades", {
+            conditionId,
+            err: err instanceof Error ? err.message : err,
+          });
+          break;
+        }
+      }
+    }
+
+    this.log("info", "REST trade collection complete", {
+      tradesCollected: this.tradesCollected,
+      messagesPublished: this.messagesPublished,
+    });
+
+    return { tradesCollected: this.tradesCollected, messagesPublished: this.messagesPublished };
   }
 
   private async fetchEvents(): Promise<PolymarketEvent[]> {

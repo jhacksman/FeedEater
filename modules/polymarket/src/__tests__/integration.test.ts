@@ -1,0 +1,191 @@
+import { describe, it, expect } from "vitest";
+import WebSocket from "ws";
+
+const POLYMARKET_CLOB_WS = "wss://ws-subscriptions-clob.polymarket.com/ws/";
+const POLYMARKET_DATA_API = "https://data-api.polymarket.com";
+const POLYMARKET_GAMMA_API = "https://gamma-api.polymarket.com";
+const CONNECTION_TIMEOUT = 10000;
+const MESSAGE_TIMEOUT = 30000;
+
+describe("Polymarket Integration Tests", () => {
+  describe("Gamma API (REST)", () => {
+    it("should fetch events from Gamma API", { timeout: MESSAGE_TIMEOUT }, async () => {
+      const params = new URLSearchParams();
+      params.set("closed", "false");
+      params.set("limit", "5");
+      params.set("order", "volume24hr");
+      params.set("ascending", "false");
+      const url = `${POLYMARKET_GAMMA_API}/events?${params.toString()}`;
+      const res = await fetch(url);
+      expect(res.ok).toBe(true);
+      const events = (await res.json()) as any[];
+      expect(Array.isArray(events)).toBe(true);
+      expect(events.length).toBeGreaterThan(0);
+
+      const ev = events[0];
+      expect(typeof ev.id).toBe("string");
+      expect(typeof ev.title).toBe("string");
+      expect(Array.isArray(ev.markets)).toBe(true);
+    });
+
+    it("should parse market structure from Gamma events", { timeout: MESSAGE_TIMEOUT }, async () => {
+      const params = new URLSearchParams();
+      params.set("closed", "false");
+      params.set("limit", "3");
+      params.set("order", "volume24hr");
+      params.set("ascending", "false");
+      const url = `${POLYMARKET_GAMMA_API}/events?${params.toString()}`;
+      const res = await fetch(url);
+      const events = (await res.json()) as any[];
+      const market = events[0]?.markets?.[0];
+      expect(market).toBeDefined();
+
+      expect(typeof market.id).toBe("string");
+      expect(typeof market.question).toBe("string");
+      expect(typeof market.conditionId).toBe("string");
+      expect(typeof market.volume).toBe("string");
+    });
+  });
+
+  describe("Data API (REST Trades)", () => {
+    it("should fetch trades from data-api.polymarket.com", { timeout: MESSAGE_TIMEOUT }, async () => {
+      const eventsRes = await fetch(`${POLYMARKET_GAMMA_API}/events?closed=false&limit=1&order=volume24hr&ascending=false`);
+      const events = (await eventsRes.json()) as any[];
+      const conditionId = events[0]?.markets?.[0]?.conditionId;
+      expect(conditionId).toBeDefined();
+
+      const tradesUrl = `${POLYMARKET_DATA_API}/trades?condition_id=${conditionId}&limit=5`;
+      const tradesRes = await fetch(tradesUrl);
+      expect(tradesRes.ok).toBe(true);
+      const body = await tradesRes.json();
+      const trades = Array.isArray(body) ? body : (body as any).data ?? [];
+      expect(trades.length).toBeGreaterThan(0);
+
+      const t = trades[0];
+      expect(typeof t.price).toBe("string");
+      expect(typeof t.size).toBe("string");
+      expect(parseFloat(t.price)).toBeGreaterThan(0);
+      expect(parseFloat(t.size)).toBeGreaterThan(0);
+    });
+  });
+
+  describe("CLOB WebSocket", () => {
+    it("should connect to Polymarket CLOB WebSocket", { timeout: CONNECTION_TIMEOUT }, async () => {
+      const connected = await new Promise<boolean>((resolve) => {
+        const ws = new WebSocket(POLYMARKET_CLOB_WS);
+        const timeout = setTimeout(() => {
+          ws.close();
+          resolve(false);
+        }, CONNECTION_TIMEOUT);
+
+        ws.on("open", () => {
+          clearTimeout(timeout);
+          ws.close();
+          resolve(true);
+        });
+
+        ws.on("error", () => {
+          clearTimeout(timeout);
+          ws.close();
+          resolve(false);
+        });
+      });
+
+      expect(connected).toBe(true);
+    });
+
+    it("should receive messages after subscribing to market channel", { timeout: MESSAGE_TIMEOUT }, async () => {
+      const eventsRes = await fetch(`${POLYMARKET_GAMMA_API}/events?closed=false&limit=1&order=volume24hr&ascending=false`);
+      const events = (await eventsRes.json()) as any[];
+      const market = events[0]?.markets?.[0];
+      const payload = market;
+      const tokens = payload?.clobTokenIds ?? [];
+      if (tokens.length === 0) {
+        return;
+      }
+
+      const result = await new Promise<{ received: boolean; eventTypes: string[] }>((resolve) => {
+        const ws = new WebSocket(POLYMARKET_CLOB_WS);
+        const eventTypes: string[] = [];
+
+        const timeout = setTimeout(() => {
+          ws.close();
+          resolve({ received: eventTypes.length > 0, eventTypes });
+        }, MESSAGE_TIMEOUT - 2000);
+
+        ws.on("open", () => {
+          const subscribeMsg = {
+            type: "MARKET",
+            assets_ids: tokens,
+          };
+          ws.send(JSON.stringify(subscribeMsg));
+        });
+
+        ws.on("message", (data: Buffer) => {
+          try {
+            const msg = JSON.parse(data.toString());
+            if (msg.event_type && !eventTypes.includes(msg.event_type)) {
+              eventTypes.push(msg.event_type);
+            }
+            if (eventTypes.length >= 2 || eventTypes.includes("book")) {
+              clearTimeout(timeout);
+              ws.close();
+              resolve({ received: true, eventTypes });
+            }
+          } catch {
+            // ignore
+          }
+        });
+
+        ws.on("error", () => {
+          clearTimeout(timeout);
+          ws.close();
+          resolve({ received: false, eventTypes: [] });
+        });
+      });
+
+      expect(result.received).toBe(true);
+      expect(result.eventTypes.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe("Settings Parser", () => {
+    it("should parse default settings correctly", async () => {
+      const { parsePolymarketSettingsFromInternal } = await import("../ingest.js");
+      const settings = parsePolymarketSettingsFromInternal({});
+      expect(settings.enabled).toBe(false);
+      expect(settings.collectAllTrades).toBe(true);
+      expect(settings.whaleThreshold).toBe(50000);
+      expect(settings.orderbookEnabled).toBe(true);
+      expect(settings.orderbookIntervalMs).toBe(60000);
+      expect(settings.lookbackHours).toBe(24);
+      expect(settings.minVolume).toBe(10000);
+    });
+
+    it("should parse enabled + custom thresholds", async () => {
+      const { parsePolymarketSettingsFromInternal } = await import("../ingest.js");
+      const settings = parsePolymarketSettingsFromInternal({
+        enabled: "true",
+        whaleThreshold: "100000",
+        orderbookIntervalMs: "30000",
+        collectAllTrades: "false",
+      });
+      expect(settings.enabled).toBe(true);
+      expect(settings.whaleThreshold).toBe(100000);
+      expect(settings.orderbookIntervalMs).toBe(30000);
+      expect(settings.collectAllTrades).toBe(false);
+    });
+
+    it("should throw on invalid lookbackHours", async () => {
+      const { parsePolymarketSettingsFromInternal } = await import("../ingest.js");
+      expect(() => parsePolymarketSettingsFromInternal({ lookbackHours: "0" })).toThrow();
+      expect(() => parsePolymarketSettingsFromInternal({ lookbackHours: "-5" })).toThrow();
+    });
+
+    it("should throw on invalid whaleThreshold", async () => {
+      const { parsePolymarketSettingsFromInternal } = await import("../ingest.js");
+      expect(() => parsePolymarketSettingsFromInternal({ whaleThreshold: "0" })).toThrow();
+      expect(() => parsePolymarketSettingsFromInternal({ whaleThreshold: "-1" })).toThrow();
+    });
+  });
+});
