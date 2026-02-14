@@ -1,2 +1,3 @@
-export { createArbitrumDexListener } from "./arbitrum-dex.js";
+export { ArbitrumDexIngestor, parseArbitrumDexSettingsFromInternal } from "./ingest.js";
+export type { ArbitrumDexSettings } from "./ingest.js";
 export { createModuleRuntime } from "./runtime.js";

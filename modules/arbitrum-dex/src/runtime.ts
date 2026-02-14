@@ -1,26 +1,58 @@
 import type { ModuleRuntime } from "@feedeater/module-sdk";
-import { createArbitrumDexListener } from "./arbitrum-dex.js";
-
-let started = false;
+import { ArbitrumDexIngestor, parseArbitrumDexSettingsFromInternal } from "./ingest.js";
 
 export function createModuleRuntime(): ModuleRuntime {
   return {
     moduleName: "arbitrum-dex",
     handlers: {
       mod_arbitrum_dex: {
-        async listen({ ctx }) {
-          if (!started) {
-            started = true;
-            createArbitrumDexListener({
-              nats: ctx.nats as any,
-              sc: ctx.sc as any,
-              getSetting: ctx.getSetting as any,
-              logger: ctx.logger,
-            }).catch((err) => {
-              ctx.logger?.error?.({ err }, "arbitrum-dex listener crashed");
-              started = false;
-            });
+        async stream({ ctx }) {
+          const raw = await ctx.fetchInternalSettings("arbitrum-dex");
+          const settings = parseArbitrumDexSettingsFromInternal(raw);
+          if (!settings.enabled) {
+            return {
+              metrics: {
+                skipped: true,
+                reason: "module disabled",
+              },
+            };
           }
+
+          const ingestor = new ArbitrumDexIngestor(settings, ctx.db, ctx.nats, ctx.sc);
+          await ingestor.ensureSchema();
+          const result = await ingestor.startStreaming();
+
+          return {
+            metrics: {
+              trades_collected: result.tradesCollected,
+              gmx_events_collected: result.gmxEventsCollected,
+              messages_published: result.messagesPublished,
+            },
+          };
+        },
+
+        async collectSwaps({ ctx }) {
+          const raw = await ctx.fetchInternalSettings("arbitrum-dex");
+          const settings = parseArbitrumDexSettingsFromInternal(raw);
+          if (!settings.enabled) {
+            return {
+              metrics: {
+                skipped: true,
+                reason: "module disabled",
+              },
+            };
+          }
+
+          const ingestor = new ArbitrumDexIngestor(settings, ctx.db, ctx.nats, ctx.sc);
+          await ingestor.ensureSchema();
+          const result = await ingestor.collectRecentSwaps({ lookbackBlocks: 1000 });
+
+          return {
+            metrics: {
+              trades_collected: result.tradesCollected,
+              messages_published: result.messagesPublished,
+            },
+          };
         },
       },
     },
