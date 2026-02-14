@@ -211,6 +211,20 @@ export class KrakenIngestor {
         [trade.trade_id, trade.pair, trade.price, trade.size, trade.side, notionalUsd, isWhale, trade.time]
       );
 
+      const tradeEvent = {
+        source: "kraken",
+        symbol: trade.pair,
+        side: trade.side as "buy" | "sell",
+        price: trade.price,
+        size: trade.size,
+        notional_usd: notionalUsd,
+        timestamp: trade.time,
+      };
+      this.nats.publish(
+        subjectFor("kraken", "tradeExecuted"),
+        this.sc.encode(JSON.stringify(tradeEvent))
+      );
+
       if (isWhale) {
         const direction = trade.side === "buy" ? "bullish" : "bearish";
         const messageId = uuidv5(`kraken:whale:${trade.trade_id}`, UUID_NAMESPACE);
