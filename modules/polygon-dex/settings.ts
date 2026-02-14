@@ -7,9 +7,8 @@ export const PolygonDexSettingsSchema = z.object({
   watchedQuickswapPools: z
     .array(z.string())
     .default([
-      "0x45dDa9cb7c25131DF268515131f647d726f50608", // WETH/USDC QuickSwap V3
-      "0xAE81FAc689A1b4b1e06e7ef4a2ab4CD8aC0A087D", // WMATIC/USDC QuickSwap V3
+      "0x45dDa9cb7c25131DF268515131f647d726f50608",
+      "0xAE81FAc689A1b4b1e06e7ef4a2ab4CD8aC0A087D",
     ]),
-  enablePolymarketSettlements: z.boolean().default(true),
 });
 export type PolygonDexSettings = z.infer<typeof PolygonDexSettingsSchema>;
