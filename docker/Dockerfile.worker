@@ -1,7 +1,7 @@
 FROM node:20-alpine AS deps
 WORKDIR /app
 
-COPY package.json tsconfig.base.json ./
+COPY package.json package-lock.json tsconfig.base.json ./
 COPY apps/api/package.json apps/api/package.json
 COPY packages/core/package.json packages/core/package.json
 COPY packages/module-sdk/package.json packages/module-sdk/package.json
@@ -35,6 +35,7 @@ COPY modules/twitter/package.json modules/twitter/package.json
 COPY modules/uniswap/package.json modules/uniswap/package.json
 COPY modules/youtube/package.json modules/youtube/package.json
 
+RUN apk add --no-cache python3 make g++
 RUN npm install
 
 FROM node:20-alpine AS build
