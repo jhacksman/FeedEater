@@ -19,10 +19,17 @@ export type BinanceSettings = {
 
 const UUID_NAMESPACE = "b1n2a3n4-c5e6-7890-abcd-ef1234567890";
 
+const PUBLIC_WS_URL = "wss://stream.binance.com:9443/ws";
+const PUBLIC_REST_URL = "https://api.binance.com/api/v3";
+const FALLBACK_WS_URLS = [
+  "wss://stream.binance.com:9443/ws",
+  "wss://stream.binance.us:9443/ws",
+];
+
 export function parseBinanceSettingsFromInternal(raw: Record<string, unknown>): BinanceSettings {
   const enabled = String(raw.enabled ?? "false") === "true";
-  const apiUrl = String(raw.apiUrl ?? "wss://stream.binance.us:9443/ws");
-  const restApiUrl = String(raw.restApiUrl ?? "https://api.binance.us/api/v3");
+  const apiUrl = String(raw.apiUrl ?? PUBLIC_WS_URL);
+  const restApiUrl = String(raw.restApiUrl ?? PUBLIC_REST_URL);
   const whaleThreshold = raw.whaleThreshold ? Number(raw.whaleThreshold) : 50000;
   const watchedPairs = String(raw.watchedPairs ?? '["BTCUSDT", "ETHUSDT", "SOLUSDT"]');
   const orderbookEnabled = String(raw.orderbookEnabled ?? "true") === "true";
@@ -379,7 +386,7 @@ export class BinanceIngestor {
     }
   }
 
-  private async connectWebSocket(): Promise<void> {
+  private buildWsUrl(baseUrl: string): string {
     const pairs = this.getPairs();
     const streams = pairs.map((p) => `${p.toLowerCase()}@trade`);
     if (this.settings.orderbookEnabled) {
@@ -387,14 +394,15 @@ export class BinanceIngestor {
         streams.push(`${p.toLowerCase()}@depth@100ms`);
       }
     }
-    const wsUrl = `${this.settings.apiUrl}/${streams.join("/")}`;
-    this.log("info", "connecting to Binance WebSocket", { url: wsUrl, pairs });
+    return `${baseUrl}/${streams.join("/")}`;
+  }
 
+  private connectToUrl(wsUrl: string): Promise<void> {
     return new Promise((resolve, reject) => {
       this.ws = new WebSocket(wsUrl);
 
       this.ws.on("open", () => {
-        this.log("info", "WebSocket connected");
+        this.log("info", "WebSocket connected (public feed, no API key required)", { url: wsUrl });
         this.reconnectDelay = 1000;
         resolve();
       });
@@ -420,6 +428,32 @@ export class BinanceIngestor {
         }
       });
     });
+  }
+
+  private async connectWebSocket(): Promise<void> {
+    const primaryUrl = this.buildWsUrl(this.settings.apiUrl);
+    this.log("info", "connecting to Binance public WebSocket", { url: primaryUrl, pairs: this.getPairs() });
+
+    try {
+      await this.connectToUrl(primaryUrl);
+      return;
+    } catch (err) {
+      this.log("warn", "primary WebSocket failed, trying fallback URLs", { err: err instanceof Error ? err.message : err });
+    }
+
+    for (const fallbackBase of FALLBACK_WS_URLS) {
+      const fallbackUrl = this.buildWsUrl(fallbackBase);
+      if (fallbackUrl === primaryUrl) continue;
+      try {
+        this.log("info", "trying fallback URL", { url: fallbackUrl });
+        await this.connectToUrl(fallbackUrl);
+        return;
+      } catch (err) {
+        this.log("warn", "fallback URL failed", { url: fallbackUrl, err: err instanceof Error ? err.message : err });
+      }
+    }
+
+    throw new Error("all Binance WebSocket URLs failed");
   }
 
   private async handleMessage(msg: any): Promise<void> {

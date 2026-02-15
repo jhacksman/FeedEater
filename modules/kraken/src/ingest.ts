@@ -19,6 +19,11 @@ export type KrakenSettings = {
 
 const UUID_NAMESPACE = "k1a2b3c4-d5e6-f7a8-b9c0-d1e2f3a4b5c6";
 
+const FALLBACK_WS_URLS = [
+  "wss://ws.kraken.com/v2",
+  "wss://ws.kraken.com",
+];
+
 export function parseKrakenSettingsFromInternal(raw: Record<string, unknown>): KrakenSettings {
   const enabled = String(raw.enabled ?? "false") === "true";
   const apiUrl = String(raw.apiUrl ?? "wss://ws.kraken.com/v2");
@@ -379,15 +384,14 @@ export class KrakenIngestor {
     }
   }
 
-  private async connectWebSocket(): Promise<void> {
+  private connectToUrl(wsUrl: string): Promise<void> {
     const pairs = this.getPairs();
-    this.log("info", "connecting to Kraken WebSocket", { url: this.settings.apiUrl, pairs });
 
     return new Promise((resolve, reject) => {
-      this.ws = new WebSocket(this.settings.apiUrl);
+      this.ws = new WebSocket(wsUrl);
 
       this.ws.on("open", () => {
-        this.log("info", "WebSocket connected");
+        this.log("info", "WebSocket connected (public feed, no API key required)", { url: wsUrl });
         this.reconnectDelay = 1000;
 
         const tradeSubscribe = {
@@ -435,6 +439,31 @@ export class KrakenIngestor {
         }
       });
     });
+  }
+
+  private async connectWebSocket(): Promise<void> {
+    const pairs = this.getPairs();
+    this.log("info", "connecting to Kraken public WebSocket", { url: this.settings.apiUrl, pairs });
+
+    try {
+      await this.connectToUrl(this.settings.apiUrl);
+      return;
+    } catch (err) {
+      this.log("warn", "primary WebSocket failed, trying fallback URLs", { err: err instanceof Error ? err.message : err });
+    }
+
+    for (const fallbackUrl of FALLBACK_WS_URLS) {
+      if (fallbackUrl === this.settings.apiUrl) continue;
+      try {
+        this.log("info", "trying fallback URL", { url: fallbackUrl });
+        await this.connectToUrl(fallbackUrl);
+        return;
+      } catch (err) {
+        this.log("warn", "fallback URL failed", { url: fallbackUrl, err: err instanceof Error ? err.message : err });
+      }
+    }
+
+    throw new Error("all Kraken WebSocket URLs failed");
   }
 
   private async handleMessage(msg: any): Promise<void> {
