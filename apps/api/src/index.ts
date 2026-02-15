@@ -10,6 +10,8 @@ import { getSlackChannels } from "./slackChannels.js";
 import { getLogsStream } from "./logsStream.js";
 import { getJobsStatus, postRunJob } from "./jobs.js";
 import { getBusHistory } from "./busHistory.js";
+import { registerPredictionDataRoutes } from "./predictionData.js";
+import { registerCexDataRoutes } from "./cexData.js";
 
 const PORT = Number(process.env.PORT ?? "4000");
 const MODULES_DIR = process.env.FEED_MODULES_DIR ?? "/app/modules";
@@ -146,6 +148,10 @@ app.get("/api/modules/slack/channels", getSlackChannels);
 app.get("/api/logs/stream", getLogsStream({ getNatsConn, sc: natsSc }));
 app.get("/api/jobs/status", getJobsStatus({ modulesDir: MODULES_DIR }));
 app.post("/api/jobs/run", postRunJob({ modulesDir: MODULES_DIR, getNatsConn, sc: natsSc }));
+
+// Public Data API (v1)
+registerPredictionDataRoutes(app);
+registerCexDataRoutes(app);
 
 app.listen(PORT, "0.0.0.0", () => {
   // eslint-disable-next-line no-console
