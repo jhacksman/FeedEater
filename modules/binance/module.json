@@ -21,8 +21,8 @@
   ],
   "settings": [
     { "key": "enabled", "type": "boolean", "default": false },
-    { "key": "apiUrl", "type": "string", "default": "wss://stream.binance.us:9443/ws", "description": "Binance WebSocket API URL" },
-    { "key": "restApiUrl", "type": "string", "default": "https://api.binance.us/api/v3", "description": "Binance REST API URL" },
+    { "key": "apiUrl", "type": "string", "default": "wss://stream.binance.com:9443/ws", "description": "Binance WebSocket API URL (public, no auth required)" },
+    { "key": "restApiUrl", "type": "string", "default": "https://api.binance.com/api/v3", "description": "Binance REST API URL (public, no auth required)" },
     { "key": "whaleThreshold", "type": "number", "default": 50000, "description": "Minimum trade size in USD to flag as whale" },
     { "key": "watchedPairs", "type": "string", "default": "[\"BTCUSDT\", \"ETHUSDT\", \"SOLUSDT\"]", "description": "JSON array of trading pairs to watch (Binance format)" },
     { "key": "orderbookEnabled", "type": "boolean", "default": true, "description": "Collect order book snapshots (top 20 levels, 1-min intervals)" },

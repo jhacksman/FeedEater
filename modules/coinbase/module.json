@@ -21,8 +21,8 @@
   ],
   "settings": [
     { "key": "enabled", "type": "boolean", "default": false },
-    { "key": "apiUrl", "type": "string", "default": "wss://ws-feed.exchange.coinbase.com", "description": "Coinbase WebSocket API URL" },
-    { "key": "restApiUrl", "type": "string", "default": "https://api.exchange.coinbase.com", "description": "Coinbase REST API URL" },
+    { "key": "apiUrl", "type": "string", "default": "wss://ws-feed.exchange.coinbase.com", "description": "Coinbase WebSocket API URL (public, no auth required)" },
+    { "key": "restApiUrl", "type": "string", "default": "https://api.exchange.coinbase.com", "description": "Coinbase REST API URL (public, no auth required)" },
     { "key": "whaleThreshold", "type": "number", "default": 50000, "description": "Minimum trade size in USD to flag as whale" },
     { "key": "watchedPairs", "type": "string", "default": "[\"BTC-USD\", \"ETH-USD\", \"SOL-USD\"]", "description": "JSON array of trading pairs to watch" },
     { "key": "orderbookEnabled", "type": "boolean", "default": true, "description": "Collect order book snapshots (top 20 levels, 1-min intervals)" },

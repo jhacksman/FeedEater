@@ -19,6 +19,12 @@ export type CoinbaseSettings = {
 
 const UUID_NAMESPACE = "c0a1b2c3-d4e5-f6a7-b8c9-d0e1f2a3b4c5";
 
+const PUBLIC_WS_URL = "wss://ws-feed.exchange.coinbase.com";
+const FALLBACK_WS_URLS = [
+  "wss://ws-feed.exchange.coinbase.com",
+  "wss://ws-feed.pro.coinbase.com",
+];
+
 export function parseCoinbaseSettingsFromInternal(raw: Record<string, unknown>): CoinbaseSettings {
   const enabled = String(raw.enabled ?? "false") === "true";
   const apiUrl = String(raw.apiUrl ?? "wss://ws-feed.exchange.coinbase.com");
@@ -381,15 +387,14 @@ export class CoinbaseIngestor {
     }
   }
 
-  private async connectWebSocket(): Promise<void> {
+  private connectToUrl(wsUrl: string): Promise<void> {
     const pairs = this.getPairs();
-    this.log("info", "connecting to Coinbase WebSocket", { url: this.settings.apiUrl, pairs });
 
     return new Promise((resolve, reject) => {
-      this.ws = new WebSocket(this.settings.apiUrl);
+      this.ws = new WebSocket(wsUrl);
 
       this.ws.on("open", () => {
-        this.log("info", "WebSocket connected");
+        this.log("info", "WebSocket connected (public feed, no API key required)", { url: wsUrl });
         this.reconnectDelay = 1000;
 
         const channels = ["matches"];
@@ -427,6 +432,31 @@ export class CoinbaseIngestor {
         }
       });
     });
+  }
+
+  private async connectWebSocket(): Promise<void> {
+    const pairs = this.getPairs();
+    this.log("info", "connecting to Coinbase public WebSocket", { url: this.settings.apiUrl, pairs });
+
+    try {
+      await this.connectToUrl(this.settings.apiUrl);
+      return;
+    } catch (err) {
+      this.log("warn", "primary WebSocket failed, trying fallback URLs", { err: err instanceof Error ? err.message : err });
+    }
+
+    for (const fallbackUrl of FALLBACK_WS_URLS) {
+      if (fallbackUrl === this.settings.apiUrl) continue;
+      try {
+        this.log("info", "trying fallback URL", { url: fallbackUrl });
+        await this.connectToUrl(fallbackUrl);
+        return;
+      } catch (err) {
+        this.log("warn", "fallback URL failed", { url: fallbackUrl, err: err instanceof Error ? err.message : err });
+      }
+    }
+
+    throw new Error("all Coinbase WebSocket URLs failed");
   }
 
   private async handleMessage(msg: any): Promise<void> {
