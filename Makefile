@@ -1,6 +1,6 @@
 COMPOSE ?= docker compose
 
-.PHONY: up down ps logs build pull restart db-push status health config clean smoke-test smoke-test-quick tail-events
+.PHONY: up down ps logs build pull restart db-push status health config clean smoke-test smoke-test-quick tail-events enable-modules tail-trades
 
 # Start all services (build if needed)
 up:
@@ -87,5 +87,15 @@ tail-events:
 tail-%:
 	@echo "Tailing FeedEater NATS events for $*..."
 	npx ts-node scripts/verify_data_flow.ts --subjects "feedeater.$*.*"
+
+# Enable all financial modules via FeedEater API
+enable-modules:
+	@echo "Enabling all financial modules..."
+	npx tsx scripts/enable_modules.ts
+
+# Tail tradeExecuted + messageCreated events (60s summary)
+tail-trades:
+	@echo "Tailing trade events (60s)..."
+	npx tsx scripts/tail_trades.ts
 
 
