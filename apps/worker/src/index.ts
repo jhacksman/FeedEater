@@ -1,12 +1,12 @@
+import { Queue, Worker } from "bullmq";
+import IORedis from "ioredis";
 import { connect, StringCodec } from "nats";
 import { Pool } from "pg";
 import {
   ContextUpdatedEventSchema,
-  JobRunEventSchema,
   MessageCreatedEventSchema,
   NormalizedMessageSchema,
   createSettingsClient,
-  jobSubjectFor,
   subjectFor,
 } from "@feedeater/core";
 import { discoverModules } from "./modules/discovery.js";
@@ -53,6 +53,7 @@ function requiredEnv(name: string): string {
   return v;
 }
 
+const REDIS_URL = process.env.REDIS_URL ?? "redis://localhost:6379";
 const NATS_URL = requiredEnv("NATS_URL");
 const MODULES_DIR = process.env.FEED_MODULES_DIR ?? "/app/modules";
 const API_BASE_URL = process.env.FEED_API_BASE_URL ?? "http://localhost:4000";
@@ -63,8 +64,8 @@ let currentEmbedDim = DEFAULT_EMBED_DIM;
 requiredEnv("DATABASE_URL");
 const DATABASE_URL = requiredEnv("DATABASE_URL");
 
+const redis = new IORedis(REDIS_URL, { maxRetriesPerRequest: null });
 const sc = StringCodec();
-const JOB_SUBJECT_WILDCARD = "feedeater.jobs.>";
 const CONTEXT_SUBJECT_WILDCARD = "feedeater.*.contextUpdated";
 
 type JobTrigger = { type: "schedule" | "manual" | "event"; subject?: string; messageId?: string };
@@ -267,108 +268,6 @@ async function recordJobError(params: { db: Pool; runId: string; moduleName: str
   );
 }
 
-function nextCronTime(cron: string, now: Date): Date | null {
-  const parts = cron.trim().split(/\s+/);
-  if (parts.length !== 5) return null;
-  const min = parts[0] ?? "";
-  const hour = parts[1] ?? "";
-  const dom = parts[2] ?? "";
-  const mon = parts[3] ?? "";
-  const dow = parts[4] ?? "";
-  if (hour !== "*" || dom !== "*" || mon !== "*" || dow !== "*") return null;
-
-  const next = new Date(now.getTime());
-  next.setSeconds(0, 0);
-
-  if (min === "*") {
-    next.setMinutes(next.getMinutes() + 1);
-    return next;
-  }
-
-  const stepMatch = min.match(/^\*\/(\d+)$/);
-  if (stepMatch) {
-    const step = Number(stepMatch[1]);
-    if (!Number.isFinite(step) || step <= 0) return null;
-    const remainder = next.getMinutes() % step;
-    const add = remainder === 0 ? step : step - remainder;
-    next.setMinutes(next.getMinutes() + add);
-    return next;
-  }
-
-  if (/^\d+$/.test(min)) {
-    const minute = Number(min);
-    if (!Number.isFinite(minute) || minute < 0 || minute > 59) return null;
-    if (next.getMinutes() < minute) {
-      next.setMinutes(minute);
-      return next;
-    }
-    next.setHours(next.getHours() + 1);
-    next.setMinutes(minute);
-    return next;
-  }
-
-  return null;
-}
-
-function scheduleCronJob(params: {
-  schedule: string;
-  onTick: (nextAt: Date) => Promise<void> | void;
-  onError: (err: unknown) => void;
-}) {
-  let cancelled = false;
-  let timer: ReturnType<typeof setTimeout> | null = null;
-
-  const scheduleNext = () => {
-    if (cancelled) return;
-    try {
-      const nextAt = nextCronTime(params.schedule, new Date());
-      if (!nextAt) throw new Error(`Unsupported cron pattern: ${params.schedule}`);
-      const delay = Math.max(0, nextAt.getTime() - Date.now());
-      timer = setTimeout(async () => {
-        try {
-          await params.onTick(nextAt);
-        } catch (err) {
-          params.onError(err);
-        } finally {
-          scheduleNext();
-        }
-      }, delay);
-    } catch (err) {
-      params.onError(err);
-    }
-  };
-
-  scheduleNext();
-  return () => {
-    cancelled = true;
-    if (timer) clearTimeout(timer);
-  };
-}
-
-async function publishJobEvent(params: {
-  nc: import("nats").NatsConnection;
-  sc: import("nats").StringCodec;
-  moduleName: string;
-  queue: string;
-  jobName: string;
-  trigger: JobTrigger;
-  runId?: string;
-  data?: unknown;
-}) {
-  const payload = JobRunEventSchema.parse({
-    type: "JobRun",
-    module: params.moduleName,
-    queue: params.queue,
-    job: params.jobName,
-    requestedAt: new Date().toISOString(),
-    runId: params.runId,
-    trigger: params.trigger,
-    data: params.data,
-  });
-  const subject = jobSubjectFor({ moduleName: params.moduleName, queue: params.queue, job: params.jobName });
-  params.nc.publish(subject, params.sc.encode(JSON.stringify(payload)));
-}
-
 async function main() {
   const nc = await connect({ servers: NATS_URL });
   // eslint-disable-next-line no-console
@@ -452,70 +351,47 @@ async function main() {
       console.log(`[worker] loaded ${loadedCount}/${totalWithRuntime} modules`);
     }
 
-    const baseCtx: Omit<ModuleRuntimeContext, "moduleName" | "getQueue"> = {
+    const queuesByName = new Map<string, Queue>();
+    const getQueue = (name: string) => {
+      let q = queuesByName.get(name);
+      if (!q) {
+        q = new Queue(name, { connection: redis as any });
+        queuesByName.set(name, q);
+      }
+      return q;
+    };
+
+    const baseCtx: Omit<ModuleRuntimeContext, "moduleName"> = {
       modulesDir: MODULES_DIR,
       db: db as any,
       nats: nc as any,
       sc: sc as any,
+      getQueue: (q: string) => getQueue(q) as any,
       fetchInternalSettings: fetchSettings,
     };
 
     const makeCtx = (moduleName: string): ModuleRuntimeContext => ({
       ...(baseCtx as any),
       moduleName,
-      getQueue: (queueName: string) =>
-        ({
-          add: async (name: string, data: unknown) => {
-            await publishJobEvent({
-              nc,
-              sc,
-              moduleName,
-              queue: queueName,
-              jobName: name,
-              trigger: { type: "event", subject: "internal" },
-              data,
-            });
-          },
-        }) as any,
     });
 
-    // Schedule repeat jobs declared by modules.
+    // Schedule repeat jobs declared by modules (BullMQ repeatable).
     for (const mod of modules) {
+      if (!runtimeByModule.has(mod.name)) continue;
       for (const job of mod.jobs ?? []) {
         if (!job.schedule) continue;
-        scheduleCronJob({
-          schedule: job.schedule,
-          onTick: async (nextAt) => {
-            publishLog(nc, sc, "debug", "cron fired", {
-              module: mod.name,
-              job: job.name,
-              queue: job.queue,
-              nextAt: nextAt.toISOString(),
-            });
-            await publishJobEvent({
-              nc,
-              sc,
-              moduleName: mod.name,
-              queue: job.queue,
-              jobName: job.name,
-              trigger: { type: "schedule" },
-            });
-          },
-          onError: (err) => {
-            publishLog(nc, sc, "error", "cron schedule failed", {
-              module: mod.name,
-              job: job.name,
-              queue: job.queue,
-              err: serializeError(err),
-            });
-          },
-        });
+        await getQueue(job.queue).add(
+          job.name,
+          { __module: mod.name, __trigger: { type: "schedule" } },
+          { repeat: { pattern: job.schedule }, removeOnComplete: true, removeOnFail: 100 }
+        );
       }
     }
 
-    // NATS → job triggers
+    // NATS → BullMQ queue triggers
     const natsSubs: Array<{ subject: string; queue: string; jobName: string; moduleName: string }> = [];
     for (const mod of modules) {
+      if (!runtimeByModule.has(mod.name)) continue;
       for (const j of mod.jobs ?? []) {
         if (j.triggeredBy)
           natsSubs.push({ subject: j.triggeredBy, queue: j.queue, jobName: j.name, moduleName: mod.name });
@@ -528,23 +404,16 @@ async function main() {
         for await (const m of sub) {
           try {
             const raw = JSON.parse(sc.decode(m.data)) as unknown;
-            // Support both payload shapes:
-            // - NormalizedMessage
-            // - { type: "MessageCreated", message: NormalizedMessage }
             const msg = (() => {
               const env = MessageCreatedEventSchema.safeParse(raw);
               if (env.success) return env.data.message;
               return NormalizedMessageSchema.parse(raw);
             })();
-            await publishJobEvent({
-              nc,
-              sc,
-              moduleName: s.moduleName,
-              queue: s.queue,
-              jobName: s.jobName,
-              trigger: { type: "event", subject: s.subject, messageId: msg.id },
-              data: { trigger: { subject: s.subject, messageId: msg.id } },
-            });
+            await getQueue(s.queue).add(
+              s.jobName,
+              { __module: s.moduleName, __trigger: { type: "event" as const, subject: s.subject, messageId: msg.id } },
+              { removeOnComplete: true, removeOnFail: 100 }
+            );
           } catch (err) {
             // eslint-disable-next-line no-console
             console.error("[worker] failed to enqueue triggered job", err);
@@ -558,59 +427,51 @@ async function main() {
       });
     }
 
-    // Job dispatchers (NATS-based).
-    const jobSub = nc.subscribe(JOB_SUBJECT_WILDCARD);
-    (async () => {
-      for await (const m of jobSub) {
-        try {
-          const raw = JSON.parse(sc.decode(m.data)) as unknown;
-          const env = JobRunEventSchema.parse(raw);
-          const runId = env.runId ?? crypto.randomUUID();
-          await recordJobStart({
-            db,
-            runId,
-            moduleName: env.module,
-            queue: env.queue,
-            jobName: env.job,
-            trigger: env.trigger,
-          });
+    // BullMQ Workers — one per queue, concurrent execution.
+    const makeProcessor = (queueName: string) => async (job: { id?: string; name: string; data: Record<string, unknown> }) => {
+      const moduleName = String(job.data.__module ?? "");
+      if (!moduleName) throw new Error(`Job missing __module (queue=${queueName} name=${job.name})`);
 
-          const rt = runtimeByModule.get(env.module);
-          if (!rt) throw new Error(`No runtime loaded for module ${env.module}`);
+      const runId = String(job.id ?? crypto.randomUUID());
+      const trigger: JobTrigger = (job.data.__trigger as JobTrigger) ?? { type: "manual" };
+      await recordJobStart({ db, runId, moduleName, queue: queueName, jobName: job.name, trigger });
 
-          const handler = rt.handlers?.[env.queue]?.[env.job];
-          if (!handler) throw new Error(`No handler for module=${env.module} queue=${env.queue} job=${env.job}`);
+      const rt = runtimeByModule.get(moduleName);
+      if (!rt) throw new Error(`No runtime loaded for module ${moduleName}`);
 
-          const ctx = makeCtx(env.module);
-          const startedAt = Date.now();
-          const result = await handler({ ctx, job: { name: env.job, data: env.data, id: runId } });
-          const durationMs = Date.now() - startedAt;
-          const metrics =
-            result && typeof result === "object" && "metrics" in result && result.metrics
-              ? (result.metrics as Record<string, unknown>)
-              : {};
-          const metricsJson = { durationMs, ...metrics };
-          await recordJobSuccess({ db, runId, moduleName: env.module, jobName: env.job, metricsJson });
-        } catch (err) {
-          const message = serializeError(err);
-          publishLog(nc, sc, "error", "job failed", { err: message });
-          try {
-            const raw = JSON.parse(sc.decode(m.data)) as unknown;
-            const env = JobRunEventSchema.safeParse(raw);
-            if (env.success) {
-              const runId = env.data.runId ?? crypto.randomUUID();
-              await recordJobError({ db, runId, moduleName: env.data.module, jobName: env.data.job, error: message });
-            }
-          } catch {
-            // ignore
-          }
-        }
+      const handler = rt.handlers?.[queueName]?.[job.name];
+      if (!handler) throw new Error(`No handler for module=${moduleName} queue=${queueName} job=${job.name}`);
+
+      const ctx = makeCtx(moduleName);
+      const startedAt = Date.now();
+      try {
+        const result = await handler({ ctx, job: { name: job.name, data: job.data, id: runId } });
+        const durationMs = Date.now() - startedAt;
+        const metrics =
+          result && typeof result === "object" && "metrics" in result && result.metrics
+            ? (result.metrics as Record<string, unknown>)
+            : {};
+        const metricsJson = { durationMs, ...metrics };
+        await recordJobSuccess({ db, runId, moduleName, jobName: job.name, metricsJson });
+      } catch (err) {
+        const message = serializeError(err);
+        publishLog(nc, sc, "error", "job failed", { module: moduleName, queue: queueName, job: job.name, err: message });
+        await recordJobError({ db, runId, moduleName, jobName: job.name, error: message });
+        throw err;
       }
-    })().catch((err) => {
-      // eslint-disable-next-line no-console
-      console.error("[worker] job subscription loop crashed", err);
-      publishLog(nc, sc, "error", "job subscription loop crashed", err);
-    });
+    };
+
+    for (const qName of queuesByName.keys()) {
+      const w = new Worker(qName, makeProcessor(qName), { connection: redis as any, concurrency: 5 });
+      w.on("failed", (job: any, err: Error) => {
+        const id = job?.id ?? "unknown";
+        // eslint-disable-next-line no-console
+        console.error(`[worker] job failed queue=${qName} id=${id}`, err);
+      });
+    }
+
+    // eslint-disable-next-line no-console
+    console.log(`[worker] BullMQ dispatchers started for queues: ${[...queuesByName.keys()].join(", ") || "(none)"}`);
 
     const contextSub = nc.subscribe(CONTEXT_SUBJECT_WILDCARD);
     (async () => {
@@ -621,12 +482,12 @@ async function main() {
           await upsertContext({
             db,
             ownerModule: env.context.ownerModule,
-            sourceKey: env.context.sourceKey,
+            ...(env.context.sourceKey ? { sourceKey: env.context.sourceKey } : {}),
             summaryShort: env.context.summaryShort,
             summaryLong: env.context.summaryLong,
             keyPoints: env.context.keyPoints ?? [],
-            embedding: env.context.embedding,
-            messageId: env.messageId,
+            ...(env.context.embedding ? { embedding: env.context.embedding } : {}),
+            ...(env.messageId ? { messageId: env.messageId } : {}),
           });
         } catch (err) {
           publishLog(nc, sc, "warn", "failed to apply context update", { err: serializeError(err) });
