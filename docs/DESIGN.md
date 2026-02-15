@@ -112,3 +112,32 @@ See `modules/example/` for the module template. Each module:
 - **Not an analytics engine.** It does not compute signals, correlations, or predictions.
 - **Not a decision maker.** It does not decide what to buy, sell, or hold.
 - It is a data plane. Period.
+
+## BullMQ Restoration (Issue #47)
+
+### Discovery (Feb 14 2026)
+
+The upstream FeedEater used BullMQ + Redis for job dispatch. Our fork stripped it out and replaced it with hand-rolled setTimeout cron + serial NATS loops. This is why issue #46 exists — WebSocket jobs block everything because there's no concurrency model.
+
+### Plan
+
+Restore BullMQ + Redis. Keep our module runtimes, NATS archiver, and module code untouched. Only the dispatcher layer changes.
+
+### What Sparks Had (commit 7482caf)
+- `bullmq` + `ioredis` dependencies
+- Redis service in docker-compose
+- `Queue` per module, `Worker` per queue with concurrency
+- BullMQ repeatable jobs for cron schedules
+- NATS → BullMQ bridge for event-triggered jobs
+
+### What We Broke
+- Removed Redis entirely
+- Replaced BullMQ with `scheduleCronJob()` using setTimeout chains
+- Serial `for await` loops — one job at a time
+- No concurrency, no job persistence, no retry logic
+
+### Fix Scope
+- Add Redis to docker-compose.yml
+- Restore bullmq + ioredis deps
+- Revert worker/src/index.ts dispatcher to BullMQ pattern
+- Preserve: module runtimes, NATS archiver, all module code
