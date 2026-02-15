@@ -22,7 +22,7 @@ export type PolymarketSettings = {
   contextPromptFallback: string;
 };
 
-const UUID_NAMESPACE = "c3d5e7f9-2b4c-6d8e-0f1a-3b5c7d9e1f2a";
+const UUID_NAMESPACE = "bc05de9f-3d67-41d3-a6f1-9480b11c8516";
 const POLYMARKET_API_BASE = "https://gamma-api.polymarket.com";
 const POLYMARKET_DATA_API = "https://data-api.polymarket.com";
 

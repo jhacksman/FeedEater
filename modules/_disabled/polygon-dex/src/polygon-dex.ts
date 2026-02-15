@@ -4,24 +4,15 @@ import { v4 as uuidv4, v5 as uuidv5 } from "uuid";
 import { NormalizedMessageSchema, MessageCreatedEventSchema, subjectFor } from "@feedeater/core";
 import { PrismaClient } from "@prisma/client";
 
-const UUID_NAMESPACE = "d7741543-9d01-4002-a92d-d0cfa82d81a2";
+const UUID_NAMESPACE = "a1b2c3d4-e5f6-47a8-b9c0-d1e2f3a4b5c6";
 
-const V2_FACTORY_ADDRESS = "0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f";
-const V3_FACTORY_ADDRESS = "0x1F98431c8aD98523631AE4a59f267346ea31F984";
+const QUICKSWAP_V3_FACTORY = "0x411b0fAcC3489691f28ad58c47006AF5E3Ab3A28";
 
-const V2_SWAP_TOPIC = "0xd78ad95fa46c994b6551d0da85fc275fe613ce37657fb8d5e3d130840159d822";
 const V3_SWAP_TOPIC = "0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67";
-const V2_PAIR_CREATED_TOPIC = "0x0d3648bd0f6ba80134a33ba9275ac585d9d315f0ad8355cddefde31afa28d0e9";
 const V3_POOL_CREATED_TOPIC = "0x783cca1c0412dd0d695e784568c96da2e9c22ff989357a2e8b1d9b2b4e6b7118";
 
-const V2_SWAP_ABI = [
-  "event Swap(address indexed sender, uint amount0In, uint amount1In, uint amount0Out, uint amount1Out, address indexed to)"
-];
 const V3_SWAP_ABI = [
   "event Swap(address indexed sender, address indexed recipient, int256 amount0, int256 amount1, uint160 sqrtPriceX96, uint128 liquidity, int24 tick)"
-];
-const V2_FACTORY_ABI = [
-  "event PairCreated(address indexed token0, address indexed token1, address pair, uint)"
 ];
 const V3_FACTORY_ABI = [
   "event PoolCreated(address indexed token0, address indexed token1, uint24 indexed fee, int24 tickSpacing, address pool)"
@@ -30,25 +21,26 @@ const ERC20_ABI = [
   "function symbol() view returns (string)",
   "function decimals() view returns (uint8)"
 ];
+const V3_POOL_ABI = [
+  "function token0() view returns (address)",
+  "function token1() view returns (address)",
+  "function fee() view returns (uint24)"
+];
 
-const v2SwapIface = new Interface(V2_SWAP_ABI);
 const v3SwapIface = new Interface(V3_SWAP_ABI);
-const v2FactoryIface = new Interface(V2_FACTORY_ABI);
 const v3FactoryIface = new Interface(V3_FACTORY_ABI);
 
-const WETH_ADDRESS = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2".toLowerCase();
-const USDC_ADDRESS = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48".toLowerCase();
-const USDT_ADDRESS = "0xdAC17F958D2ee523a2206206994597C13D831ec7".toLowerCase();
-const WBTC_ADDRESS = "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599".toLowerCase();
-const DAI_ADDRESS = "0x6B175474E89094C44Da98b954EedeAC495271d0F".toLowerCase();
+const POLYGON_USDC = "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359".toLowerCase();
+const POLYGON_USDCe = "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174".toLowerCase();
+const POLYGON_USDT = "0xc2132D05D31c914a87C6611C10748AEb04B58e8F".toLowerCase();
+const POLYGON_WETH = "0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619".toLowerCase();
+const POLYGON_WMATIC = "0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270".toLowerCase();
+const POLYGON_WBTC = "0x1BFD67037B42Cf73acF2047067bd4F2C47D9BfD6".toLowerCase();
 
-export interface UniswapSettings {
+export interface PolygonDexSettings {
   rpcUrl: string;
   whaleThreshold: number;
-  watchedPairs: string[];
-  filterMode: "all" | "weth_only" | "stablecoin_only" | "top_pools" | "custom";
-  customTokenFilter: string[];
-  topPoolCount: number;
+  watchedQuickswapPools: string[];
 }
 
 export interface SwapEvent {
@@ -56,7 +48,7 @@ export interface SwapEvent {
   blockNumber: number;
   timestamp: number;
   pool: string;
-  dex: "uniswap_v2" | "uniswap_v3";
+  dex: "quickswap_v3";
   token0: string;
   token1: string;
   amount0: bigint;
@@ -77,11 +69,10 @@ interface PoolInfo {
   address: string;
   token0: string;
   token1: string;
-  dex: "uniswap_v2" | "uniswap_v3";
   fee?: number;
 }
 
-export class UniswapCollector {
+export class PolygonDexCollector {
   private provider: WebSocketProvider;
   private prisma: PrismaClient;
   private isRunning = false;
@@ -93,7 +84,7 @@ export class UniswapCollector {
   private swapCounter = 0;
 
   constructor(
-    private readonly settings: UniswapSettings,
+    private readonly settings: PolygonDexSettings,
     private readonly nats: NatsConnection,
     private readonly sc: StringCodec,
     private readonly logger?: {
@@ -110,11 +101,11 @@ export class UniswapCollector {
   private log(level: "debug" | "info" | "warn" | "error", message: string, meta?: unknown) {
     try {
       this.nats.publish(
-        "feedeater.uniswap.log",
+        "feedeater.polygon-dex.log",
         this.sc.encode(
           JSON.stringify({
             level,
-            module: "uniswap",
+            module: "polygon-dex",
             source: "collector",
             at: new Date().toISOString(),
             message,
@@ -124,7 +115,6 @@ export class UniswapCollector {
       );
       this.logger?.[level]?.(message, meta);
     } catch {
-      // ignore
     }
   }
 
@@ -140,7 +130,7 @@ export class UniswapCollector {
       ]);
       const info: TokenInfo = {
         address: address.toLowerCase(),
-        symbol,
+        symbol: symbol as string,
         decimals: Number(decimals),
       };
       this.tokenCache.set(address.toLowerCase(), info);
@@ -156,37 +146,7 @@ export class UniswapCollector {
     }
   }
 
-  private shouldWatchPool(token0: string, token1: string): boolean {
-    const t0 = token0.toLowerCase();
-    const t1 = token1.toLowerCase();
-
-    switch (this.settings.filterMode) {
-      case "all":
-        return true;
-
-      case "weth_only":
-        return t0 === WETH_ADDRESS || t1 === WETH_ADDRESS;
-
-      case "stablecoin_only":
-        return (
-          t0 === USDC_ADDRESS || t1 === USDC_ADDRESS ||
-          t0 === USDT_ADDRESS || t1 === USDT_ADDRESS ||
-          t0 === DAI_ADDRESS || t1 === DAI_ADDRESS
-        );
-
-      case "custom":
-        const customTokens = this.settings.customTokenFilter.map(t => t.toLowerCase());
-        return customTokens.includes(t0) || customTokens.includes(t1);
-
-      case "top_pools":
-        return true;
-
-      default:
-        return true;
-    }
-  }
-
-  private estimateUsdValue(
+  estimateUsdValue(
     amount0: bigint,
     amount1: bigint,
     token0: string,
@@ -197,97 +157,41 @@ export class UniswapCollector {
     const t0 = token0.toLowerCase();
     const t1 = token1.toLowerCase();
 
-    if (t0 === USDC_ADDRESS || t0 === USDT_ADDRESS) {
+    if (t0 === POLYGON_USDC || t0 === POLYGON_USDCe || t0 === POLYGON_USDT) {
       return Math.abs(Number(formatUnits(amount0, token0Decimals)));
     }
-    if (t1 === USDC_ADDRESS || t1 === USDT_ADDRESS) {
-      return Math.abs(Number(formatUnits(amount1, token1Decimals)));
-    }
-    if (t0 === DAI_ADDRESS) {
-      return Math.abs(Number(formatUnits(amount0, token0Decimals)));
-    }
-    if (t1 === DAI_ADDRESS) {
+    if (t1 === POLYGON_USDC || t1 === POLYGON_USDCe || t1 === POLYGON_USDT) {
       return Math.abs(Number(formatUnits(amount1, token1Decimals)));
     }
 
-    if (t0 === WETH_ADDRESS) {
+    if (t0 === POLYGON_WETH) {
       const ethAmount = Math.abs(Number(formatUnits(amount0, 18)));
       return ethAmount * 3000;
     }
-    if (t1 === WETH_ADDRESS) {
+    if (t1 === POLYGON_WETH) {
       const ethAmount = Math.abs(Number(formatUnits(amount1, 18)));
       return ethAmount * 3000;
     }
 
-    if (t0 === WBTC_ADDRESS) {
+    if (t0 === POLYGON_WMATIC) {
+      const maticAmount = Math.abs(Number(formatUnits(amount0, 18)));
+      return maticAmount * 0.5;
+    }
+    if (t1 === POLYGON_WMATIC) {
+      const maticAmount = Math.abs(Number(formatUnits(amount1, 18)));
+      return maticAmount * 0.5;
+    }
+
+    if (t0 === POLYGON_WBTC) {
       const btcAmount = Math.abs(Number(formatUnits(amount0, 8)));
       return btcAmount * 60000;
     }
-    if (t1 === WBTC_ADDRESS) {
+    if (t1 === POLYGON_WBTC) {
       const btcAmount = Math.abs(Number(formatUnits(amount1, 8)));
       return btcAmount * 60000;
     }
 
     return 0;
-  }
-
-  private async handleV2Swap(log: Log): Promise<void> {
-    try {
-      const parsed = v2SwapIface.parseLog({ topics: log.topics as string[], data: log.data });
-      if (!parsed) return;
-
-      const pool = log.address.toLowerCase();
-      const poolInfo = this.poolCache.get(pool);
-      if (!poolInfo) {
-        this.log("debug", "Unknown V2 pool, skipping", { pool });
-        return;
-      }
-
-      const amount0In = BigInt(parsed.args[0]);
-      const amount1In = BigInt(parsed.args[1]);
-      const amount0Out = BigInt(parsed.args[2]);
-      const amount1Out = BigInt(parsed.args[3]);
-      const sender = parsed.args[4] as string;
-      const to = parsed.args[5] as string;
-
-      const amount0 = amount0Out - amount0In;
-      const amount1 = amount1Out - amount1In;
-
-      const [token0Info, token1Info] = await Promise.all([
-        this.getTokenInfo(poolInfo.token0),
-        this.getTokenInfo(poolInfo.token1),
-      ]);
-
-      const block = await this.provider.getBlock(log.blockNumber);
-      const timestamp = block ? Number(block.timestamp) * 1000 : Date.now();
-
-      const usdValue = this.estimateUsdValue(
-        amount0, amount1,
-        poolInfo.token0, poolInfo.token1,
-        token0Info.decimals, token1Info.decimals
-      );
-      const isWhale = usdValue >= this.settings.whaleThreshold;
-
-      const swap: SwapEvent = {
-        txHash: log.transactionHash,
-        blockNumber: log.blockNumber,
-        timestamp,
-        pool,
-        dex: "uniswap_v2",
-        token0: poolInfo.token0,
-        token1: poolInfo.token1,
-        amount0,
-        amount1,
-        sender,
-        recipient: to,
-        usdValue,
-        isWhale,
-      };
-
-      await this.storeAndPublishSwap(swap, token0Info, token1Info);
-    } catch (err) {
-      this.log("error", "Failed to handle V2 swap", { err: err instanceof Error ? err.message : err, tx: log.transactionHash });
-    }
   }
 
   private async handleV3Swap(log: Log): Promise<void> {
@@ -298,7 +202,7 @@ export class UniswapCollector {
       const pool = log.address.toLowerCase();
       const poolInfo = this.poolCache.get(pool);
       if (!poolInfo) {
-        this.log("debug", "Unknown V3 pool, skipping", { pool });
+        this.log("debug", "Unknown pool, skipping", { pool });
         return;
       }
 
@@ -327,7 +231,7 @@ export class UniswapCollector {
         blockNumber: log.blockNumber,
         timestamp,
         pool,
-        dex: "uniswap_v3",
+        dex: "quickswap_v3",
         token0: poolInfo.token0,
         token1: poolInfo.token1,
         amount0,
@@ -348,11 +252,11 @@ export class UniswapCollector {
     this.swapCounter++;
 
     try {
-      await this.prisma.dexSwap.create({
+      await this.prisma.polygonSwap.create({
         data: {
-          chain: "ethereum",
+          chain: "polygon",
           dex: swap.dex,
-          pair: swap.pool,
+          pool: swap.pool,
           txHash: swap.txHash,
           block: BigInt(swap.blockNumber),
           timestampMs: BigInt(swap.timestamp),
@@ -367,14 +271,14 @@ export class UniswapCollector {
       this.log("error", "Failed to store swap in DB", { err: err instanceof Error ? err.message : err });
     }
 
-    const messageId = uuidv5(`uniswap:swap:${swap.txHash}:${swap.pool}`, UUID_NAMESPACE);
+    const messageId = uuidv5(`polygon-dex:swap:${swap.txHash}:${swap.pool}`, UUID_NAMESPACE);
     const pairLabel = `${token0Info.symbol}/${token1Info.symbol}`;
-    const messageText = `Swap on ${swap.dex} ${pairLabel} pool=${swap.pool.slice(0, 10)}... usd=$${swap.usdValue.toFixed(2)} tx=${swap.txHash.slice(0, 10)}...`;
+    const messageText = `QuickSwap V3 Swap ${pairLabel} pool=${swap.pool.slice(0, 10)}... usd=$${swap.usdValue.toFixed(2)}${swap.isWhale ? " [WHALE]" : ""} tx=${swap.txHash.slice(0, 10)}...`;
 
     const normalized = NormalizedMessageSchema.parse({
       id: messageId,
       createdAt: new Date(swap.timestamp).toISOString(),
-      source: { module: "uniswap", stream: swap.pool },
+      source: { module: "polygon-dex", stream: swap.pool },
       realtime: true,
       Message: messageText,
       isDirectMention: false,
@@ -382,6 +286,7 @@ export class UniswapCollector {
       isSystemMessage: false,
       tags: {
         dex: swap.dex,
+        chain: "polygon",
         pool: swap.pool,
         pair: pairLabel,
         token0: swap.token0,
@@ -398,10 +303,10 @@ export class UniswapCollector {
       message: normalized,
     });
 
-    this.nats.publish(subjectFor("uniswap", "messageCreated"), this.sc.encode(JSON.stringify(msgEvent)));
+    this.nats.publish(subjectFor("polygon-dex", "messageCreated"), this.sc.encode(JSON.stringify(msgEvent)));
 
     const tradeEvent = {
-      source: "uniswap",
+      source: "polygon-dex",
       symbol: pairLabel,
       side: swap.amount0 > 0n ? "sell" : "buy" as "buy" | "sell",
       price: swap.usdValue / Math.abs(Number(swap.amount0) / Math.pow(10, token0Info.decimals) || 1),
@@ -413,42 +318,14 @@ export class UniswapCollector {
       block_number: swap.blockNumber,
     };
 
-    this.nats.publish(subjectFor("uniswap", "tradeExecuted"), this.sc.encode(JSON.stringify(tradeEvent)));
+    this.nats.publish(subjectFor("polygon-dex", "tradeExecuted"), this.sc.encode(JSON.stringify(tradeEvent)));
 
     if (swap.isWhale) {
       this.log("info", "Whale swap detected", {
-        dex: swap.dex,
         pair: pairLabel,
         usdValue: swap.usdValue,
         txHash: swap.txHash,
       });
-    }
-  }
-
-  private handleV2PairCreated(log: Log): void {
-    try {
-      const parsed = v2FactoryIface.parseLog({ topics: log.topics as string[], data: log.data });
-      if (!parsed) return;
-
-      const token0 = (parsed.args[0] as string).toLowerCase();
-      const token1 = (parsed.args[1] as string).toLowerCase();
-      const pairAddress = (parsed.args[2] as string).toLowerCase();
-
-      if (!this.shouldWatchPool(token0, token1)) {
-        return;
-      }
-
-      this.poolCache.set(pairAddress, {
-        address: pairAddress,
-        token0,
-        token1,
-        dex: "uniswap_v2",
-      });
-      this.watchedPoolAddresses.add(pairAddress);
-
-      this.log("info", "New V2 pair discovered", { pair: pairAddress, token0, token1 });
-    } catch (err) {
-      this.log("error", "Failed to handle V2 PairCreated", { err: err instanceof Error ? err.message : err });
     }
   }
 
@@ -462,27 +339,22 @@ export class UniswapCollector {
       const fee = Number(parsed.args[2]);
       const poolAddress = (parsed.args[4] as string).toLowerCase();
 
-      if (!this.shouldWatchPool(token0, token1)) {
-        return;
-      }
-
       this.poolCache.set(poolAddress, {
         address: poolAddress,
         token0,
         token1,
-        dex: "uniswap_v3",
         fee,
       });
       this.watchedPoolAddresses.add(poolAddress);
 
-      this.log("info", "New V3 pool discovered", { pool: poolAddress, token0, token1, fee });
+      this.log("info", "New QuickSwap V3 pool discovered", { pool: poolAddress, token0, token1, fee });
     } catch (err) {
-      this.log("error", "Failed to handle V3 PoolCreated", { err: err instanceof Error ? err.message : err });
+      this.log("error", "Failed to handle PoolCreated", { err: err instanceof Error ? err.message : err });
     }
   }
 
   private initializeWatchedPools(): void {
-    for (const poolAddress of this.settings.watchedPairs) {
+    for (const poolAddress of this.settings.watchedQuickswapPools) {
       const addr = poolAddress.toLowerCase();
       this.watchedPoolAddresses.add(addr);
       if (!this.poolCache.has(addr)) {
@@ -490,7 +362,6 @@ export class UniswapCollector {
           address: addr,
           token0: "",
           token1: "",
-          dex: "uniswap_v3",
         });
       }
     }
@@ -498,26 +369,11 @@ export class UniswapCollector {
   }
 
   private async fetchPoolTokens(): Promise<void> {
-    const V2_PAIR_ABI = [
-      "function token0() view returns (address)",
-      "function token1() view returns (address)",
-    ];
-    const V3_POOL_ABI = [
-      "function token0() view returns (address)",
-      "function token1() view returns (address)",
-      "function fee() view returns (uint24)",
-    ];
-
     for (const [poolAddress, poolInfo] of this.poolCache.entries()) {
       if (poolInfo.token0 && poolInfo.token1) continue;
 
       try {
-        const contract = new Contract(
-          poolAddress,
-          poolInfo.dex === "uniswap_v2" ? V2_PAIR_ABI : V3_POOL_ABI,
-          this.provider
-        );
-
+        const contract = new Contract(poolAddress, V3_POOL_ABI, this.provider);
         const [token0, token1] = await Promise.all([
           contract.token0(),
           contract.token1(),
@@ -526,12 +382,11 @@ export class UniswapCollector {
         poolInfo.token0 = (token0 as string).toLowerCase();
         poolInfo.token1 = (token1 as string).toLowerCase();
 
-        if (poolInfo.dex === "uniswap_v3" && !poolInfo.fee) {
+        if (!poolInfo.fee) {
           try {
             const fee = await contract.fee();
             poolInfo.fee = Number(fee);
           } catch {
-            // ignore
           }
         }
 
@@ -549,33 +404,18 @@ export class UniswapCollector {
       this.provider.on(
         {
           address: poolAddresses,
-          topics: [[V2_SWAP_TOPIC, V3_SWAP_TOPIC]],
+          topics: [[V3_SWAP_TOPIC]],
         },
         async (log: Log) => {
-          const topic = log.topics[0]?.toLowerCase();
-          if (topic === V2_SWAP_TOPIC.toLowerCase()) {
-            await this.handleV2Swap(log);
-          } else if (topic === V3_SWAP_TOPIC.toLowerCase()) {
-            await this.handleV3Swap(log);
-          }
+          await this.handleV3Swap(log);
         }
       );
-      this.log("info", "Subscribed to swap events", { poolCount: poolAddresses.length });
+      this.log("info", "Subscribed to QuickSwap V3 swap events", { poolCount: poolAddresses.length });
     }
 
     this.provider.on(
       {
-        address: V2_FACTORY_ADDRESS,
-        topics: [V2_PAIR_CREATED_TOPIC],
-      },
-      (log: Log) => {
-        this.handleV2PairCreated(log);
-      }
-    );
-
-    this.provider.on(
-      {
-        address: V3_FACTORY_ADDRESS,
+        address: QUICKSWAP_V3_FACTORY,
         topics: [V3_POOL_CREATED_TOPIC],
       },
       (log: Log) => {
@@ -583,7 +423,7 @@ export class UniswapCollector {
       }
     );
 
-    this.log("info", "Subscribed to factory events for new pool discovery");
+    this.log("info", "Subscribed to QuickSwap V3 factory events for new pool discovery");
   }
 
   private scheduleReconnect(): void {
@@ -611,36 +451,35 @@ export class UniswapCollector {
     }
 
     this.isRunning = true;
-    this.log("info", "Starting Uniswap collector", {
+    this.log("info", "Starting Polygon DEX collector", {
       rpcUrl: this.settings.rpcUrl,
-      filterMode: this.settings.filterMode,
       whaleThreshold: this.settings.whaleThreshold,
-      watchedPairs: this.settings.watchedPairs.length,
+      watchedPools: this.settings.watchedQuickswapPools.length,
     });
 
     this.initializeWatchedPools();
     await this.fetchPoolTokens();
     await this.subscribeToEvents();
 
-    const ws = (this.provider as any)._websocket;
+    const ws = (this.provider as unknown as { _websocket?: { addEventListener?: (event: string, handler: (...args: unknown[]) => void) => void } })._websocket;
     if (ws?.addEventListener) {
       ws.addEventListener("close", () => {
         this.log("warn", "WebSocket closed");
         this.scheduleReconnect();
       });
-      ws.addEventListener("error", (err: Error) => {
-        this.log("error", "WebSocket error", { err: err.message });
+      ws.addEventListener("error", (err: unknown) => {
+        this.log("error", "WebSocket error", { err: err instanceof Error ? err.message : String(err) });
       });
     }
 
-    this.log("info", "Uniswap collector started");
+    this.log("info", "Polygon DEX collector started");
   }
 
   async stop(): Promise<void> {
     this.isRunning = false;
     await this.provider.destroy();
     await this.prisma.$disconnect();
-    this.log("info", "Uniswap collector stopped");
+    this.log("info", "Polygon DEX collector stopped");
   }
 
   getStats(): { swapCount: number; poolCount: number; tokenCount: number } {
@@ -652,7 +491,7 @@ export class UniswapCollector {
   }
 }
 
-export async function createUniswapListener(params: {
+export async function createPolygonDexListener(params: {
   nats: NatsConnection;
   sc: StringCodec;
   getSetting: (k: string) => Promise<string | boolean | number | undefined>;
@@ -663,45 +502,28 @@ export async function createUniswapListener(params: {
     error?: (msg: string, meta?: unknown) => void;
   };
 }) {
-  const rpcUrl = (await params.getSetting("rpcUrl")) as string || "ws://localhost:8546";
+  const rpcUrl = (await params.getSetting("rpcUrl")) as string || "wss://polygon-mainnet.infura.io/ws/v3/YOUR-PROJECT-ID";
   const whaleThreshold = Number((await params.getSetting("whaleThreshold")) ?? 50000);
-  const watchedPairsSetting = await params.getSetting("watchedPairs");
-  const filterModeSetting = (await params.getSetting("filterMode")) as string || "all";
-  const customTokenFilterSetting = await params.getSetting("customTokenFilter");
-  const topPoolCountSetting = await params.getSetting("topPoolCount");
 
-  let watchedPairs: string[] = [];
-  if (Array.isArray(watchedPairsSetting)) {
-    watchedPairs = watchedPairsSetting as string[];
-  } else if (typeof watchedPairsSetting === "string" && watchedPairsSetting.trim().startsWith("[")) {
+  const watchedPoolsSetting = await params.getSetting("watchedQuickswapPools");
+  let watchedQuickswapPools: string[] = [];
+  if (Array.isArray(watchedPoolsSetting)) {
+    watchedQuickswapPools = watchedPoolsSetting as string[];
+  } else if (typeof watchedPoolsSetting === "string" && watchedPoolsSetting.trim().startsWith("[")) {
     try {
-      watchedPairs = JSON.parse(watchedPairsSetting);
+      watchedQuickswapPools = JSON.parse(watchedPoolsSetting);
     } catch {
-      watchedPairs = [];
+      watchedQuickswapPools = [];
     }
   }
 
-  let customTokenFilter: string[] = [];
-  if (Array.isArray(customTokenFilterSetting)) {
-    customTokenFilter = customTokenFilterSetting as string[];
-  } else if (typeof customTokenFilterSetting === "string" && customTokenFilterSetting.trim().startsWith("[")) {
-    try {
-      customTokenFilter = JSON.parse(customTokenFilterSetting);
-    } catch {
-      customTokenFilter = [];
-    }
-  }
-
-  const settings: UniswapSettings = {
+  const settings: PolygonDexSettings = {
     rpcUrl,
     whaleThreshold,
-    watchedPairs,
-    filterMode: filterModeSetting as UniswapSettings["filterMode"],
-    customTokenFilter,
-    topPoolCount: Number(topPoolCountSetting) || 50,
+    watchedQuickswapPools,
   };
 
-  const collector = new UniswapCollector(settings, params.nats, params.sc, params.logger);
+  const collector = new PolygonDexCollector(settings, params.nats, params.sc, params.logger);
   await collector.start();
 
   return collector;

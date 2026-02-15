@@ -17,7 +17,7 @@ export type KrakenSettings = {
   contextPromptFallback: string;
 };
 
-const UUID_NAMESPACE = "k1a2b3c4-d5e6-f7a8-b9c0-d1e2f3a4b5c6";
+const UUID_NAMESPACE = "45118b8e-8ed1-4823-87c3-724fae7c6326";
 
 const FALLBACK_WS_URLS = [
   "wss://ws.kraken.com/v2",

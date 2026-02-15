@@ -5,7 +5,7 @@ import type { DbLike, NatsLike, StringCodecLike } from "@feedeater/module-sdk";
 
 import { classifyMarketText, EventType, TICKER_TO_ASSET } from "./taxonomy.js";
 
-const UUID_NAMESPACE = "02357973-7196-41e7-8762-6918faefa881";
+const UUID_NAMESPACE = "d4e6f8a0-3c5d-7e9f-1b2a-4c6d8e0f2a3b";
 
 type QueryResult<T = Record<string, unknown>> = { rows: T[]; rowCount: number };
 
