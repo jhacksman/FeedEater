@@ -1,0 +1,25 @@
+{
+  "name": "polygon-dex",
+  "version": "0.1.0",
+  "description": "Polygon DEX collector for QuickSwap V3 swaps via Infura WebSocket. Collects real-time swap events, discovers new pools via factory events, and publishes to NATS.",
+  "namespace": "feedeater.polygon_dex",
+  "runtime": { "entry": "dist/runtime.js" },
+  "queues": ["mod_polygon_dex"],
+  "jobs": [
+    {
+      "name": "listen",
+      "queue": "mod_polygon_dex",
+      "schedule": "* * * * *",
+      "description": "Ensure the Polygon DEX WebSocket listener is running (auto-reconnect)."
+    }
+  ],
+  "settings": [
+    { "key": "enabled", "type": "boolean", "default": true },
+    { "key": "rpcUrl", "type": "string", "default": "wss://polygon-mainnet.infura.io/ws/v3/b5ef538a6a4e4b799dad3b097ede45e7", "description": "Polygon WebSocket RPC URL (Infura)" },
+    { "key": "whaleThreshold", "type": "number", "default": 50000, "description": "USD threshold to flag whale swaps" },
+    { "key": "watchedQuickswapPools", "type": "string", "default": "[\"0x45dDa9cb7c25131DF268515131f647d726f50608\",\"0xAE81FAc689A1b4b1e06e7ef4a2ab4CD8aC0A087D\"]", "description": "JSON array of QuickSwap V3 pool addresses on Polygon (WETH/USDC, WMATIC/USDC)" }
+  ],
+  "cards": [
+    { "id": "polygonDexStatus", "title": "Polygon DEX Collector" }
+  ]
+}

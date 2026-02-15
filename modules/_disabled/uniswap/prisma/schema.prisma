@@ -1,0 +1,26 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model DexSwap {
+  id            String   @id @default(uuid())
+  createdAt     DateTime @default(now())
+  chain         String
+  dex           String
+  pair          String
+  txHash        String
+  block         BigInt
+  timestampMs   BigInt
+  token0Amount  Decimal  @db.Decimal(38, 18)
+  token1Amount  Decimal  @db.Decimal(38, 18)
+  usdValue      Decimal  @db.Decimal(38, 2)
+  sender        String
+  isWhale       Boolean
+
+  @@schema("mod_uniswap")
+}

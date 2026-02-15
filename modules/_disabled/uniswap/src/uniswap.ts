@@ -4,7 +4,7 @@ import { v4 as uuidv4, v5 as uuidv5 } from "uuid";
 import { NormalizedMessageSchema, MessageCreatedEventSchema, subjectFor } from "@feedeater/core";
 import { PrismaClient } from "@prisma/client";
 
-const UUID_NAMESPACE = "d7741543-9d01-4002-a92d-d0cfa82d81a2";
+const UUID_NAMESPACE = "u1n2i3s4-w5a6-p7v8-9a0b-c1d2e3f4a5b6";
 
 const V2_FACTORY_ADDRESS = "0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f";
 const V3_FACTORY_ADDRESS = "0x1F98431c8aD98523631AE4a59f267346ea31F984";

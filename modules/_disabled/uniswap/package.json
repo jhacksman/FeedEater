@@ -1,0 +1,36 @@
+{
+  "name": "@feedeater/module-uniswap",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsup src/index.ts src/runtime.ts src/uniswap.ts --format esm --dts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@feedeater/core": "*",
+    "@feedeater/module-sdk": "*",
+    "@prisma/client": "^5.20.0",
+    "nats": "^2.29.3",
+    "uuid": "^11.1.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "ethers": "^6.16.0",
+    "prisma": "^5.20.0",
+    "tsup": "^8.5.0",
+    "typescript": "^5.9.2",
+    "vitest": "^2.1.9"
+  }
+}

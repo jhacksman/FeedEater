@@ -38,7 +38,7 @@ type RSSVideo = {
   link: string;
 };
 
-const UUID_NAMESPACE = "e1f2a3b4-5678-9abc-def0-1234567890ab";
+const UUID_NAMESPACE = "23e31f40-aea9-449a-8fef-2edba8c7b9be";
 
 export function parseYouTubeSettingsFromInternal(
   raw: Record<string, unknown>

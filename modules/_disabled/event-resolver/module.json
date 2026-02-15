@@ -1,0 +1,33 @@
+{
+  "name": "event-resolver",
+  "version": "0.0.1",
+  "description": "Cross-venue event resolver. Matches equivalent events across prediction markets (Kalshi, Polymarket) and maps them to underlying assets on CEX/DEX.",
+  "namespace": "feedeater.event_resolver",
+  "runtime": { "entry": "dist/runtime.js" },
+  "queues": ["mod_event_resolver"],
+  "jobs": [
+    {
+      "name": "resolveEvents",
+      "queue": "mod_event_resolver",
+      "schedule": "*/10 * * * *",
+      "description": "Scan Kalshi and Polymarket markets for equivalent events, build cross-references, and map to underlying assets."
+    },
+    {
+      "name": "onMessage",
+      "queue": "mod_event_resolver",
+      "triggeredBy": "event",
+      "description": "Triggered when a new message arrives from kalshi or polymarket modules. Checks for cross-venue equivalents."
+    }
+  ],
+  "settings": [
+    { "key": "enabled", "type": "boolean", "default": false },
+    { "key": "minConfidence", "type": "number", "default": 0.5, "description": "Minimum confidence threshold for event mappings" },
+    { "key": "textSimilarityWeight", "type": "number", "default": 0.4, "description": "Weight for text similarity in matching (0-1)" },
+    { "key": "embeddingSimilarityWeight", "type": "number", "default": 0.6, "description": "Weight for embedding cosine similarity in matching (0-1)" },
+    { "key": "lookbackHours", "type": "number", "default": 24, "description": "How many hours of history to scan for matches" }
+  ],
+  "cards": [
+    { "id": "eventResolverStatus", "title": "Event Resolver" },
+    { "id": "eventMappings", "title": "Cross-Venue Mappings" }
+  ]
+}

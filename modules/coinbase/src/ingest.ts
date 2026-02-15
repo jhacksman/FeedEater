@@ -17,7 +17,7 @@ export type CoinbaseSettings = {
   contextPromptFallback: string;
 };
 
-const UUID_NAMESPACE = "c0a1b2c3-d4e5-f6a7-b8c9-d0e1f2a3b4c5";
+const UUID_NAMESPACE = "9d6dc9c3-2629-47d1-aee0-e74cbcc6b0ec";
 
 const PUBLIC_WS_URL = "wss://ws-feed.exchange.coinbase.com";
 const FALLBACK_WS_URLS = [

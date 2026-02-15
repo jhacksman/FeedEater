@@ -17,7 +17,7 @@ export type BinanceSettings = {
   contextPromptFallback: string;
 };
 
-const UUID_NAMESPACE = "b1n2a3n4-c5e6-7890-abcd-ef1234567890";
+const UUID_NAMESPACE = "74b11840-44f9-4e97-b6bc-c5df3b289b31";
 
 const PUBLIC_WS_URL = "wss://stream.binance.com:9443/ws";
 const PUBLIC_REST_URL = "https://api.binance.com/api/v3";
