@@ -1,6 +1,6 @@
 COMPOSE ?= docker compose
 
-.PHONY: up down ps logs build pull restart db-push status health config clean
+.PHONY: up down ps logs build pull restart db-push status health config clean smoke-test smoke-test-quick tail-events
 
 # Start all services (build if needed)
 up:
@@ -66,5 +66,26 @@ restart-%:
 # Shell into specific service (usage: make shell-api, make shell-worker, etc.)
 shell-%:
 	$(COMPOSE) exec $* sh
+
+# Run smoke test to verify data flows through the system
+smoke-test:
+	@echo "Running FeedEater smoke test..."
+	./scripts/smoke_test.sh
+
+# Run smoke test without starting services (assumes already running)
+smoke-test-quick:
+	@echo "Running FeedEater smoke test (skip start)..."
+	./scripts/smoke_test.sh --skip-start --wait-time 30
+
+# Tail NATS events in real-time
+tail-events:
+	@echo "Tailing FeedEater NATS events..."
+	@echo "Press Ctrl+C to stop."
+	npx ts-node scripts/verify_data_flow.ts
+
+# Tail events for specific module (usage: make tail-coinbase, make tail-polymarket)
+tail-%:
+	@echo "Tailing FeedEater NATS events for $*..."
+	npx ts-node scripts/verify_data_flow.ts --subjects "feedeater.$*.*"
 
 
