@@ -355,7 +355,7 @@ async function main() {
     const getQueue = (name: string) => {
       let q = queuesByName.get(name);
       if (!q) {
-        q = new Queue(name, { connection: redis });
+        q = new Queue(name, { connection: redis as any });
         queuesByName.set(name, q);
       }
       return q;
@@ -411,7 +411,7 @@ async function main() {
             })();
             await getQueue(s.queue).add(
               s.jobName,
-              { __module: s.moduleName, trigger: { subject: s.subject, messageId: msg.id } },
+              { __module: s.moduleName, __trigger: { type: "event" as const, subject: s.subject, messageId: msg.id } },
               { removeOnComplete: true, removeOnFail: 100 }
             );
           } catch (err) {
@@ -462,8 +462,8 @@ async function main() {
     };
 
     for (const qName of queuesByName.keys()) {
-      const w = new Worker(qName, makeProcessor(qName), { connection: redis });
-      w.on("failed", (job, err) => {
+      const w = new Worker(qName, makeProcessor(qName), { connection: redis as any, concurrency: 5 });
+      w.on("failed", (job: any, err: Error) => {
         const id = job?.id ?? "unknown";
         // eslint-disable-next-line no-console
         console.error(`[worker] job failed queue=${qName} id=${id}`, err);
@@ -482,12 +482,12 @@ async function main() {
           await upsertContext({
             db,
             ownerModule: env.context.ownerModule,
-            sourceKey: env.context.sourceKey,
+            ...(env.context.sourceKey ? { sourceKey: env.context.sourceKey } : {}),
             summaryShort: env.context.summaryShort,
             summaryLong: env.context.summaryLong,
             keyPoints: env.context.keyPoints ?? [],
-            embedding: env.context.embedding,
-            messageId: env.messageId,
+            ...(env.context.embedding ? { embedding: env.context.embedding } : {}),
+            ...(env.messageId ? { messageId: env.messageId } : {}),
           });
         } catch (err) {
           publishLog(nc, sc, "warn", "failed to apply context update", { err: serializeError(err) });
