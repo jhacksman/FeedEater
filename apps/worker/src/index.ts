@@ -418,6 +418,7 @@ async function main() {
     console.log(`[worker] discovered modules: ${modules.map((m) => m.name).join(", ") || "(none)"}`);
 
     const runtimeByModule = new Map<string, ModuleRuntime>();
+    const failedModules: Array<{ name: string; reason: string }> = [];
     for (const m of modules) {
       const entry = m.runtime?.entry;
       if (!entry) {
@@ -425,8 +426,30 @@ async function main() {
         console.log(`[worker] module ${m.name} has no runtime.entry; skipping runtime load`);
         continue;
       }
-      const rt = await loadModuleRuntime({ modulesDir: MODULES_DIR, moduleName: m.name, runtimeEntry: entry });
-      runtimeByModule.set(m.name, rt);
+      try {
+        const rt = await loadModuleRuntime({ modulesDir: MODULES_DIR, moduleName: m.name, runtimeEntry: entry });
+        runtimeByModule.set(m.name, rt);
+      } catch (err) {
+        const reason = err instanceof Error ? err.message : String(err);
+        failedModules.push({ name: m.name, reason });
+        // eslint-disable-next-line no-console
+        console.error(`[worker] failed to load: ${m.name} (${reason})`);
+        publishLog(nc, sc, "error", `failed to load module: ${m.name}`, { module: m.name, reason });
+      }
+    }
+
+    const totalWithRuntime = modules.filter((m) => m.runtime?.entry).length;
+    const loadedCount = runtimeByModule.size;
+    if (failedModules.length > 0) {
+      // eslint-disable-next-line no-console
+      console.log(`[worker] loaded ${loadedCount}/${totalWithRuntime} modules (${failedModules.length} failed)`);
+      for (const f of failedModules) {
+        // eslint-disable-next-line no-console
+        console.log(`[worker] failed to load: ${f.name} (${f.reason})`);
+      }
+    } else {
+      // eslint-disable-next-line no-console
+      console.log(`[worker] loaded ${loadedCount}/${totalWithRuntime} modules`);
     }
 
     const baseCtx: Omit<ModuleRuntimeContext, "moduleName" | "getQueue"> = {
