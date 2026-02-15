@@ -36,7 +36,7 @@ COPY modules/uniswap/package.json modules/uniswap/package.json
 COPY modules/youtube/package.json modules/youtube/package.json
 
 RUN apk add --no-cache python3 make g++
-RUN npm install
+RUN npm ci
 
 FROM node:20-alpine AS build
 WORKDIR /app
@@ -63,8 +63,11 @@ ENV NODE_ENV=production
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/packages/core/package.json ./packages/core/package.json
 COPY --from=build /app/packages/core/dist ./packages/core/dist
+COPY --from=build /app/packages/module-sdk/package.json ./packages/module-sdk/package.json
+COPY --from=build /app/packages/module-sdk/dist ./packages/module-sdk/dist
 COPY --from=build /app/packages/db/package.json ./packages/db/package.json
 COPY --from=build /app/packages/db/dist ./packages/db/dist
+COPY --from=build /app/packages/db/prisma ./packages/db/prisma
 
 COPY --from=build /app/modules ./modules
 
