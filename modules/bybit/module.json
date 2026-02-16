@@ -1,0 +1,45 @@
+{
+  "name": "bybit",
+  "version": "0.0.1",
+  "description": "Bybit Exchange CEX integration. Real-time trade streaming via WebSocket, 1-min candles, whale detection, and order book snapshots.",
+  "namespace": "feedeater.bybit",
+  "runtime": { "entry": "dist/runtime.js" },
+  "queues": ["mod_bybit"],
+  "jobs": [
+    {
+      "name": "stream",
+      "queue": "mod_bybit",
+      "schedule": "*/1 * * * *",
+      "description": "Maintain WebSocket connection and collect real-time trades, candles, and order book snapshots."
+    },
+    {
+      "name": "updateContexts",
+      "queue": "mod_bybit",
+      "schedule": "*/30 * * * *",
+      "description": "Refresh context summaries for watched pairs."
+    }
+  ],
+  "settings": [
+    { "key": "enabled", "type": "boolean", "default": false },
+    { "key": "apiUrl", "type": "string", "default": "wss://stream.bybit.com/v5/public/spot", "description": "Bybit WebSocket API URL (public, no auth required)" },
+    { "key": "restApiUrl", "type": "string", "default": "https://api.bybit.com/v5/market", "description": "Bybit REST API URL (public, no auth required)" },
+    { "key": "whaleThreshold", "type": "number", "default": 50000, "description": "Minimum trade size in USD to flag as whale" },
+    { "key": "watchedPairs", "type": "string", "default": "[\"BTCUSDT\", \"ETHUSDT\", \"SOLUSDT\"]", "description": "JSON array of trading pairs to watch (Bybit format)" },
+    { "key": "orderbookEnabled", "type": "boolean", "default": true, "description": "Collect order book snapshots (top 20 levels, 1-min intervals)" },
+    { "key": "candleIntervalSeconds", "type": "number", "default": 60, "description": "Candle aggregation interval in seconds" },
+    {
+      "key": "contextPrompt",
+      "type": "string",
+      "default": "You are summarizing CEX trading activity on Bybit. Summarize ONLY the market data provided. Include price, volume, whale activity, and notable movements. Return strict JSON with keys: summary_short and summary_long. summary_short must be <= 128 characters. summary_long should be 1-3 short paragraphs. Do not return empty strings."
+    },
+    {
+      "key": "contextPromptFallback",
+      "type": "string",
+      "default": "Summarize ONLY the provided trading data in plain text. 1-3 short sentences about price and volume. Do not return JSON."
+    }
+  ],
+  "cards": [
+    { "id": "bybitStatus", "title": "Bybit Collector" },
+    { "id": "bybitPairs", "title": "Watched Pairs" }
+  ]
+}
