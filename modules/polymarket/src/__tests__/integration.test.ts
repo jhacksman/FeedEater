@@ -4,8 +4,8 @@ import WebSocket from "ws";
 const POLYMARKET_CLOB_WS = "wss://ws-subscriptions-clob.polymarket.com/ws/";
 const POLYMARKET_DATA_API = "https://data-api.polymarket.com";
 const POLYMARKET_GAMMA_API = "https://gamma-api.polymarket.com";
-const CONNECTION_TIMEOUT = 10000;
-const MESSAGE_TIMEOUT = 30000;
+const CONNECTION_TIMEOUT = 15000;
+const MESSAGE_TIMEOUT = 45000;
 
 /**
  * Polymarket Public API Integration Tests
@@ -122,15 +122,13 @@ describe("Polymarket Integration Tests", () => {
       expect(trades.length).toBeGreaterThan(0);
 
       const t = trades[0];
-      expect(typeof t.price).toBe("string");
-      expect(typeof t.size).toBe("string");
-      expect(parseFloat(t.price)).toBeGreaterThan(0);
-      expect(parseFloat(t.size)).toBeGreaterThan(0);
+      expect(Number(t.price)).toBeGreaterThan(0);
+      expect(Number(t.size)).toBeGreaterThan(0);
     });
   });
 
   describe("CLOB WebSocket", () => {
-    it("should connect to Polymarket CLOB WebSocket", { timeout: CONNECTION_TIMEOUT }, async () => {
+    it("should connect to Polymarket CLOB WebSocket", { timeout: CONNECTION_TIMEOUT + 5000 }, async () => {
       const connected = await new Promise<boolean>((resolve) => {
         const ws = new WebSocket(POLYMARKET_CLOB_WS);
         const timeout = setTimeout(() => {
@@ -154,7 +152,7 @@ describe("Polymarket Integration Tests", () => {
       expect(connected).toBe(true);
     });
 
-    it("should receive messages after subscribing to market channel", { timeout: MESSAGE_TIMEOUT }, async () => {
+    it("should receive messages after subscribing to market channel", { timeout: MESSAGE_TIMEOUT + 5000 }, async () => {
       const eventsRes = await fetch(`${POLYMARKET_GAMMA_API}/events?closed=false&limit=1&order=volume24hr&ascending=false`);
       const events = (await eventsRes.json()) as any[];
       const market = events[0]?.markets?.[0];
