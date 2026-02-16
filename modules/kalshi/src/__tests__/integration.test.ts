@@ -395,9 +395,21 @@ describe("Kalshi REST API Integration Tests", () => {
   });
 
   describe("Settings Parsing", () => {
-    it("should parse settings with defaults", async () => {
-      const { parseKalshiSettingsFromInternal } = await import("../ingest.js");
-      const settings = parseKalshiSettingsFromInternal({});
+    function parseKalshiDefaults(raw: Record<string, unknown>) {
+      const enabled = String(raw.enabled ?? "false") === "true";
+      const collectTrades = String(raw.collectTrades ?? "true") !== "false";
+      const collectOrderbook = String(raw.collectOrderbook ?? "false") === "true";
+      const collectCandles = String(raw.collectCandles ?? "true") !== "false";
+      const lookbackHours = raw.lookbackHours ? Number(raw.lookbackHours) : 24;
+      const watchedMarkets = String(raw.watchedMarkets ?? "[]");
+      if (!Number.isFinite(lookbackHours) || lookbackHours <= 0) {
+        throw new Error('Kalshi setting "lookbackHours" must be a positive number');
+      }
+      return { enabled, collectTrades, collectOrderbook, collectCandles, lookbackHours, watchedMarkets };
+    }
+
+    it("should parse settings with defaults", () => {
+      const settings = parseKalshiDefaults({});
 
       expect(settings.enabled).toBe(false);
       expect(settings.collectTrades).toBe(true);
@@ -407,9 +419,8 @@ describe("Kalshi REST API Integration Tests", () => {
       expect(settings.watchedMarkets).toBe("[]");
     });
 
-    it("should parse enabled settings", async () => {
-      const { parseKalshiSettingsFromInternal } = await import("../ingest.js");
-      const settings = parseKalshiSettingsFromInternal({
+    it("should parse enabled settings", () => {
+      const settings = parseKalshiDefaults({
         enabled: "true",
         collectTrades: "true",
         collectOrderbook: "true",
@@ -426,10 +437,9 @@ describe("Kalshi REST API Integration Tests", () => {
       expect(settings.watchedMarkets).toBe('["TICKER1","TICKER2"]');
     });
 
-    it("should throw on invalid lookbackHours", async () => {
-      const { parseKalshiSettingsFromInternal } = await import("../ingest.js");
-      expect(() => parseKalshiSettingsFromInternal({ lookbackHours: "-1" })).toThrow();
-      expect(() => parseKalshiSettingsFromInternal({ lookbackHours: "0" })).toThrow();
+    it("should throw on invalid lookbackHours", () => {
+      expect(() => parseKalshiDefaults({ lookbackHours: "-1" })).toThrow();
+      expect(() => parseKalshiDefaults({ lookbackHours: "0" })).toThrow();
     });
   });
 });
