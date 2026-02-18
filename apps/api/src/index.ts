@@ -25,6 +25,7 @@ import { apiKeyAuth } from "./middleware/auth.js";
 import { rateLimit } from "./middleware/rateLimit.js";
 import { getMetrics } from "./metrics.js";
 import { getModuleList } from "./moduleList.js";
+import { getStats } from "./stats.js";
 import { getStream } from "./stream.js";
 
 const PORT = Number(process.env.PORT ?? "4000");
@@ -173,6 +174,7 @@ app.get("/api/bus/stream", async (req: Request, res: Response) => {
   })();
 });
 
+app.get("/api/stats", getStats);
 app.get("/api/stream", getStream({ getNatsConn, sc: natsSc }));
 app.get("/api/history", getHistory);
 app.get("/api/export", getExport);
