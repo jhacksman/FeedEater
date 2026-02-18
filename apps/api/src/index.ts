@@ -15,6 +15,7 @@ import { registerCexDataRoutes } from "./cexData.js";
 import { ModuleHealthStore, getModuleHealth } from "./moduleHealth.js";
 import { getDashboard } from "./dashboard.js";
 import { getHistory } from "./history.js";
+import { getExport } from "./export.js";
 import { apiKeyAuth } from "./middleware/auth.js";
 
 const PORT = Number(process.env.PORT ?? "4000");
@@ -144,6 +145,7 @@ app.get("/api/bus/stream", async (req: Request, res: Response) => {
 });
 
 app.get("/api/history", getHistory);
+app.get("/api/export", getExport);
 
 // Historical bus messages (from Postgres archive).
 app.get("/api/bus/history", getBusHistory);
