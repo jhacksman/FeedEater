@@ -37,6 +37,7 @@ import { setDynamicKeyDb, setUsageTracker } from "./middleware/auth.js";
 import { getStatusSummary } from "./statusSummary.js";
 import { getAlerts } from "./alerts.js";
 import { RateLimitDb, adminKeyAuth, listRateLimits, putRateLimit, deleteRateLimit } from "./rateLimitConfig.js";
+import { getDataQuality } from "./dataQuality.js";
 import { setRateLimitDb } from "./middleware/rateLimit.js";
 import { postWebhook, listWebhooks, deleteWebhook, deliverWebhooks, getDeliveries, WebhookDb, DeliveryLog } from "./webhooks.js";
 import type { Webhook } from "./webhooks.js";
@@ -217,6 +218,7 @@ app.get("/api/reconnects", getReconnectSummaryHandler());
 app.get("/api/staleness", getStaleness({ tracker: stalenessTracker }));
 app.get("/api/status/summary", getStatusSummary({ stalenessTracker, disabledModules, webhooks, deliveryLog, apiKeyDb, getNatsConn }));
 app.get("/api/alerts", getAlerts({ stalenessTracker, disabledModules }));
+app.get("/api/data-quality", getDataQuality({ stalenessTracker, disabledModules }));
 
 const rlDeps = { db: rateLimitDb, defaultLimit: 100 };
 app.get("/api/rate-limits", adminKeyAuth, listRateLimits(rlDeps));
