@@ -17,6 +17,7 @@ import { getDashboard } from "./dashboard.js";
 import { getHistory } from "./history.js";
 import { getExport } from "./export.js";
 import { postModuleRestart } from "./moduleRestart.js";
+import { LiveStatusStore, getStatus } from "./status.js";
 import { apiKeyAuth } from "./middleware/auth.js";
 import { rateLimit } from "./middleware/rateLimit.js";
 
@@ -36,6 +37,7 @@ requiredEnv("FEED_SETTINGS_KEY");
 requiredEnv("FEED_INTERNAL_TOKEN");
 const natsSc = StringCodec();
 const moduleHealthStore = new ModuleHealthStore();
+const liveStatusStore = new LiveStatusStore();
 let natsConnPromise: Promise<import("nats").NatsConnection> | null = null;
 
 function getNatsConn() {
@@ -64,6 +66,7 @@ app.get("/api/health", async (_req: Request, res: Response) => {
 });
 
 app.get("/api/health/modules", getModuleHealth(moduleHealthStore));
+app.get("/api/status", getStatus({ store: liveStatusStore, getNatsConn, prisma }));
 
 app.get("/api/modules", async (_req: Request, res: Response) => {
   const modules = await discoverModules(MODULES_DIR);
@@ -179,7 +182,19 @@ getNatsConn()
       for await (const m of sub) {
         const parts = m.subject.split(".");
         const moduleName = parts[1];
-        if (moduleName) moduleHealthStore.recordMessage(moduleName);
+        if (moduleName) {
+          moduleHealthStore.recordMessage(moduleName);
+          liveStatusStore.recordMessage(moduleName);
+        }
+      }
+    })();
+
+    const reconnectSub = nc.subscribe("feedeater.*.reconnecting");
+    (async () => {
+      for await (const m of reconnectSub) {
+        const parts = m.subject.split(".");
+        const moduleName = parts[1];
+        if (moduleName) liveStatusStore.recordReconnect(moduleName);
       }
     })();
   })
