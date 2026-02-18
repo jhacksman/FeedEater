@@ -59,6 +59,7 @@ import { getModuleErrors } from "./moduleErrors.js";
 import { ReconnectStatsStore, getModuleReconnectStats } from "./moduleReconnectStats.js";
 import { UptimeStore, getModuleUptime } from "./moduleUptime.js";
 import { getSystemMetrics } from "./systemMetrics.js";
+import { getSystemCapacity } from "./systemCapacity.js";
 import { postModuleReset } from "./moduleReset.js";
 import { setRateLimitDb } from "./middleware/rateLimit.js";
 import { postWebhook, listWebhooks, deleteWebhook, deliverWebhooks, getDeliveries, WebhookDb, DeliveryLog } from "./webhooks.js";
@@ -281,6 +282,7 @@ app.get("/api/alerts/acknowledged", listAcknowledgedAlerts({ store: ackedAlerts 
 app.delete("/api/alerts/acknowledge", deleteAcknowledgedAlert({ store: ackedAlerts }));
 app.get("/api/system/info", getSystemInfo({ startedAt: serverStartedAt }));
 app.get("/api/system/metrics", getSystemMetrics({ metricsStore: moduleMetricsStore, reconnectStore: reconnectStatsStore, uptimeStore }));
+app.get("/api/system/capacity", getSystemCapacity({ metricsStore: moduleMetricsStore }));
 
 const rlDeps = { db: rateLimitDb, defaultLimit: 100 };
 app.get("/api/rate-limits", adminKeyAuth, listRateLimits(rlDeps));
