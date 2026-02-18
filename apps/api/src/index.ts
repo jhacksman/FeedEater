@@ -15,6 +15,7 @@ import { registerCexDataRoutes } from "./cexData.js";
 import { ModuleHealthStore, getModuleHealth } from "./moduleHealth.js";
 import { getDashboard } from "./dashboard.js";
 import { getHistory } from "./history.js";
+import { apiKeyAuth } from "./middleware/auth.js";
 
 const PORT = Number(process.env.PORT ?? "4000");
 const MODULES_DIR = process.env.FEED_MODULES_DIR ?? "/app/modules";
@@ -49,6 +50,8 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   res.setHeader("Content-Security-Policy", "frame-ancestors 'self'");
   next();
 });
+
+app.use(apiKeyAuth);
 
 app.get("/", getDashboard);
 
