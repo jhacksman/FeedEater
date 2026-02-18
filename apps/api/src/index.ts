@@ -34,6 +34,7 @@ import { recordReconnect, getModuleReconnectsHandler, getReconnectSummaryHandler
 import { ApiKeyDb, masterKeyAuth, postApiKey, listApiKeys, deleteApiKey } from "./apiKeys.js";
 import { UsageTracker, getKeyUsage } from "./usageTracker.js";
 import { setDynamicKeyDb, setUsageTracker } from "./middleware/auth.js";
+import { getStatusSummary } from "./statusSummary.js";
 import { postWebhook, listWebhooks, deleteWebhook, deliverWebhooks, getDeliveries, WebhookDb, DeliveryLog } from "./webhooks.js";
 import type { Webhook } from "./webhooks.js";
 
@@ -207,6 +208,7 @@ app.get("/api/modules/:name/config", getModuleConfig({ disabledModules, db: modu
 app.get("/api/modules/:name/reconnects", getModuleReconnectsHandler());
 app.get("/api/reconnects", getReconnectSummaryHandler());
 app.get("/api/staleness", getStaleness({ tracker: stalenessTracker }));
+app.get("/api/status/summary", getStatusSummary({ stalenessTracker, disabledModules, webhooks, deliveryLog, apiKeyDb, getNatsConn }));
 
 app.post("/api/keys", masterKeyAuth, postApiKey({ db: apiKeyDb }));
 app.get("/api/keys", masterKeyAuth, listApiKeys({ db: apiKeyDb }));
