@@ -1,6 +1,9 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import type { Request, Response } from "express";
-import { postModuleDisable, postModuleEnable } from "../moduleControl.js";
+import { postModuleDisable, postModuleEnable, ModuleConfigDb, getModuleConfig } from "../moduleControl.js";
+import { unlinkSync, existsSync } from "node:fs";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
 
 function makeReq(name: string, headers: Record<string, string> = {}): Request {
   return {
@@ -206,5 +209,207 @@ describe("POST /api/modules/:name/enable", () => {
     await enableHandler(req2, res2);
     expect(disabledModules.has("polymarket")).toBe(false);
     expect(publish).toHaveBeenCalledTimes(2);
+  });
+});
+
+function tmpDbPath(): string {
+  return join(tmpdir(), `moduleconfig-test-${Date.now()}-${Math.random().toString(36).slice(2)}.db`);
+}
+
+function cleanup(p: string) {
+  for (const f of [p, `${p}-wal`, `${p}-shm`]) {
+    if (existsSync(f)) unlinkSync(f);
+  }
+}
+
+describe("ModuleConfigDb", () => {
+  let dbPath: string;
+  let db: ModuleConfigDb;
+
+  afterEach(() => {
+    try { db?.close(); } catch {}
+    cleanup(dbPath);
+  });
+
+  it("loadDisabled returns empty array from fresh database", () => {
+    dbPath = tmpDbPath();
+    db = new ModuleConfigDb(dbPath);
+    expect(db.loadDisabled()).toEqual([]);
+  });
+
+  it("setDisabled(true) persists disabled state", () => {
+    dbPath = tmpDbPath();
+    db = new ModuleConfigDb(dbPath);
+    db.setDisabled("binance", true);
+    expect(db.loadDisabled()).toEqual(["binance"]);
+  });
+
+  it("setDisabled(false) removes module from disabled list", () => {
+    dbPath = tmpDbPath();
+    db = new ModuleConfigDb(dbPath);
+    db.setDisabled("coinbase", true);
+    db.setDisabled("coinbase", false);
+    expect(db.loadDisabled()).toEqual([]);
+  });
+
+  it("tracks multiple modules independently", () => {
+    dbPath = tmpDbPath();
+    db = new ModuleConfigDb(dbPath);
+    db.setDisabled("binance", true);
+    db.setDisabled("coinbase", true);
+    db.setDisabled("gemini", true);
+    db.setDisabled("coinbase", false);
+    const disabled = db.loadDisabled().sort();
+    expect(disabled).toEqual(["binance", "gemini"]);
+  });
+
+  it("getConfig returns null for unknown module", () => {
+    dbPath = tmpDbPath();
+    db = new ModuleConfigDb(dbPath);
+    expect(db.getConfig("nonexistent")).toBeNull();
+  });
+
+  it("getConfig returns correct state after disable", () => {
+    dbPath = tmpDbPath();
+    db = new ModuleConfigDb(dbPath);
+    db.setDisabled("okx", true);
+    const cfg = db.getConfig("okx");
+    expect(cfg).not.toBeNull();
+    expect(cfg!.module).toBe("okx");
+    expect(cfg!.disabled).toBe(true);
+    expect(cfg!.updatedAt).toBeDefined();
+  });
+
+  it("getConfig returns correct state after re-enable", () => {
+    dbPath = tmpDbPath();
+    db = new ModuleConfigDb(dbPath);
+    db.setDisabled("bybit", true);
+    db.setDisabled("bybit", false);
+    const cfg = db.getConfig("bybit");
+    expect(cfg).not.toBeNull();
+    expect(cfg!.disabled).toBe(false);
+  });
+
+  it("state survives close and reopen (simulated restart)", () => {
+    dbPath = tmpDbPath();
+    db = new ModuleConfigDb(dbPath);
+    db.setDisabled("binance", true);
+    db.setDisabled("gemini", true);
+    db.close();
+    const db2 = new ModuleConfigDb(dbPath);
+    const disabled = db2.loadDisabled().sort();
+    expect(disabled).toEqual(["binance", "gemini"]);
+    db2.close();
+  });
+});
+
+describe("GET /api/modules/:name/config", () => {
+  let dbPath: string;
+  let db: ModuleConfigDb;
+
+  afterEach(() => {
+    try { db?.close(); } catch {}
+    if (dbPath) cleanup(dbPath);
+  });
+
+  it("returns 404 for unknown module", () => {
+    const disabledModules = new Set<string>();
+    const handler = getModuleConfig({ disabledModules });
+    const req = makeReq("unknown-module");
+    const res = makeRes();
+    handler(req, res);
+    expect(res.statusCode).toBe(404);
+  });
+
+  it("returns enabled state for known module (no db)", () => {
+    const disabledModules = new Set<string>();
+    const handler = getModuleConfig({ disabledModules });
+    const req = makeReq("binance");
+    const res = makeRes();
+    handler(req, res);
+    expect(res.statusCode).toBe(200);
+    const body = res.body as { module: string; disabled: boolean; updatedAt: string | null };
+    expect(body.module).toBe("binance");
+    expect(body.disabled).toBe(false);
+    expect(body.updatedAt).toBeNull();
+  });
+
+  it("returns disabled state for disabled module (no db)", () => {
+    const disabledModules = new Set<string>(["coinbase"]);
+    const handler = getModuleConfig({ disabledModules });
+    const req = makeReq("coinbase");
+    const res = makeRes();
+    handler(req, res);
+    const body = res.body as { module: string; disabled: boolean };
+    expect(body.disabled).toBe(true);
+  });
+
+  it("returns updatedAt from db when available", () => {
+    dbPath = tmpDbPath();
+    db = new ModuleConfigDb(dbPath);
+    db.setDisabled("gemini", true);
+    const disabledModules = new Set<string>(["gemini"]);
+    const handler = getModuleConfig({ disabledModules, db });
+    const req = makeReq("gemini");
+    const res = makeRes();
+    handler(req, res);
+    const body = res.body as { module: string; disabled: boolean; updatedAt: string | null };
+    expect(body.disabled).toBe(true);
+    expect(body.updatedAt).not.toBeNull();
+  });
+});
+
+describe("disable/enable handlers sync with ModuleConfigDb", () => {
+  let dbPath: string;
+  let db: ModuleConfigDb;
+
+  afterEach(() => {
+    try { db?.close(); } catch {}
+    if (dbPath) cleanup(dbPath);
+  });
+
+  it("postModuleDisable writes to db", async () => {
+    dbPath = tmpDbPath();
+    db = new ModuleConfigDb(dbPath);
+    const publish = vi.fn();
+    const { getNatsConn, sc, disabledModules } = makeDeps(publish);
+    const handler = postModuleDisable({ getNatsConn, sc, disabledModules, db });
+    const req = makeReq("binance");
+    const res = makeRes();
+    await handler(req, res);
+    expect(res.statusCode).toBe(200);
+    expect(db.loadDisabled()).toEqual(["binance"]);
+  });
+
+  it("postModuleEnable writes to db", async () => {
+    dbPath = tmpDbPath();
+    db = new ModuleConfigDb(dbPath);
+    db.setDisabled("okx", true);
+    const publish = vi.fn();
+    const { getNatsConn, sc, disabledModules } = makeDeps(publish);
+    disabledModules.add("okx");
+    const handler = postModuleEnable({ getNatsConn, sc, disabledModules, db });
+    const req = makeReq("okx");
+    const res = makeRes();
+    await handler(req, res);
+    expect(res.statusCode).toBe(200);
+    expect(db.loadDisabled()).toEqual([]);
+  });
+
+  it("full cycle: disable → restart sim → state preserved", async () => {
+    dbPath = tmpDbPath();
+    db = new ModuleConfigDb(dbPath);
+    const publish = vi.fn();
+    const { getNatsConn, sc, disabledModules } = makeDeps(publish);
+    const handler = postModuleDisable({ getNatsConn, sc, disabledModules, db });
+    await handler(makeReq("bitstamp"), makeRes());
+    await handler(makeReq("gemini"), makeRes());
+    db.close();
+    const db2 = new ModuleConfigDb(dbPath);
+    const restored = new Set<string>(db2.loadDisabled());
+    expect(restored.has("bitstamp")).toBe(true);
+    expect(restored.has("gemini")).toBe(true);
+    db2.close();
+    db = new ModuleConfigDb(tmpDbPath());
   });
 });
