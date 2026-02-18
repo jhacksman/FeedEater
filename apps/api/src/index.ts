@@ -62,6 +62,7 @@ import { UptimeStore, getModuleUptime } from "./moduleUptime.js";
 import { getSystemMetrics } from "./systemMetrics.js";
 import { getSystemCapacity } from "./systemCapacity.js";
 import { postModuleReset } from "./moduleReset.js";
+import { QueueStatsStore, getSystemQueues } from "./systemQueues.js";
 import { setRateLimitDb } from "./middleware/rateLimit.js";
 import { postWebhook, listWebhooks, deleteWebhook, deliverWebhooks, getDeliveries, WebhookDb, DeliveryLog } from "./webhooks.js";
 import type { Webhook } from "./webhooks.js";
@@ -106,6 +107,7 @@ const moduleMetricsStore = new ModuleMetricsStore();
 const venueStore = new VenueStore();
 const reconnectStatsStore = new ReconnectStatsStore();
 const uptimeStore = new UptimeStore();
+const queueStatsStore = new QueueStatsStore();
 let natsConnPromise: Promise<import("nats").NatsConnection> | null = null;
 
 function getNatsConn() {
@@ -285,6 +287,7 @@ app.get("/api/alerts/active", getActiveAlerts({ stalenessTracker, disabledModule
 app.get("/api/system/info", getSystemInfo({ startedAt: serverStartedAt }));
 app.get("/api/system/metrics", getSystemMetrics({ metricsStore: moduleMetricsStore, reconnectStore: reconnectStatsStore, uptimeStore }));
 app.get("/api/system/capacity", getSystemCapacity({ metricsStore: moduleMetricsStore }));
+app.get("/api/system/queues", getSystemQueues({ queueStore: queueStatsStore }));
 
 const rlDeps = { db: rateLimitDb, defaultLimit: 100 };
 app.get("/api/rate-limits", adminKeyAuth, listRateLimits(rlDeps));
