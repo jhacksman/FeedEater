@@ -28,6 +28,7 @@ import { getModuleList } from "./moduleList.js";
 import { getStats } from "./stats.js";
 import { getStream } from "./stream.js";
 import { getHealthCheck } from "./healthCheck.js";
+import { postModuleDisable, postModuleEnable } from "./moduleControl.js";
 
 const PORT = Number(process.env.PORT ?? "4000");
 const MODULES_DIR = process.env.FEED_MODULES_DIR ?? "/app/modules";
@@ -46,6 +47,7 @@ requiredEnv("FEED_INTERNAL_TOKEN");
 const natsSc = StringCodec();
 const moduleHealthStore = new ModuleHealthStore();
 const liveStatusStore = new LiveStatusStore();
+const disabledModules = new Set<string>();
 let natsConnPromise: Promise<import("nats").NatsConnection> | null = null;
 
 function getNatsConn() {
@@ -179,6 +181,8 @@ app.get("/api/stream", getStream({ getNatsConn, sc: natsSc }));
 app.get("/api/history", getHistory);
 app.get("/api/export", getExport);
 app.post("/api/modules/:name/restart", postModuleRestart({ getNatsConn, sc: natsSc }));
+app.post("/api/modules/:name/disable", postModuleDisable({ getNatsConn, sc: natsSc, disabledModules }));
+app.post("/api/modules/:name/enable", postModuleEnable({ getNatsConn, sc: natsSc, disabledModules }));
 
 // Historical bus messages (from Postgres archive).
 app.get("/api/bus/history", getBusHistory);
@@ -208,7 +212,7 @@ getNatsConn()
       for await (const m of sub) {
         const parts = m.subject.split(".");
         const moduleName = parts[1];
-        if (moduleName) {
+        if (moduleName && !disabledModules.has(moduleName)) {
           moduleHealthStore.recordMessage(moduleName);
           liveStatusStore.recordMessage(moduleName);
         }
@@ -220,7 +224,7 @@ getNatsConn()
       for await (const m of reconnectSub) {
         const parts = m.subject.split(".");
         const moduleName = parts[1];
-        if (moduleName) liveStatusStore.recordReconnect(moduleName);
+        if (moduleName && !disabledModules.has(moduleName)) liveStatusStore.recordReconnect(moduleName);
       }
     })();
   })
