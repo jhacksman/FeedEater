@@ -52,8 +52,27 @@ describe("Gemini WebSocket Reconnection", () => {
     ingestor["reconnectAttempts"] = 10;
     ingestor["scheduleReconnect"]();
 
-    const hasExhausted = logs.some((l) => l.includes("exhausted"));
-    expect(hasExhausted).toBe(true);
+    const hasCircuitBreaker = logs.some((l) => l.includes("circuit breaker tripped"));
+    expect(hasCircuitBreaker).toBe(true);
+  });
+
+  it("should trip circuit breaker after 10 failed reconnects", async () => {
+    const mod = await import("../ingest.js");
+    const { settings, db, nats, sc, opts } = makeMocks();
+    const ingestor = new (mod as any).GeminiIngestor(settings, db, nats, sc, opts);
+
+    ingestor["isRunning"] = true;
+    ingestor["reconnectAttempts"] = 10;
+    ingestor["scheduleReconnect"]();
+
+    expect(ingestor["isRunning"]).toBe(false);
+    const deadCall = nats.publish.mock.calls.find(
+      (c: any[]) => c[0] === "feedeater.module.dead.gemini"
+    );
+    expect(deadCall).toBeDefined();
+    const payload = JSON.parse(new TextDecoder().decode(deadCall[1]));
+    expect(payload.module).toBe("gemini");
+    expect(payload.timestamp).toBeDefined();
   });
 
   it("should not reconnect when isRunning is false", async () => {
