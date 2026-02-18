@@ -140,6 +140,9 @@ export class AerodromeBaseIngestor {
   private maxReconnectDelay = 60000;
   private tradesCollected = 0;
   private messagesPublished = 0;
+  private reconnectAttempts = 0;
+  private activeProvider: WebSocketProvider | null = null;
+  private healthCheckTimer: ReturnType<typeof setInterval> | null = null;
 
   private log(level: "debug" | "info" | "warn" | "error", message: string, meta?: unknown) {
     try {
@@ -334,37 +337,14 @@ export class AerodromeBaseIngestor {
     }
   }
 
-  async startStreaming(): Promise<{
-    tradesCollected: number;
-    messagesPublished: number;
-  }> {
-    this.isStreaming = true;
-    this.tradesCollected = 0;
-    this.messagesPublished = 0;
-
-    const poolAddresses = this.getPools();
-    this.log("info", "starting WebSocket stream", {
-      pools: poolAddresses.length,
-      rpcUrl: this.settings.rpcUrl,
-    });
-
-    let provider: WebSocketProvider;
-    try {
-      provider = new WebSocketProvider(this.settings.rpcUrl);
-    } catch (err) {
-      this.log("error", "failed to create WebSocket provider", {
-        err: err instanceof Error ? err.message : err,
-      });
-      this.isStreaming = false;
-      return { tradesCollected: 0, messagesPublished: 0 };
-    }
-
+  private subscribeToEvents(provider: WebSocketProvider, poolAddresses: string[]): void {
     if (poolAddresses.length > 0) {
       provider.on(
         { address: poolAddresses, topics: [[AERODROME_SWAP_TOPIC]] },
         async (log: Log) => {
           try {
-            const block = await provider.getBlock(log.blockHash!);
+            const p = this.activeProvider ?? provider;
+            const block = await p.getBlock(log.blockHash!);
             const tsMs = Number(block!.timestamp) * 1000;
 
             let amount0In = 0n;
@@ -437,6 +417,98 @@ export class AerodromeBaseIngestor {
       );
       this.log("info", "aerodrome swap subscription active", { poolCount: poolAddresses.length });
     }
+  }
+
+  private startHealthCheck(poolAddresses: string[]): void {
+    if (this.healthCheckTimer) clearInterval(this.healthCheckTimer);
+    this.healthCheckTimer = setInterval(async () => {
+      if (!this.isStreaming || !this.activeProvider) return;
+      try {
+        await this.activeProvider.getBlockNumber();
+      } catch (err) {
+        this.log("warn", "WebSocket health check failed, scheduling reconnect", {
+          attempt: this.reconnectAttempts + 1,
+          maxAttempts: 10,
+          err: err instanceof Error ? err.message : err,
+        });
+        if (this.healthCheckTimer) {
+          clearInterval(this.healthCheckTimer);
+          this.healthCheckTimer = null;
+        }
+        try {
+          this.activeProvider.removeAllListeners();
+          await this.activeProvider.destroy();
+        } catch { /* ignore */ }
+        this.activeProvider = null;
+        this.scheduleReconnect(poolAddresses);
+      }
+    }, 15000);
+  }
+
+  private scheduleReconnect(poolAddresses: string[]): void {
+    if (!this.isStreaming) return;
+    if (this.reconnectAttempts >= 10) {
+      this.log("error", "max WebSocket reconnect attempts (10) exhausted", {
+        attempts: this.reconnectAttempts,
+      });
+      return;
+    }
+    this.reconnectAttempts++;
+    this.log("warn", `WebSocket disconnected, reconnecting in 5000ms (attempt ${this.reconnectAttempts}/10)`, {
+      attempt: this.reconnectAttempts,
+      maxAttempts: 10,
+      rpcUrl: this.settings.rpcUrl,
+    });
+    setTimeout(async () => {
+      if (!this.isStreaming) return;
+      try {
+        const provider = new WebSocketProvider(this.settings.rpcUrl);
+        this.activeProvider = provider;
+        this.subscribeToEvents(provider, poolAddresses);
+        this.startHealthCheck(poolAddresses);
+        this.log("info", "WebSocket reconnected successfully", {
+          attempt: this.reconnectAttempts,
+        });
+        this.reconnectAttempts = 0;
+      } catch (err) {
+        this.log("warn", "WebSocket reconnection failed", {
+          attempt: this.reconnectAttempts,
+          err: err instanceof Error ? err.message : err,
+        });
+        this.scheduleReconnect(poolAddresses);
+      }
+    }, 5000);
+  }
+
+  async startStreaming(): Promise<{
+    tradesCollected: number;
+    messagesPublished: number;
+  }> {
+    this.isStreaming = true;
+    this.tradesCollected = 0;
+    this.messagesPublished = 0;
+    this.reconnectAttempts = 0;
+
+    const poolAddresses = this.getPools();
+    this.log("info", "starting WebSocket stream", {
+      pools: poolAddresses.length,
+      rpcUrl: this.settings.rpcUrl,
+    });
+
+    let provider: WebSocketProvider;
+    try {
+      provider = new WebSocketProvider(this.settings.rpcUrl);
+    } catch (err) {
+      this.log("error", "failed to create WebSocket provider", {
+        err: err instanceof Error ? err.message : err,
+      });
+      this.isStreaming = false;
+      return { tradesCollected: 0, messagesPublished: 0 };
+    }
+
+    this.activeProvider = provider;
+    this.subscribeToEvents(provider, poolAddresses);
+    this.startHealthCheck(poolAddresses);
 
     await new Promise<void>((resolve) => {
       const checkInterval = setInterval(() => {
@@ -453,11 +525,18 @@ export class AerodromeBaseIngestor {
       }, 55000);
     });
 
+    if (this.healthCheckTimer) {
+      clearInterval(this.healthCheckTimer);
+      this.healthCheckTimer = null;
+    }
     try {
-      provider.destroy();
+      const p = this.activeProvider ?? provider;
+      p.removeAllListeners();
+      await p.destroy();
     } catch {
       // ignore
     }
+    this.activeProvider = null;
     this.isStreaming = false;
 
     return {
