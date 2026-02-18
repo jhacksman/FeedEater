@@ -24,6 +24,7 @@ import { LiveStatusStore, getStatus } from "./status.js";
 import { apiKeyAuth } from "./middleware/auth.js";
 import { rateLimit } from "./middleware/rateLimit.js";
 import { getMetrics } from "./metrics.js";
+import { getModuleList } from "./moduleList.js";
 import { getStream } from "./stream.js";
 
 const PORT = Number(process.env.PORT ?? "4000");
@@ -88,7 +89,9 @@ app.get("/metrics", getMetrics({ store: liveStatusStore }));
 app.get("/api/health/modules", getModuleHealth(moduleHealthStore));
 app.get("/api/status", getStatus({ store: liveStatusStore, getNatsConn, prisma }));
 
-app.get("/api/modules", async (_req: Request, res: Response) => {
+app.get("/api/modules", getModuleList({ store: liveStatusStore }));
+
+app.get("/api/modules/discover", async (_req: Request, res: Response) => {
   const modules = await discoverModules(MODULES_DIR);
   res.json({ modules });
 });
