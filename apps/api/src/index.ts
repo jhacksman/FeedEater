@@ -67,6 +67,7 @@ import { ModuleDataQualityStore, getModuleDataQuality } from "./moduleDataQualit
 import { postModuleReset } from "./moduleReset.js";
 import { SubscriptionStore, getModuleSubscriptions } from "./moduleSubscriptions.js";
 import { DataQualityHistoryStore, getModuleDataQualityHistory } from "./moduleDataQualityHistory.js";
+import { AlertConfigStore, getModuleAlertConfig, patchModuleAlertConfig } from "./moduleAlertConfig.js";
 import { QueueStatsStore, getSystemQueues } from "./systemQueues.js";
 import { setRateLimitDb } from "./middleware/rateLimit.js";
 import { postWebhook, listWebhooks, deleteWebhook, deliverWebhooks, getDeliveries, WebhookDb, DeliveryLog } from "./webhooks.js";
@@ -117,6 +118,7 @@ const moduleDataQualityStore = new ModuleDataQualityStore();
 const subscriptionStore = new SubscriptionStore();
 const dataQualityHistoryStore = new DataQualityHistoryStore();
 const pipelineStatsStore = new PipelineStatsStore();
+const alertConfigStore = new AlertConfigStore();
 let natsConnPromise: Promise<import("nats").NatsConnection> | null = null;
 
 function getNatsConn() {
@@ -271,6 +273,8 @@ app.get("/api/modules/:name/uptime", getModuleUptime({ uptimeStore }));
 app.get("/api/modules/:name/data-quality", getModuleDataQuality({ qualityStore: moduleDataQualityStore }));
 app.get("/api/modules/:name/subscriptions", getModuleSubscriptions({ subscriptionStore }));
 app.get("/api/modules/:name/data-quality-history", getModuleDataQualityHistory({ historyStore: dataQualityHistoryStore }));
+app.get("/api/modules/:name/alert-config", getModuleAlertConfig({ configStore: alertConfigStore }));
+app.patch("/api/modules/:name/alert-config", patchModuleAlertConfig({ configStore: alertConfigStore }));
 app.post("/api/modules/:name/reset", postModuleReset({ metricsStore: moduleMetricsStore, reconnectStore: reconnectStatsStore }));
 app.get("/api/modules/:name/pipeline-stats", getModulePipelineStats({ pipelineStore: pipelineStatsStore }));
 app.get("/api/venues", getVenues({ venueStore, disabledModules }));
