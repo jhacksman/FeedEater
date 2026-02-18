@@ -49,6 +49,7 @@ import { postRestartAll } from "./restartAll.js";
 import { getPipelineStatus } from "./pipelineStatus.js";
 import { getModuleRuntimeConfig } from "./moduleRuntimeConfig.js";
 import { getSystemInfo } from "./systemInfo.js";
+import { getModuleEvents } from "./moduleEvents.js";
 import { setRateLimitDb } from "./middleware/rateLimit.js";
 import { postWebhook, listWebhooks, deleteWebhook, deliverWebhooks, getDeliveries, WebhookDb, DeliveryLog } from "./webhooks.js";
 import type { Webhook } from "./webhooks.js";
@@ -235,6 +236,7 @@ app.get("/api/modules/:name/dependencies", getModuleDependencies({ modulesDir: M
 app.post("/api/modules/bulk-enable", postBulkEnable({ getNatsConn, sc: natsSc, disabledModules, db: moduleConfigDb }));
 app.post("/api/modules/bulk-disable", postBulkDisable({ getNatsConn, sc: natsSc, disabledModules, db: moduleConfigDb }));
 app.get("/api/modules/:name/metrics", getModuleMetrics({ metricsStore: moduleMetricsStore }));
+app.get("/api/modules/:name/events", getModuleEvents({ historyDb: statusHistoryDb }));
 app.get("/api/venues", getVenues({ venueStore, disabledModules }));
 app.post("/api/modules/restart-all", postRestartAll({ getNatsConn, sc: natsSc, disabledModules }));
 
