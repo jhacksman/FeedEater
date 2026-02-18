@@ -28,7 +28,7 @@ import { getModuleList } from "./moduleList.js";
 import { getStats } from "./stats.js";
 import { getStream } from "./stream.js";
 import { getHealthCheck } from "./healthCheck.js";
-import { postModuleDisable, postModuleEnable, getModuleConfig, ModuleConfigDb } from "./moduleControl.js";
+import { postModuleDisable, postModuleEnable, getModuleConfig, patchModuleConfig, ModuleConfigDb } from "./moduleControl.js";
 import { StalenessTracker, getStaleness } from "./staleness.js";
 import { recordReconnect, getModuleReconnectsHandler, getReconnectSummaryHandler } from "./reconnects.js";
 import { ApiKeyDb, masterKeyAuth, postApiKey, listApiKeys, deleteApiKey } from "./apiKeys.js";
@@ -211,6 +211,7 @@ app.post("/api/modules/:name/restart", postModuleRestart({ getNatsConn, sc: nats
 app.post("/api/modules/:name/disable", postModuleDisable({ getNatsConn, sc: natsSc, disabledModules, db: moduleConfigDb }));
 app.post("/api/modules/:name/enable", postModuleEnable({ getNatsConn, sc: natsSc, disabledModules, db: moduleConfigDb }));
 app.get("/api/modules/:name/config", getModuleConfig({ disabledModules, db: moduleConfigDb }));
+app.patch("/api/modules/:name/config", adminKeyAuth, patchModuleConfig({ db: moduleConfigDb, getNatsConn, sc: natsSc }));
 app.get("/api/modules/:name/reconnects", getModuleReconnectsHandler());
 app.get("/api/reconnects", getReconnectSummaryHandler());
 app.get("/api/staleness", getStaleness({ tracker: stalenessTracker }));
