@@ -48,6 +48,7 @@ import { VenueStore, getVenues } from "./venues.js";
 import { postRestartAll } from "./restartAll.js";
 import { getPipelineStatus } from "./pipelineStatus.js";
 import { getModuleRuntimeConfig } from "./moduleRuntimeConfig.js";
+import { getSystemInfo } from "./systemInfo.js";
 import { setRateLimitDb } from "./middleware/rateLimit.js";
 import { postWebhook, listWebhooks, deleteWebhook, deliverWebhooks, getDeliveries, WebhookDb, DeliveryLog } from "./webhooks.js";
 import type { Webhook } from "./webhooks.js";
@@ -252,6 +253,7 @@ app.get("/api/staleness", getStaleness({ tracker: stalenessTracker }));
 app.get("/api/status/summary", getStatusSummary({ stalenessTracker, disabledModules, webhooks, deliveryLog, apiKeyDb, getNatsConn }));
 app.get("/api/alerts", getAlerts({ stalenessTracker, disabledModules }));
 app.get("/api/data-quality", getDataQuality({ stalenessTracker, disabledModules }));
+app.get("/api/system/info", getSystemInfo({ startedAt: serverStartedAt }));
 
 const rlDeps = { db: rateLimitDb, defaultLimit: 100 };
 app.get("/api/rate-limits", adminKeyAuth, listRateLimits(rlDeps));
