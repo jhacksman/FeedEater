@@ -1,4 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { unlinkSync, existsSync } from "node:fs";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
+import { randomUUID } from "node:crypto";
 import type { Request, Response } from "express";
 import {
   postWebhook,
@@ -6,6 +10,9 @@ import {
   deleteWebhook,
   deliverWebhooks,
   signPayload,
+  getDeliveries,
+  WebhookDb,
+  DeliveryLog,
 } from "../webhooks.js";
 import type { Webhook } from "../webhooks.js";
 
@@ -222,12 +229,216 @@ describe("deliverWebhooks", () => {
     expect(urls).toContain("https://b.com/hook");
   });
 
-  it("does not throw when fetch fails (fire-and-forget)", async () => {
+  it("does not throw when fetch fails after retries", async () => {
     fetchSpy.mockRejectedValue(new Error("network error"));
     const webhooks: Webhook[] = [
       { id: "wh-1", url: "https://a.com/hook", module: "okx", secret: "s", createdAt: "2025-01-01T00:00:00.000Z" },
     ];
+    const noSleep = () => Promise.resolve();
 
-    await expect(deliverWebhooks(webhooks, "okx", {})).resolves.toBeUndefined();
+    await expect(deliverWebhooks(webhooks, "okx", {}, undefined, noSleep)).resolves.toBeUndefined();
+  });
+
+  it("retries up to 3 times on failure then logs error", async () => {
+    fetchSpy.mockRejectedValue(new Error("connect refused"));
+    const log = new DeliveryLog();
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const webhooks: Webhook[] = [
+      { id: "wh-retry", url: "https://a.com/hook", module: "binance", secret: "s", createdAt: "2025-01-01T00:00:00.000Z" },
+    ];
+    const noSleep = () => Promise.resolve();
+
+    await deliverWebhooks(webhooks, "binance", { x: 1 }, log, noSleep);
+
+    expect(fetchSpy).toHaveBeenCalledTimes(3);
+    expect(errorSpy).toHaveBeenCalledOnce();
+    expect(errorSpy.mock.calls[0][0]).toContain("wh-retry");
+    const entries = log.get("wh-retry");
+    expect(entries).toHaveLength(1);
+    expect(entries[0].status).toBe("failure");
+    expect(entries[0].error).toContain("connect refused");
+  });
+
+  it("retries on non-2xx then succeeds on second attempt", async () => {
+    fetchSpy
+      .mockResolvedValueOnce(new globalThis.Response("bad", { status: 500 }))
+      .mockResolvedValueOnce(new globalThis.Response("ok", { status: 200 }));
+    const log = new DeliveryLog();
+    const webhooks: Webhook[] = [
+      { id: "wh-r2", url: "https://a.com/hook", module: "coinbase", secret: "s", createdAt: "2025-01-01T00:00:00.000Z" },
+    ];
+    const noSleep = () => Promise.resolve();
+
+    await deliverWebhooks(webhooks, "coinbase", {}, log, noSleep);
+
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    const entries = log.get("wh-r2");
+    expect(entries).toHaveLength(1);
+    expect(entries[0].status).toBe("success");
+    expect(entries[0].httpStatus).toBe(200);
+  });
+
+  it("records success delivery in log", async () => {
+    const log = new DeliveryLog();
+    const webhooks: Webhook[] = [
+      { id: "wh-log", url: "https://a.com/hook", module: "binance", secret: "s", createdAt: "2025-01-01T00:00:00.000Z" },
+    ];
+
+    await deliverWebhooks(webhooks, "binance", { p: 1 }, log);
+
+    const entries = log.get("wh-log");
+    expect(entries).toHaveLength(1);
+    expect(entries[0].status).toBe("success");
+    expect(entries[0].httpStatus).toBe(200);
+  });
+});
+
+describe("DeliveryLog", () => {
+  it("keeps only last 20 entries per webhook", () => {
+    const log = new DeliveryLog();
+    for (let i = 0; i < 25; i++) {
+      log.record("wh-cap", { timestamp: new Date().toISOString(), status: "success", httpStatus: 200 });
+    }
+    expect(log.get("wh-cap")).toHaveLength(20);
+  });
+
+  it("returns empty array for unknown webhook", () => {
+    const log = new DeliveryLog();
+    expect(log.get("nonexistent")).toEqual([]);
+  });
+});
+
+describe("GET /api/webhooks/:id/deliveries", () => {
+  it("returns delivery entries for a known webhook", () => {
+    const log = new DeliveryLog();
+    log.record("wh-d1", { timestamp: "2025-01-01T00:00:00.000Z", status: "success", httpStatus: 200 });
+    log.record("wh-d1", { timestamp: "2025-01-01T00:01:00.000Z", status: "failure", error: "timeout" });
+    const webhooks: Webhook[] = [
+      { id: "wh-d1", url: "https://a.com/hook", module: "binance", secret: "s", createdAt: "2025-01-01T00:00:00.000Z" },
+    ];
+    const handler = getDeliveries({ webhooks, deliveryLog: log });
+    const req = makeReq({}, { id: "wh-d1" });
+    const res = makeRes();
+    handler(req, res);
+    expect(res.statusCode).toBe(200);
+    const body = res.body as Array<{ status: string }>;
+    expect(body).toHaveLength(2);
+    expect(body[0].status).toBe("success");
+    expect(body[1].status).toBe("failure");
+  });
+
+  it("returns 404 for unknown webhook id", () => {
+    const log = new DeliveryLog();
+    const webhooks: Webhook[] = [];
+    const handler = getDeliveries({ webhooks, deliveryLog: log });
+    const req = makeReq({}, { id: "nonexistent" });
+    const res = makeRes();
+    handler(req, res);
+    expect(res.statusCode).toBe(404);
+  });
+
+  it("returns empty array when no deliveries yet", () => {
+    const log = new DeliveryLog();
+    const webhooks: Webhook[] = [
+      { id: "wh-empty", url: "https://a.com/hook", module: "binance", secret: "s", createdAt: "2025-01-01T00:00:00.000Z" },
+    ];
+    const handler = getDeliveries({ webhooks, deliveryLog: log });
+    const req = makeReq({}, { id: "wh-empty" });
+    const res = makeRes();
+    handler(req, res);
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toEqual([]);
+  });
+});
+
+describe("WebhookDb (SQLite persistence)", () => {
+  let dbPath: string;
+
+  beforeEach(() => {
+    dbPath = join(tmpdir(), `feedeater-test-${randomUUID()}.db`);
+  });
+
+  afterEach(() => {
+    try { if (existsSync(dbPath)) unlinkSync(dbPath); } catch {}
+  });
+
+  it("persists webhooks and loads them on re-open", () => {
+    const db1 = new WebhookDb(dbPath);
+    const wh: Webhook = { id: "persist-1", url: "https://a.com", module: "binance", secret: "sec", createdAt: "2025-01-01T00:00:00.000Z" };
+    db1.insert(wh);
+    db1.close();
+
+    const db2 = new WebhookDb(dbPath);
+    const loaded = db2.loadAll();
+    db2.close();
+
+    expect(loaded).toHaveLength(1);
+    expect(loaded[0].id).toBe("persist-1");
+    expect(loaded[0].url).toBe("https://a.com");
+    expect(loaded[0].module).toBe("binance");
+    expect(loaded[0].secret).toBe("sec");
+    expect(loaded[0].createdAt).toBe("2025-01-01T00:00:00.000Z");
+  });
+
+  it("removes a webhook from the database", () => {
+    const db = new WebhookDb(dbPath);
+    db.insert({ id: "rm-1", url: "https://a.com", module: "binance", secret: "s", createdAt: "2025-01-01T00:00:00.000Z" });
+    db.insert({ id: "rm-2", url: "https://b.com", module: "coinbase", secret: "s", createdAt: "2025-01-01T00:00:00.000Z" });
+    db.remove("rm-1");
+    const loaded = db.loadAll();
+    db.close();
+    expect(loaded).toHaveLength(1);
+    expect(loaded[0].id).toBe("rm-2");
+  });
+
+  it("postWebhook syncs to SQLite when db provided", () => {
+    const db = new WebhookDb(dbPath);
+    const webhooks: Webhook[] = [];
+    const handler = postWebhook({ webhooks, db });
+    const req = makeReq({ url: "https://x.com/hook", module: "binance", secret: "s" });
+    const res = makeRes();
+    handler(req, res);
+    expect(res.statusCode).toBe(201);
+
+    const loaded = db.loadAll();
+    db.close();
+    expect(loaded).toHaveLength(1);
+    expect(loaded[0].url).toBe("https://x.com/hook");
+  });
+
+  it("deleteWebhook syncs removal to SQLite when db provided", () => {
+    const db = new WebhookDb(dbPath);
+    const wh: Webhook = { id: "del-db", url: "https://a.com", module: "binance", secret: "s", createdAt: "2025-01-01T00:00:00.000Z" };
+    db.insert(wh);
+    const webhooks: Webhook[] = [wh];
+    const handler = deleteWebhook({ webhooks, db });
+    const req = makeReq({}, { id: "del-db" });
+    const res = makeRes();
+    handler(req, res);
+    expect(res.statusCode).toBe(200);
+
+    const loaded = db.loadAll();
+    db.close();
+    expect(loaded).toHaveLength(0);
+  });
+
+  it("returns empty array from fresh database", () => {
+    const db = new WebhookDb(dbPath);
+    expect(db.loadAll()).toEqual([]);
+    db.close();
+  });
+
+  it("simulates server restart: webhooks survive via SQLite", () => {
+    const db1 = new WebhookDb(dbPath);
+    db1.insert({ id: "srv-1", url: "https://a.com", module: "coinbase", secret: "s1", createdAt: "2025-01-01T00:00:00.000Z" });
+    db1.insert({ id: "srv-2", url: "https://b.com", module: "binance", secret: "s2", createdAt: "2025-01-02T00:00:00.000Z" });
+    db1.close();
+
+    const db2 = new WebhookDb(dbPath);
+    const webhooks = db2.loadAll();
+    db2.close();
+
+    expect(webhooks).toHaveLength(2);
+    expect(webhooks.map((w) => w.id).sort()).toEqual(["srv-1", "srv-2"]);
   });
 });
