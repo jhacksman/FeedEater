@@ -19,6 +19,10 @@ export class ReconnectStatsStore {
     return this.timestamps.get(module) ?? [];
   }
 
+  getModuleNames(): string[] {
+    return [...this.timestamps.keys()];
+  }
+
   clear(): void {
     this.timestamps.clear();
   }

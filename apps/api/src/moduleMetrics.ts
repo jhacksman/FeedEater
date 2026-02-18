@@ -92,6 +92,10 @@ export class ModuleMetricsStore {
     return data.messageTimes;
   }
 
+  getModuleNames(): string[] {
+    return [...this.modules.keys()];
+  }
+
   getLatencySamples(module: string, _windowMs?: number): number[] {
     const data = this.modules.get(module);
     if (!data) return [];
