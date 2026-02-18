@@ -117,7 +117,6 @@ describe("rateLimit middleware", () => {
   describe("token refill", () => {
     it("refills tokens after time passes", () => {
       const next = vi.fn();
-      const realNow = Date.now;
 
       let now = 1000000;
       vi.spyOn(Date, "now").mockImplementation(() => now);
