@@ -56,6 +56,7 @@ import { getActiveAlerts } from "./activeAlerts.js";
 import { PipelineStatsStore, getModulePipelineStats } from "./pipelineStats.js";
 import { getSystemDependencies, makeNatsChecker, makePostgresChecker, makeRedisChecker } from "./systemDependencies.js";
 import { AlertHistoryStore, getAlertHistory } from "./alertHistory.js";
+import { SystemEventStore, getSystemEvents } from "./systemEvents.js";
 import { getModuleHealthCheck } from "./moduleHealthCheck.js";
 import { getModuleLatency } from "./moduleLatency.js";
 import { getModuleThroughput } from "./moduleThroughput.js";
@@ -120,6 +121,7 @@ const subscriptionStore = new SubscriptionStore();
 const dataQualityHistoryStore = new DataQualityHistoryStore();
 const pipelineStatsStore = new PipelineStatsStore();
 const alertConfigStore = new AlertConfigStore();
+const systemEventStore = new SystemEventStore();
 let natsConnPromise: Promise<import("nats").NatsConnection> | null = null;
 
 function getNatsConn() {
@@ -308,6 +310,7 @@ app.get("/api/system/info", getSystemInfo({ startedAt: serverStartedAt }));
 app.get("/api/system/metrics", getSystemMetrics({ metricsStore: moduleMetricsStore, reconnectStore: reconnectStatsStore, uptimeStore }));
 app.get("/api/system/capacity", getSystemCapacity({ metricsStore: moduleMetricsStore }));
 app.get("/api/system/queues", getSystemQueues({ queueStore: queueStatsStore }));
+app.get("/api/system/events", getSystemEvents({ eventStore: systemEventStore }));
 app.get("/api/system/dependencies", getSystemDependencies({
   checkers: [
     makeNatsChecker(getNatsConn),
@@ -403,5 +406,4 @@ app.listen(PORT, "0.0.0.0", () => {
   // eslint-disable-next-line no-console
   console.log(`[api] listening on :${PORT}`);
 });
-
 
