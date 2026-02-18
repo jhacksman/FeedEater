@@ -522,9 +522,14 @@ export class BitstampIngestor {
   private scheduleReconnect(): void {
     if (!this.isRunning) return;
     if (this.reconnectAttempts >= 10) {
-      this.log("error", "max WebSocket reconnect attempts (10) exhausted", {
+      this.isRunning = false;
+      this.log("error", "module bitstamp circuit breaker tripped after 10 failed reconnects", {
         attempts: this.reconnectAttempts,
       });
+      this.nats.publish(
+        "feedeater.module.dead.bitstamp",
+        this.sc.encode(JSON.stringify({ module: "bitstamp", timestamp: new Date().toISOString(), reason: "circuit breaker tripped after 10 failed reconnects" }))
+      );
       return;
     }
     this.reconnectAttempts++;

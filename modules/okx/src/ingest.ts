@@ -429,9 +429,14 @@ export class OkxIngestor {
   private scheduleReconnect(): void {
     if (!this.isRunning) return;
     if (this.reconnectAttempts >= 10) {
-      this.log("error", "max WebSocket reconnect attempts (10) exhausted", {
+      this.isRunning = false;
+      this.log("error", "module okx circuit breaker tripped after 10 failed reconnects", {
         attempts: this.reconnectAttempts,
       });
+      this.nats.publish(
+        "feedeater.module.dead.okx",
+        this.sc.encode(JSON.stringify({ module: "okx", timestamp: new Date().toISOString(), reason: "circuit breaker tripped after 10 failed reconnects" }))
+      );
       return;
     }
     this.reconnectAttempts++;
