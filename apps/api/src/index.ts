@@ -36,6 +36,8 @@ import { UsageTracker, getKeyUsage } from "./usageTracker.js";
 import { setDynamicKeyDb, setUsageTracker } from "./middleware/auth.js";
 import { getStatusSummary } from "./statusSummary.js";
 import { getAlerts } from "./alerts.js";
+import { RateLimitDb, adminKeyAuth, listRateLimits, putRateLimit, deleteRateLimit } from "./rateLimitConfig.js";
+import { setRateLimitDb } from "./middleware/rateLimit.js";
 import { postWebhook, listWebhooks, deleteWebhook, deliverWebhooks, getDeliveries, WebhookDb, DeliveryLog } from "./webhooks.js";
 import type { Webhook } from "./webhooks.js";
 
@@ -66,6 +68,9 @@ setDynamicKeyDb(apiKeyDb);
 const USAGE_DB_PATH = process.env.USAGE_DB_PATH ?? "feedeater-usage.db";
 const usageTracker = new UsageTracker(USAGE_DB_PATH);
 setUsageTracker(usageTracker);
+const RATE_LIMIT_DB_PATH = process.env.RATE_LIMIT_DB_PATH ?? "feedeater-rate-limits.db";
+const rateLimitDb = new RateLimitDb(RATE_LIMIT_DB_PATH);
+setRateLimitDb(rateLimitDb);
 const WEBHOOK_DB_PATH = process.env.WEBHOOK_DB_PATH ?? "feedeater-webhooks.db";
 const webhookDb = new WebhookDb(WEBHOOK_DB_PATH);
 const webhooks: Webhook[] = webhookDb.loadAll();
@@ -211,6 +216,11 @@ app.get("/api/reconnects", getReconnectSummaryHandler());
 app.get("/api/staleness", getStaleness({ tracker: stalenessTracker }));
 app.get("/api/status/summary", getStatusSummary({ stalenessTracker, disabledModules, webhooks, deliveryLog, apiKeyDb, getNatsConn }));
 app.get("/api/alerts", getAlerts({ stalenessTracker, disabledModules }));
+
+const rlDeps = { db: rateLimitDb, defaultLimit: 100 };
+app.get("/api/rate-limits", adminKeyAuth, listRateLimits(rlDeps));
+app.put("/api/rate-limits/:key", adminKeyAuth, putRateLimit(rlDeps));
+app.delete("/api/rate-limits/:key", adminKeyAuth, deleteRateLimit(rlDeps));
 
 app.post("/api/keys", masterKeyAuth, postApiKey({ db: apiKeyDb }));
 app.get("/api/keys", masterKeyAuth, listApiKeys({ db: apiKeyDb }));

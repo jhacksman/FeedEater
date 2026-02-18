@@ -1,8 +1,15 @@
 import type { NextFunction, Request, Response } from "express";
+import type { RateLimitDb } from "../rateLimitConfig.js";
 
 const FREE_LIMIT = 10;
 const STANDARD_LIMIT = 100;
 const WINDOW_MS = 60_000;
+
+let _rateLimitDb: RateLimitDb | null = null;
+
+export function setRateLimitDb(db: RateLimitDb): void {
+  _rateLimitDb = db;
+}
 
 interface Bucket {
   tokens: number;
@@ -33,7 +40,11 @@ export function rateLimit(req: Request, res: Response, next: NextFunction): void
   const now = Date.now();
   const key = getBucketKey(req);
   const hasApiKey = key.startsWith("key:");
-  const limit = hasApiKey ? STANDARD_LIMIT : FREE_LIMIT;
+  let limit = hasApiKey ? STANDARD_LIMIT : FREE_LIMIT;
+  if (hasApiKey && _rateLimitDb) {
+    const customLimit = _rateLimitDb.getLimit(key.slice(4));
+    if (customLimit !== null) limit = customLimit;
+  }
 
   let bucket = buckets.get(key);
   if (!bucket) {
