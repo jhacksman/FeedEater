@@ -29,6 +29,7 @@ import { getStats } from "./stats.js";
 import { getStream } from "./stream.js";
 import { getHealthCheck } from "./healthCheck.js";
 import { postModuleDisable, postModuleEnable } from "./moduleControl.js";
+import { StalenessTracker, getStaleness } from "./staleness.js";
 import { postWebhook, listWebhooks, deleteWebhook, deliverWebhooks, getDeliveries, WebhookDb, DeliveryLog } from "./webhooks.js";
 import type { Webhook } from "./webhooks.js";
 
@@ -50,6 +51,7 @@ const natsSc = StringCodec();
 const moduleHealthStore = new ModuleHealthStore();
 const liveStatusStore = new LiveStatusStore();
 const disabledModules = new Set<string>();
+const stalenessTracker = new StalenessTracker();
 const WEBHOOK_DB_PATH = process.env.WEBHOOK_DB_PATH ?? "feedeater-webhooks.db";
 const webhookDb = new WebhookDb(WEBHOOK_DB_PATH);
 const webhooks: Webhook[] = webhookDb.loadAll();
@@ -189,6 +191,7 @@ app.get("/api/export", getExport);
 app.post("/api/modules/:name/restart", postModuleRestart({ getNatsConn, sc: natsSc }));
 app.post("/api/modules/:name/disable", postModuleDisable({ getNatsConn, sc: natsSc, disabledModules }));
 app.post("/api/modules/:name/enable", postModuleEnable({ getNatsConn, sc: natsSc, disabledModules }));
+app.get("/api/staleness", getStaleness({ tracker: stalenessTracker }));
 
 app.post("/api/webhooks", postWebhook({ webhooks, db: webhookDb }));
 app.get("/api/webhooks", listWebhooks({ webhooks }));
@@ -226,6 +229,7 @@ getNatsConn()
         if (moduleName && !disabledModules.has(moduleName)) {
           moduleHealthStore.recordMessage(moduleName);
           liveStatusStore.recordMessage(moduleName);
+          stalenessTracker.updateModuleSeen(moduleName);
 
           let data: unknown = null;
           try {
