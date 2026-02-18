@@ -23,6 +23,7 @@ import { postModuleRestart } from "./moduleRestart.js";
 import { LiveStatusStore, getStatus } from "./status.js";
 import { apiKeyAuth } from "./middleware/auth.js";
 import { rateLimit } from "./middleware/rateLimit.js";
+import { getMetrics } from "./metrics.js";
 
 const PORT = Number(process.env.PORT ?? "4000");
 const MODULES_DIR = process.env.FEED_MODULES_DIR ?? "/app/modules";
@@ -82,6 +83,7 @@ app.get("/api/docs", (_req: Request, res: Response) => {
   }
 });
 
+app.get("/metrics", getMetrics({ store: liveStatusStore }));
 app.get("/api/health/modules", getModuleHealth(moduleHealthStore));
 app.get("/api/status", getStatus({ store: liveStatusStore, getNatsConn, prisma }));
 
