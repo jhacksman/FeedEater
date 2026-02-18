@@ -27,6 +27,7 @@ import { getMetrics } from "./metrics.js";
 import { getModuleList } from "./moduleList.js";
 import { getStats } from "./stats.js";
 import { getStream } from "./stream.js";
+import { getHealthCheck } from "./healthCheck.js";
 
 const PORT = Number(process.env.PORT ?? "4000");
 const MODULES_DIR = process.env.FEED_MODULES_DIR ?? "/app/modules";
@@ -68,9 +69,8 @@ app.use(rateLimit);
 
 app.get("/", getDashboard);
 
-app.get("/api/health", async (_req: Request, res: Response) => {
-  res.json({ ok: true });
-});
+const serverStartedAt = Date.now();
+app.get("/api/health", getHealthCheck({ getNatsConn, moduleHealthStore, startedAt: serverStartedAt }));
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
