@@ -24,6 +24,7 @@ import { LiveStatusStore, getStatus } from "./status.js";
 import { apiKeyAuth } from "./middleware/auth.js";
 import { rateLimit } from "./middleware/rateLimit.js";
 import { getMetrics } from "./metrics.js";
+import { getStream } from "./stream.js";
 
 const PORT = Number(process.env.PORT ?? "4000");
 const MODULES_DIR = process.env.FEED_MODULES_DIR ?? "/app/modules";
@@ -169,6 +170,7 @@ app.get("/api/bus/stream", async (req: Request, res: Response) => {
   })();
 });
 
+app.get("/api/stream", getStream({ getNatsConn, sc: natsSc }));
 app.get("/api/history", getHistory);
 app.get("/api/export", getExport);
 app.post("/api/modules/:name/restart", postModuleRestart({ getNatsConn, sc: natsSc }));
