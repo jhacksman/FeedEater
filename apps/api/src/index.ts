@@ -53,6 +53,7 @@ import { getSystemInfo } from "./systemInfo.js";
 import { getModuleEvents } from "./moduleEvents.js";
 import { AcknowledgedAlerts, postAcknowledgeAlert, listAcknowledgedAlerts, deleteAcknowledgedAlert } from "./alertAcknowledge.js";
 import { getActiveAlerts } from "./activeAlerts.js";
+import { AlertHistoryStore, getAlertHistory } from "./alertHistory.js";
 import { getModuleHealthCheck } from "./moduleHealthCheck.js";
 import { getModuleLatency } from "./moduleLatency.js";
 import { getModuleThroughput } from "./moduleThroughput.js";
@@ -289,10 +290,12 @@ app.get("/api/alerts", getAlerts({ stalenessTracker, disabledModules }));
 app.get("/api/data-quality", getDataQuality({ stalenessTracker, disabledModules }));
 
 const ackedAlerts = new AcknowledgedAlerts();
+const alertHistoryStore = new AlertHistoryStore();
 app.post("/api/alerts/acknowledge", postAcknowledgeAlert({ store: ackedAlerts }));
 app.get("/api/alerts/acknowledged", listAcknowledgedAlerts({ store: ackedAlerts }));
 app.delete("/api/alerts/acknowledge", deleteAcknowledgedAlert({ store: ackedAlerts }));
 app.get("/api/alerts/active", getActiveAlerts({ stalenessTracker, disabledModules, ackedAlerts }));
+app.get("/api/alerts/history", getAlertHistory({ store: alertHistoryStore }));
 app.get("/api/system/info", getSystemInfo({ startedAt: serverStartedAt }));
 app.get("/api/system/metrics", getSystemMetrics({ metricsStore: moduleMetricsStore, reconnectStore: reconnectStatsStore, uptimeStore }));
 app.get("/api/system/capacity", getSystemCapacity({ metricsStore: moduleMetricsStore }));
@@ -385,4 +388,5 @@ app.listen(PORT, "0.0.0.0", () => {
   // eslint-disable-next-line no-console
   console.log(`[api] listening on :${PORT}`);
 });
+
 
