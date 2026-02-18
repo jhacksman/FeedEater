@@ -25,12 +25,28 @@ interface ModuleListDeps {
   store: LiveStatusStore;
 }
 
+type FilterStatus = "active" | "inactive" | "error";
+
+const VALID_FILTERS = new Set<FilterStatus>(["active", "inactive", "error"]);
+
+function toFilterStatus(rawStatus: string | undefined): FilterStatus {
+  if (rawStatus === "healthy") return "active";
+  if (rawStatus === "stale") return "error";
+  return "inactive";
+}
+
 export function getModuleList({ store }: ModuleListDeps) {
-  return (_req: Request, res: Response): void => {
+  return (req: Request, res: Response): void => {
     const liveModules = store.getAllModules();
     const liveMap = new Map(liveModules.map((m) => [m.name, m]));
     const uptimeSeconds = store.getUptimeSeconds();
     const uptimeMinutes = uptimeSeconds / 60;
+
+    const filterParam = typeof req.query?.status === "string" ? req.query.status : undefined;
+    const filter: FilterStatus | undefined =
+      filterParam && VALID_FILTERS.has(filterParam as FilterStatus)
+        ? (filterParam as FilterStatus)
+        : undefined;
 
     const modules = ALL_MODULES.map((def) => {
       const live = liveMap.get(def.name);
@@ -57,9 +73,19 @@ export function getModuleList({ store }: ModuleListDeps) {
         natsSubject: `feedeater.${def.name}.tradeExecuted`,
         status,
         messageRate,
+        _filterStatus: toFilterStatus(live?.status),
       };
     });
 
-    res.json(modules);
+    if (filter) {
+      const filtered = modules
+        .filter((m) => m._filterStatus === filter)
+        .map(({ _filterStatus, ...rest }) => rest);
+      res.json(filtered);
+    } else {
+      res.json(modules.map(({ _filterStatus, ...rest }) => rest));
+    }
   };
 }
+
+export { ALL_MODULES, toFilterStatus };

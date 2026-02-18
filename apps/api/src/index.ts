@@ -25,6 +25,7 @@ import { apiKeyAuth } from "./middleware/auth.js";
 import { rateLimit } from "./middleware/rateLimit.js";
 import { getMetrics } from "./metrics.js";
 import { getModuleList } from "./moduleList.js";
+import { getModuleSummary } from "./moduleSummary.js";
 import { getStats } from "./stats.js";
 import { getStream } from "./stream.js";
 import { getHealthCheck } from "./healthCheck.js";
@@ -148,6 +149,7 @@ app.get("/api/health/modules", getModuleHealth(moduleHealthStore));
 app.get("/api/status", getStatus({ store: liveStatusStore, getNatsConn, prisma }));
 
 app.get("/api/modules", getModuleList({ store: liveStatusStore }));
+app.get("/api/modules/summary", getModuleSummary({ store: liveStatusStore }));
 
 app.get("/api/modules/discover", async (_req: Request, res: Response) => {
   const modules = await discoverModules(MODULES_DIR);
