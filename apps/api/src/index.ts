@@ -29,7 +29,7 @@ import { getStats } from "./stats.js";
 import { getStream } from "./stream.js";
 import { getHealthCheck } from "./healthCheck.js";
 import { postModuleDisable, postModuleEnable } from "./moduleControl.js";
-import { postWebhook, listWebhooks, deleteWebhook, deliverWebhooks } from "./webhooks.js";
+import { postWebhook, listWebhooks, deleteWebhook, deliverWebhooks, getDeliveries, WebhookDb, DeliveryLog } from "./webhooks.js";
 import type { Webhook } from "./webhooks.js";
 
 const PORT = Number(process.env.PORT ?? "4000");
@@ -50,7 +50,10 @@ const natsSc = StringCodec();
 const moduleHealthStore = new ModuleHealthStore();
 const liveStatusStore = new LiveStatusStore();
 const disabledModules = new Set<string>();
-const webhooks: Webhook[] = [];
+const WEBHOOK_DB_PATH = process.env.WEBHOOK_DB_PATH ?? "feedeater-webhooks.db";
+const webhookDb = new WebhookDb(WEBHOOK_DB_PATH);
+const webhooks: Webhook[] = webhookDb.loadAll();
+const deliveryLog = new DeliveryLog();
 let natsConnPromise: Promise<import("nats").NatsConnection> | null = null;
 
 function getNatsConn() {
@@ -187,9 +190,10 @@ app.post("/api/modules/:name/restart", postModuleRestart({ getNatsConn, sc: nats
 app.post("/api/modules/:name/disable", postModuleDisable({ getNatsConn, sc: natsSc, disabledModules }));
 app.post("/api/modules/:name/enable", postModuleEnable({ getNatsConn, sc: natsSc, disabledModules }));
 
-app.post("/api/webhooks", postWebhook({ webhooks }));
+app.post("/api/webhooks", postWebhook({ webhooks, db: webhookDb }));
 app.get("/api/webhooks", listWebhooks({ webhooks }));
-app.delete("/api/webhooks/:id", deleteWebhook({ webhooks }));
+app.delete("/api/webhooks/:id", deleteWebhook({ webhooks, db: webhookDb }));
+app.get("/api/webhooks/:id/deliveries", getDeliveries({ webhooks, deliveryLog }));
 
 // Historical bus messages (from Postgres archive).
 app.get("/api/bus/history", getBusHistory);
@@ -229,7 +233,7 @@ getNatsConn()
           } catch {
             data = { raw: natsSc.decode(m.data) };
           }
-          deliverWebhooks(webhooks, moduleName, data).catch(() => {});
+          deliverWebhooks(webhooks, moduleName, data, deliveryLog).catch(() => {});
         }
       }
     })();
