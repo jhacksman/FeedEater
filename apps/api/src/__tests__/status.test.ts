@@ -129,6 +129,35 @@ describe("LiveStatusStore", () => {
     expect(coinbase?.message_count).toBe(0);
     expect(coinbase?.reconnect_count).toBe(1);
   });
+
+  it("includes warmState field in module output", () => {
+    const store = new LiveStatusStore();
+    store.recordMessage("binance");
+    const modules = store.getAllModules();
+    expect(modules[0]).toHaveProperty("warmState");
+  });
+
+  it("returns warming_up when module has no messages yet", () => {
+    const store = new LiveStatusStore();
+    store.recordReconnect("bybit");
+    const modules = store.getAllModules();
+    expect(modules[0].warmState).toBe("warming_up");
+  });
+
+  it("returns warm after module receives a message", () => {
+    const store = new LiveStatusStore();
+    store.recordReconnect("gemini");
+    expect(store.getWarmState("gemini")).toBe("warming_up");
+    store.recordMessage("gemini");
+    expect(store.getWarmState("gemini")).toBe("warm");
+    const modules = store.getAllModules();
+    expect(modules[0].warmState).toBe("warm");
+  });
+
+  it("returns stopped for unknown module", () => {
+    const store = new LiveStatusStore();
+    expect(store.getWarmState("nonexistent")).toBe("stopped");
+  });
 });
 
 describe("GET /api/status handler", () => {

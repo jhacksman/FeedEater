@@ -3,6 +3,7 @@ import type { NatsConnection } from "nats";
 import type { PrismaClient } from "@prisma/client";
 
 type ModuleStatus = "healthy" | "stale" | "offline";
+type WarmState = "warm" | "warming_up" | "stopped";
 
 const STALE_THRESHOLD_MS = 5 * 60 * 1000;
 const OFFLINE_THRESHOLD_MS = 30 * 60 * 1000;
@@ -44,6 +45,12 @@ export class LiveStatusStore {
     return "healthy";
   }
 
+  getWarmState(moduleName: string): WarmState {
+    const entry = this.modules.get(moduleName);
+    if (!entry) return "stopped";
+    return entry.messageCount > 0 ? "warm" : "warming_up";
+  }
+
   getUptimeSeconds(): number {
     return Math.floor((Date.now() - this.startedAt) / 1000);
   }
@@ -51,6 +58,7 @@ export class LiveStatusStore {
   getAllModules(): Array<{
     name: string;
     status: ModuleStatus;
+    warmState: WarmState;
     last_message_at: string | null;
     message_count: number;
     reconnect_count: number;
@@ -58,6 +66,7 @@ export class LiveStatusStore {
     const result: Array<{
       name: string;
       status: ModuleStatus;
+      warmState: WarmState;
       last_message_at: string | null;
       message_count: number;
       reconnect_count: number;
@@ -66,6 +75,7 @@ export class LiveStatusStore {
       result.push({
         name,
         status: this.getModuleStatus(name),
+        warmState: this.getWarmState(name),
         last_message_at: entry.lastMessageAt,
         message_count: entry.messageCount,
         reconnect_count: entry.reconnectCount,
