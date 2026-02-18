@@ -11,25 +11,14 @@ function getPool(): pg.Pool | null {
   return pool;
 }
 
-interface SinceSpec {
-  value: number;
-  unit: string;
+function isISOTimestamp(value: string): boolean {
+  const d = new Date(value);
+  return !isNaN(d.getTime());
 }
 
-function parseSince(raw: string): SinceSpec | null {
-  const m = raw.match(/^(\d+)([smhd])$/);
-  if (!m) return null;
-  return { value: Number(m[1]), unit: m[2]! };
-}
-
-function sinceToInterval(spec: SinceSpec): string {
-  const units: Record<string, string> = {
-    s: "seconds",
-    m: "minutes",
-    h: "hours",
-    d: "days",
-  };
-  return `${spec.value} ${units[spec.unit]}`;
+function clampLimit(raw: string | undefined): number {
+  const n = Number(raw) || 100;
+  return Math.min(Math.max(1, n), 1000);
 }
 
 export async function getHistory(req: Request, res: Response): Promise<void> {
@@ -39,44 +28,60 @@ export async function getHistory(req: Request, res: Response): Promise<void> {
     return;
   }
 
-  const subject = req.query.subject as string | undefined;
-  const sinceRaw = (req.query.since as string) ?? "1h";
-  const limitRaw = (req.query.limit as string) ?? "100";
-
-  const limit = Math.min(Math.max(1, Number(limitRaw) || 100), 1000);
-
-  const since = parseSince(sinceRaw);
-  if (!since) {
-    res.status(400).json({ error: "Invalid 'since' param. Use e.g. 30m, 1h, 2d" });
+  const market = req.query.market as string | undefined;
+  if (!market) {
+    res.status(400).json({ error: "Missing required query param: market" });
     return;
   }
 
-  const interval = sinceToInterval(since);
-  const conditions: string[] = [`received_at >= NOW() - $1::interval`];
-  const params: (string | number)[] = [interval];
+  const startRaw = req.query.start as string | undefined;
+  const endRaw = req.query.end as string | undefined;
+  const limit = clampLimit(req.query.limit as string | undefined);
 
-  if (subject) {
-    params.push(subject);
-    conditions.push(`subject = $${params.length}`);
+  if (startRaw && !isISOTimestamp(startRaw)) {
+    res.status(400).json({ error: "Invalid 'start' param. Use ISO 8601 timestamp." });
+    return;
+  }
+  if (endRaw && !isISOTimestamp(endRaw)) {
+    res.status(400).json({ error: "Invalid 'end' param. Use ISO 8601 timestamp." });
+    return;
+  }
+
+  const conditions: string[] = ["subject = $1"];
+  const params: (string | number)[] = [market];
+
+  if (startRaw) {
+    params.push(startRaw);
+    conditions.push(`received_at >= $${params.length}::timestamptz`);
+  }
+  if (endRaw) {
+    params.push(endRaw);
+    conditions.push(`received_at <= $${params.length}::timestamptz`);
   }
 
   params.push(limit);
   const limitParam = `$${params.length}`;
 
-  const sql = `SELECT subject, payload, received_at FROM raw_events WHERE ${conditions.join(" AND ")} ORDER BY received_at DESC LIMIT ${limitParam}`;
+  const sql = `SELECT payload, received_at FROM raw_events WHERE ${conditions.join(" AND ")} ORDER BY received_at DESC LIMIT ${limitParam}`;
 
   try {
     const result = await p.query(sql, params);
-    const rows = result.rows.map((r: { subject: string; payload: unknown; received_at: Date }) => ({
-      subject: r.subject,
-      payload: r.payload,
-      received_at: r.received_at,
+    const records = result.rows.map((r: { payload: Record<string, unknown>; received_at: Date }) => ({
+      timestamp: r.received_at,
+      price: r.payload.price ?? null,
+      volume: r.payload.volume ?? null,
+      side: r.payload.side ?? null,
+      source: r.payload.source ?? null,
     }));
-    res.json(rows);
+
+    const start = startRaw ?? null;
+    const end = endRaw ?? null;
+
+    res.json({ market, start, end, records });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "query failed";
     res.status(500).json({ error: message });
   }
 }
 
-export { parseSince, sinceToInterval };
+export { isISOTimestamp, clampLimit };
