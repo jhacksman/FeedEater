@@ -31,6 +31,8 @@ import { getHealthCheck } from "./healthCheck.js";
 import { postModuleDisable, postModuleEnable, getModuleConfig, ModuleConfigDb } from "./moduleControl.js";
 import { StalenessTracker, getStaleness } from "./staleness.js";
 import { recordReconnect, getModuleReconnectsHandler, getReconnectSummaryHandler } from "./reconnects.js";
+import { ApiKeyDb, masterKeyAuth, postApiKey, listApiKeys, deleteApiKey } from "./apiKeys.js";
+import { setDynamicKeyDb } from "./middleware/auth.js";
 import { postWebhook, listWebhooks, deleteWebhook, deliverWebhooks, getDeliveries, WebhookDb, DeliveryLog } from "./webhooks.js";
 import type { Webhook } from "./webhooks.js";
 
@@ -55,6 +57,9 @@ const MODULE_DB_PATH = process.env.MODULE_DB_PATH ?? "feedeater-modules.db";
 const moduleConfigDb = new ModuleConfigDb(MODULE_DB_PATH);
 const disabledModules = new Set<string>(moduleConfigDb.loadDisabled());
 const stalenessTracker = new StalenessTracker();
+const API_KEY_DB_PATH = process.env.API_KEY_DB_PATH ?? "feedeater-apikeys.db";
+const apiKeyDb = new ApiKeyDb(API_KEY_DB_PATH);
+setDynamicKeyDb(apiKeyDb);
 const WEBHOOK_DB_PATH = process.env.WEBHOOK_DB_PATH ?? "feedeater-webhooks.db";
 const webhookDb = new WebhookDb(WEBHOOK_DB_PATH);
 const webhooks: Webhook[] = webhookDb.loadAll();
@@ -198,6 +203,10 @@ app.get("/api/modules/:name/config", getModuleConfig({ disabledModules, db: modu
 app.get("/api/modules/:name/reconnects", getModuleReconnectsHandler());
 app.get("/api/reconnects", getReconnectSummaryHandler());
 app.get("/api/staleness", getStaleness({ tracker: stalenessTracker }));
+
+app.post("/api/keys", masterKeyAuth, postApiKey({ db: apiKeyDb }));
+app.get("/api/keys", masterKeyAuth, listApiKeys({ db: apiKeyDb }));
+app.delete("/api/keys/:id", masterKeyAuth, deleteApiKey({ db: apiKeyDb }));
 
 app.post("/api/webhooks", postWebhook({ webhooks, db: webhookDb }));
 app.get("/api/webhooks", listWebhooks({ webhooks }));
