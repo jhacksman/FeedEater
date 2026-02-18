@@ -30,6 +30,7 @@ import { getStream } from "./stream.js";
 import { getHealthCheck } from "./healthCheck.js";
 import { postModuleDisable, postModuleEnable, getModuleConfig, ModuleConfigDb } from "./moduleControl.js";
 import { StalenessTracker, getStaleness } from "./staleness.js";
+import { recordReconnect, getModuleReconnectsHandler, getReconnectSummaryHandler } from "./reconnects.js";
 import { postWebhook, listWebhooks, deleteWebhook, deliverWebhooks, getDeliveries, WebhookDb, DeliveryLog } from "./webhooks.js";
 import type { Webhook } from "./webhooks.js";
 
@@ -194,6 +195,8 @@ app.post("/api/modules/:name/restart", postModuleRestart({ getNatsConn, sc: nats
 app.post("/api/modules/:name/disable", postModuleDisable({ getNatsConn, sc: natsSc, disabledModules, db: moduleConfigDb }));
 app.post("/api/modules/:name/enable", postModuleEnable({ getNatsConn, sc: natsSc, disabledModules, db: moduleConfigDb }));
 app.get("/api/modules/:name/config", getModuleConfig({ disabledModules, db: moduleConfigDb }));
+app.get("/api/modules/:name/reconnects", getModuleReconnectsHandler());
+app.get("/api/reconnects", getReconnectSummaryHandler());
 app.get("/api/staleness", getStaleness({ tracker: stalenessTracker }));
 
 app.post("/api/webhooks", postWebhook({ webhooks, db: webhookDb }));
@@ -250,7 +253,10 @@ getNatsConn()
       for await (const m of reconnectSub) {
         const parts = m.subject.split(".");
         const moduleName = parts[1];
-        if (moduleName && !disabledModules.has(moduleName)) liveStatusStore.recordReconnect(moduleName);
+        if (moduleName && !disabledModules.has(moduleName)) {
+          liveStatusStore.recordReconnect(moduleName);
+          recordReconnect(moduleName);
+        }
       }
     })();
   })
