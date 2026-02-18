@@ -21,6 +21,24 @@ function clampLimit(raw: string | undefined): number {
   return Math.min(Math.max(1, n), 1000);
 }
 
+function encodeCursor(timestamp: string, id: string | number): string {
+  return Buffer.from(`${timestamp}:${id}`).toString("base64");
+}
+
+function decodeCursor(cursor: string): { timestamp: string; id: string } | null {
+  try {
+    const decoded = Buffer.from(cursor, "base64").toString("utf-8");
+    const idx = decoded.lastIndexOf(":");
+    if (idx < 1) return null;
+    const timestamp = decoded.slice(0, idx);
+    const id = decoded.slice(idx + 1);
+    if (!isISOTimestamp(timestamp) || !id) return null;
+    return { timestamp, id };
+  } catch {
+    return null;
+  }
+}
+
 export async function getHistory(req: Request, res: Response): Promise<void> {
   const p = getPool();
   if (!p) {
@@ -47,8 +65,26 @@ export async function getHistory(req: Request, res: Response): Promise<void> {
     return;
   }
 
+  const cursorRaw = req.query.cursor as string | undefined;
+  let cursorData: { timestamp: string; id: string } | null = null;
+  if (cursorRaw) {
+    cursorData = decodeCursor(cursorRaw);
+    if (!cursorData) {
+      res.status(400).json({ error: "Invalid cursor" });
+      return;
+    }
+  }
+
   const conditions: string[] = ["subject = $1"];
   const params: (string | number)[] = [market];
+
+  if (cursorData) {
+    params.push(cursorData.timestamp);
+    const tsIdx = params.length;
+    params.push(cursorData.id);
+    const idIdx = params.length;
+    conditions.push(`(received_at < $${tsIdx}::timestamptz OR (received_at = $${tsIdx}::timestamptz AND id::text < $${idIdx}))`);
+  }
 
   if (startRaw) {
     params.push(startRaw);
@@ -59,14 +95,18 @@ export async function getHistory(req: Request, res: Response): Promise<void> {
     conditions.push(`received_at <= $${params.length}::timestamptz`);
   }
 
-  params.push(limit);
+  const fetchCount = limit + 1;
+  params.push(fetchCount);
   const limitParam = `$${params.length}`;
 
-  const sql = `SELECT payload, received_at FROM raw_events WHERE ${conditions.join(" AND ")} ORDER BY received_at DESC LIMIT ${limitParam}`;
+  const sql = `SELECT id, payload, received_at FROM raw_events WHERE ${conditions.join(" AND ")} ORDER BY received_at DESC, id DESC LIMIT ${limitParam}`;
 
   try {
     const result = await p.query(sql, params);
-    const records = result.rows.map((r: { payload: Record<string, unknown>; received_at: Date }) => ({
+    const hasMore = result.rows.length > limit;
+    const rows = hasMore ? result.rows.slice(0, limit) : result.rows;
+
+    const records = rows.map((r: { id: number | string; payload: Record<string, unknown>; received_at: Date }) => ({
       timestamp: r.received_at,
       price: r.payload.price ?? null,
       volume: r.payload.volume ?? null,
@@ -74,14 +114,20 @@ export async function getHistory(req: Request, res: Response): Promise<void> {
       source: r.payload.source ?? null,
     }));
 
+    let nextCursor: string | null = null;
+    if (hasMore && rows.length > 0) {
+      const lastRow = rows[rows.length - 1] as { id: number | string; received_at: Date };
+      nextCursor = encodeCursor(new Date(lastRow.received_at).toISOString(), String(lastRow.id));
+    }
+
     const start = startRaw ?? null;
     const end = endRaw ?? null;
 
-    res.json({ market, start, end, records });
+    res.json({ market, start, end, records, next_cursor: nextCursor, has_more: hasMore });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "query failed";
     res.status(500).json({ error: message });
   }
 }
 
-export { isISOTimestamp, clampLimit };
+export { isISOTimestamp, clampLimit, encodeCursor, decodeCursor };
