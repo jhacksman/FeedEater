@@ -149,6 +149,8 @@ services:
       FEEDEATER_API_URL: http://api:4000
       KALSHI_API_KEY: ${KALSHI_API_KEY:-}
       KALSHI_API_SECRET: ${KALSHI_API_SECRET:-}
+      AERODROME_BASE_RPC_URL: ${AERODROME_BASE_RPC_URL:-}
+      UNISWAP_BASE_RPC_URL: ${UNISWAP_BASE_RPC_URL:-}
     depends_on:
       api:
         condition: service_healthy
