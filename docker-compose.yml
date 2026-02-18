@@ -60,6 +60,8 @@ services:
       KALSHI_API_SECRET: ${KALSHI_API_SECRET:-}
       POLYMARKET_API_KEY: ${POLYMARKET_API_KEY:-}
       UNISWAP_RPC_URL: ${UNISWAP_RPC_URL:-ws://localhost:8546}
+      UNISWAP_BASE_RPC_URL: ${UNISWAP_BASE_RPC_URL:-ws://localhost:8646}
+      AERODROME_BASE_RPC_URL: ${AERODROME_BASE_RPC_URL:-ws://localhost:8646}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
@@ -98,6 +100,8 @@ services:
       KALSHI_API_SECRET: ${KALSHI_API_SECRET:-}
       POLYMARKET_API_KEY: ${POLYMARKET_API_KEY:-}
       UNISWAP_RPC_URL: ${UNISWAP_RPC_URL:-ws://localhost:8546}
+      UNISWAP_BASE_RPC_URL: ${UNISWAP_BASE_RPC_URL:-ws://localhost:8646}
+      AERODROME_BASE_RPC_URL: ${AERODROME_BASE_RPC_URL:-ws://localhost:8646}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
@@ -145,6 +149,8 @@ services:
       FEEDEATER_API_URL: http://api:4000
       KALSHI_API_KEY: ${KALSHI_API_KEY:-}
       KALSHI_API_SECRET: ${KALSHI_API_SECRET:-}
+      AERODROME_BASE_RPC_URL: ${AERODROME_BASE_RPC_URL:-}
+      UNISWAP_BASE_RPC_URL: ${UNISWAP_BASE_RPC_URL:-}
     depends_on:
       api:
         condition: service_healthy

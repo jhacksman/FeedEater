@@ -49,4 +49,16 @@ echo "[init-modules] enabling polymarket module..."
 enable_module polymarket enabled true
 enable_module polymarket collectAllTrades true
 
-echo "[init-modules] done — kalshi and polymarket enabled"
+echo "[init-modules] enabling aerodrome-base module..."
+enable_module aerodrome-base enabled true
+if [ -n "$AERODROME_BASE_RPC_URL" ]; then
+  enable_module aerodrome-base rpcUrl "$AERODROME_BASE_RPC_URL"
+fi
+
+echo "[init-modules] enabling uniswap-base module..."
+enable_module uniswap-base enabled true
+if [ -n "$UNISWAP_BASE_RPC_URL" ]; then
+  enable_module uniswap-base rpcUrl "$UNISWAP_BASE_RPC_URL"
+fi
+
+echo "[init-modules] done — kalshi, polymarket, aerodrome-base, uniswap-base enabled"

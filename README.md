@@ -41,6 +41,41 @@ Then, in the same evolutionary blink of the eye the whole game changed. Suddenly
 
 Since Facebook, Twitter, Tik-Toc, Bluesky, Mastadon, RSS feeds, Slack, Discord, IRC, SMS, Signal, Telegram, WeChat, Email.... appear to have collectively decided that pumping volumes of unhealthy and outright dangerious information into our eyeballs is more prophetable we're going to have to take matters into our own hands. 
 
+## Available Modules
+
+FeedEater ships with a growing library of drop-in modules. Clone or symlink any of these into `/modules` and they will be auto-discovered on startup.
+
+| Module | Description |
+|--------|-------------|
+| `aerodrome-base` | Aerodrome DEX swap collector for Base L2 (stable/volatile pools) |
+| `arbitrum-dex` | DEX swap collector for Arbitrum L2 |
+| `binance` | Binance CEX market data |
+| `bitstamp` | Bitstamp CEX market data |
+| `bitfinex` | Bitfinex CEX market data |
+| `bluesky` | Bluesky social feed |
+| `bybit` | Bybit CEX market data |
+| `coinbase` | Coinbase CEX market data |
+| `discord` | Discord message collector |
+| `gemini` | Gemini CEX market data |
+| `github` | GitHub event collector |
+| `hackernews` | Hacker News feed |
+| `kalshi` | Kalshi prediction market data |
+| `kraken` | Kraken CEX market data |
+| `mastodon` | Mastodon/Fediverse feed |
+| `okx` | OKX CEX market data |
+| `polygon-dex` | DEX swap collector for Polygon |
+| `polymarket` | Polymarket prediction market data |
+| `reddit` | Reddit feed |
+| `rss` | Generic RSS/Atom feed |
+| `signal` | Signal messenger |
+| `slack` | Slack workspace collector |
+| `telegram` | Telegram channel/group collector |
+| `twitch` | Twitch stream events |
+| `twitter` | Twitter/X feed |
+| `uniswap` | Uniswap V3 swap collector (Ethereum mainnet) |
+| `uniswap-base` | Uniswap V3 swap collector for Base L2 |
+| `youtube` | YouTube feed |
+
 ## 🤝 Contributing
 
 Yes please! 
