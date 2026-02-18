@@ -537,6 +537,11 @@ export class BybitIngestor {
       this.log("error", "max WebSocket reconnect attempts (10) exhausted", {
         attempts: this.reconnectAttempts,
       });
+      this.isRunning = false;
+      this.nats.publish(
+        subjectFor("bybit", "dead"),
+        this.sc.encode(JSON.stringify({ module: "bybit", timestamp: Date.now(), reason: "circuit breaker: 10 reconnect attempts exhausted" }))
+      );
       return;
     }
     this.reconnectAttempts++;

@@ -548,6 +548,11 @@ export class GeminiIngestor {
       this.log("error", "max WebSocket reconnect attempts (10) exhausted", {
         attempts: this.reconnectAttempts,
       });
+      this.isRunning = false;
+      this.nats.publish(
+        subjectFor("gemini", "dead"),
+        this.sc.encode(JSON.stringify({ module: "gemini", timestamp: Date.now(), reason: "circuit breaker: 10 reconnect attempts exhausted" }))
+      );
       return;
     }
     this.reconnectAttempts++;
