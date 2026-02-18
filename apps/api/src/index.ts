@@ -55,6 +55,7 @@ import { getModuleHealthCheck } from "./moduleHealthCheck.js";
 import { getModuleLatency } from "./moduleLatency.js";
 import { getModuleThroughput } from "./moduleThroughput.js";
 import { getModuleErrors } from "./moduleErrors.js";
+import { ReconnectStatsStore, getModuleReconnectStats } from "./moduleReconnectStats.js";
 import { setRateLimitDb } from "./middleware/rateLimit.js";
 import { postWebhook, listWebhooks, deleteWebhook, deliverWebhooks, getDeliveries, WebhookDb, DeliveryLog } from "./webhooks.js";
 import type { Webhook } from "./webhooks.js";
@@ -97,6 +98,7 @@ const statusHistoryDb = new StatusHistoryDb(MODULE_DB_PATH);
 const deliveryLog = new DeliveryLog();
 const moduleMetricsStore = new ModuleMetricsStore();
 const venueStore = new VenueStore();
+const reconnectStatsStore = new ReconnectStatsStore();
 let natsConnPromise: Promise<import("nats").NatsConnection> | null = null;
 
 function getNatsConn() {
@@ -258,7 +260,7 @@ const checkPostgres = async (): Promise<boolean> => {
   }
 };
 app.get("/api/pipeline/status", getPipelineStatus({ stalenessTracker, metricsStore: moduleMetricsStore, disabledModules, getNatsConn, checkPostgres }));
-app.get("/api/modules/:name/reconnects", getModuleReconnectsHandler());
+app.get("/api/modules/:name/reconnects", getModuleReconnectStats({ store: reconnectStatsStore }));
 app.get("/api/reconnects", getReconnectSummaryHandler());
 app.get("/api/staleness", getStaleness({ tracker: stalenessTracker }));
 app.get("/api/status/summary", getStatusSummary({ stalenessTracker, disabledModules, webhooks, deliveryLog, apiKeyDb, getNatsConn }));
@@ -342,6 +344,7 @@ getNatsConn()
         if (moduleName && !disabledModules.has(moduleName)) {
           liveStatusStore.recordReconnect(moduleName);
           recordReconnect(moduleName);
+          reconnectStatsStore.record(moduleName);
           moduleLogStore.record(moduleName, "warn", `WebSocket reconnecting for ${moduleName}`);
           statusHistoryDb.record(moduleName, "reconnected", `WebSocket reconnecting for ${moduleName}`);
         }
