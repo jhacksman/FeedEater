@@ -61,6 +61,7 @@ import { ReconnectStatsStore, getModuleReconnectStats } from "./moduleReconnectS
 import { UptimeStore, getModuleUptime } from "./moduleUptime.js";
 import { getSystemMetrics } from "./systemMetrics.js";
 import { getSystemCapacity } from "./systemCapacity.js";
+import { ModuleDataQualityStore, getModuleDataQuality } from "./moduleDataQuality.js";
 import { postModuleReset } from "./moduleReset.js";
 import { QueueStatsStore, getSystemQueues } from "./systemQueues.js";
 import { setRateLimitDb } from "./middleware/rateLimit.js";
@@ -108,6 +109,7 @@ const venueStore = new VenueStore();
 const reconnectStatsStore = new ReconnectStatsStore();
 const uptimeStore = new UptimeStore();
 const queueStatsStore = new QueueStatsStore();
+const moduleDataQualityStore = new ModuleDataQualityStore();
 let natsConnPromise: Promise<import("nats").NatsConnection> | null = null;
 
 function getNatsConn() {
@@ -259,6 +261,7 @@ app.get("/api/modules/:name/latency", getModuleLatency({ metricsStore: moduleMet
 app.get("/api/modules/:name/throughput", getModuleThroughput({ metricsStore: moduleMetricsStore }));
 app.get("/api/modules/:name/errors", getModuleErrors({ logStore: moduleLogStore }));
 app.get("/api/modules/:name/uptime", getModuleUptime({ uptimeStore }));
+app.get("/api/modules/:name/data-quality", getModuleDataQuality({ qualityStore: moduleDataQualityStore }));
 app.post("/api/modules/:name/reset", postModuleReset({ metricsStore: moduleMetricsStore, reconnectStore: reconnectStatsStore }));
 app.get("/api/venues", getVenues({ venueStore, disabledModules }));
 app.post("/api/modules/restart-all", postRestartAll({ getNatsConn, sc: natsSc, disabledModules }));
@@ -376,5 +379,4 @@ app.listen(PORT, "0.0.0.0", () => {
   // eslint-disable-next-line no-console
   console.log(`[api] listening on :${PORT}`);
 });
-
 
