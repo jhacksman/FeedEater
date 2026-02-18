@@ -43,6 +43,7 @@ import { StatusHistoryDb, getModuleStatusHistory } from "./moduleStatusHistory.j
 import { postTestAlert } from "./testAlert.js";
 import { getModuleDependencies } from "./moduleDependencies.js";
 import { postBulkEnable, postBulkDisable } from "./bulkModuleControl.js";
+import { ModuleMetricsStore, getModuleMetrics } from "./moduleMetrics.js";
 import { setRateLimitDb } from "./middleware/rateLimit.js";
 import { postWebhook, listWebhooks, deleteWebhook, deliverWebhooks, getDeliveries, WebhookDb, DeliveryLog } from "./webhooks.js";
 import type { Webhook } from "./webhooks.js";
@@ -83,6 +84,7 @@ const webhooks: Webhook[] = webhookDb.loadAll();
 const moduleLogStore = new ModuleLogStore();
 const statusHistoryDb = new StatusHistoryDb(MODULE_DB_PATH);
 const deliveryLog = new DeliveryLog();
+const moduleMetricsStore = new ModuleMetricsStore();
 let natsConnPromise: Promise<import("nats").NatsConnection> | null = null;
 
 function getNatsConn() {
@@ -226,6 +228,7 @@ app.post("/api/modules/:name/test-alert", adminKeyAuth, postTestAlert({ webhooks
 app.get("/api/modules/:name/dependencies", getModuleDependencies({ modulesDir: MODULES_DIR }));
 app.post("/api/modules/bulk-enable", postBulkEnable({ getNatsConn, sc: natsSc, disabledModules, db: moduleConfigDb }));
 app.post("/api/modules/bulk-disable", postBulkDisable({ getNatsConn, sc: natsSc, disabledModules, db: moduleConfigDb }));
+app.get("/api/modules/:name/metrics", getModuleMetrics({ metricsStore: moduleMetricsStore }));
 app.get("/api/modules/:name/reconnects", getModuleReconnectsHandler());
 app.get("/api/reconnects", getReconnectSummaryHandler());
 app.get("/api/staleness", getStaleness({ tracker: stalenessTracker }));
@@ -280,6 +283,7 @@ getNatsConn()
           moduleHealthStore.recordMessage(moduleName);
           liveStatusStore.recordMessage(moduleName);
           stalenessTracker.updateModuleSeen(moduleName);
+          moduleMetricsStore.recordMessage(moduleName);
           moduleLogStore.record(moduleName, "info", `Message received on ${m.subject}`);
           statusHistoryDb.record(moduleName, "started", `Message received on ${m.subject}`);
 
