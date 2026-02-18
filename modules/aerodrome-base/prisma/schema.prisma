@@ -1,0 +1,34 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model AerodromeSwap {
+  id            String   @id @default(uuid())
+  createdAt     DateTime @default(now())
+  chain         String   @default("base")
+  dex           String   @default("aerodrome")
+  pool          String
+  pair          String
+  txHash        String
+  block         BigInt
+  timestampMs   BigInt
+  amount0In     String
+  amount1In     String
+  amount0Out    String
+  amount1Out    String
+  side          String
+  price         String
+  usdValue      String
+  sender        String
+  recipient     String
+  isWhale       Boolean
+
+  @@index([pool, timestampMs])
+  @@index([isWhale])
+  @@schema("mod_aerodrome_base")
+}
