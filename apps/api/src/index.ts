@@ -50,6 +50,7 @@ import { getPipelineStatus } from "./pipelineStatus.js";
 import { getModuleRuntimeConfig } from "./moduleRuntimeConfig.js";
 import { getSystemInfo } from "./systemInfo.js";
 import { getModuleEvents } from "./moduleEvents.js";
+import { AcknowledgedAlerts, postAcknowledgeAlert, listAcknowledgedAlerts, deleteAcknowledgedAlert } from "./alertAcknowledge.js";
 import { setRateLimitDb } from "./middleware/rateLimit.js";
 import { postWebhook, listWebhooks, deleteWebhook, deliverWebhooks, getDeliveries, WebhookDb, DeliveryLog } from "./webhooks.js";
 import type { Webhook } from "./webhooks.js";
@@ -255,6 +256,11 @@ app.get("/api/staleness", getStaleness({ tracker: stalenessTracker }));
 app.get("/api/status/summary", getStatusSummary({ stalenessTracker, disabledModules, webhooks, deliveryLog, apiKeyDb, getNatsConn }));
 app.get("/api/alerts", getAlerts({ stalenessTracker, disabledModules }));
 app.get("/api/data-quality", getDataQuality({ stalenessTracker, disabledModules }));
+
+const ackedAlerts = new AcknowledgedAlerts();
+app.post("/api/alerts/acknowledge", postAcknowledgeAlert({ store: ackedAlerts }));
+app.get("/api/alerts/acknowledged", listAcknowledgedAlerts({ store: ackedAlerts }));
+app.delete("/api/alerts/acknowledge", deleteAcknowledgedAlert({ store: ackedAlerts }));
 app.get("/api/system/info", getSystemInfo({ startedAt: serverStartedAt }));
 
 const rlDeps = { db: rateLimitDb, defaultLimit: 100 };
