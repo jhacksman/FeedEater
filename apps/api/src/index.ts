@@ -14,6 +14,7 @@ import { registerPredictionDataRoutes } from "./predictionData.js";
 import { registerCexDataRoutes } from "./cexData.js";
 import { ModuleHealthStore, getModuleHealth } from "./moduleHealth.js";
 import { getDashboard } from "./dashboard.js";
+import { getHistory } from "./history.js";
 
 const PORT = Number(process.env.PORT ?? "4000");
 const MODULES_DIR = process.env.FEED_MODULES_DIR ?? "/app/modules";
@@ -138,6 +139,8 @@ app.get("/api/bus/stream", async (req: Request, res: Response) => {
     }
   })();
 });
+
+app.get("/api/history", getHistory);
 
 // Historical bus messages (from Postgres archive).
 app.get("/api/bus/history", getBusHistory);

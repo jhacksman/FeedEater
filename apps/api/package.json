@@ -15,7 +15,8 @@
     "@feedeater/core": "0.0.1",
     "@feedeater/db": "0.0.1",
     "express": "^4.21.2",
-    "nats": "^2.29.3"
+    "nats": "^2.29.3",
+    "pg": "^8.13.0"
   },
   "devDependencies": {
     "tsup": "^8.5.0",
