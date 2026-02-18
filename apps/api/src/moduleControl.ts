@@ -24,8 +24,6 @@ export function postModuleDisable({ getNatsConn, sc, disabledModules }: ControlD
       return;
     }
 
-    disabledModules.add(name);
-
     const payload = {
       module: name,
       action: "disable",
@@ -41,6 +39,7 @@ export function postModuleDisable({ getNatsConn, sc, disabledModules }: ControlD
         `feedeater.control.disable.${name}`,
         sc.encode(JSON.stringify(payload)),
       );
+      disabledModules.add(name);
       res.json({ ok: true, module: name, message: `Module ${name} disabled` });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "NATS publish failed";
@@ -65,8 +64,6 @@ export function postModuleEnable({ getNatsConn, sc, disabledModules }: ControlDe
       return;
     }
 
-    disabledModules.delete(name);
-
     const payload = {
       module: name,
       action: "enable",
@@ -82,14 +79,11 @@ export function postModuleEnable({ getNatsConn, sc, disabledModules }: ControlDe
         `feedeater.control.enable.${name}`,
         sc.encode(JSON.stringify(payload)),
       );
+      disabledModules.delete(name);
       res.json({ ok: true, module: name, message: `Module ${name} enabled` });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "NATS publish failed";
       res.status(500).json({ error: message });
     }
   };
-}
-
-export function isModuleDisabled(disabledModules: Set<string>, name: string): boolean {
-  return disabledModules.has(name);
 }

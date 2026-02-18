@@ -105,7 +105,7 @@ describe("POST /api/modules/:name/disable", () => {
     expect(payload.requestedBy).toBe("api-key-user");
   });
 
-  it("returns 500 when NATS connection fails", async () => {
+  it("returns 500 when NATS connection fails and does not mutate state", async () => {
     const getNatsConn = vi.fn().mockRejectedValue(new Error("NATS down"));
     const sc = { encode: vi.fn() } as unknown as import("nats").Codec<string>;
     const disabledModules = new Set<string>();
@@ -115,6 +115,7 @@ describe("POST /api/modules/:name/disable", () => {
     await handler(req, res);
     expect(res.statusCode).toBe(500);
     expect((res.body as { error: string }).error).toBe("NATS down");
+    expect(disabledModules.has("okx")).toBe(false);
   });
 });
 
@@ -176,7 +177,7 @@ describe("POST /api/modules/:name/enable", () => {
     expect(payload.requestedBy).toBe("anonymous");
   });
 
-  it("returns 500 when NATS connection fails", async () => {
+  it("returns 500 when NATS connection fails and does not mutate state", async () => {
     const getNatsConn = vi.fn().mockRejectedValue(new Error("NATS down"));
     const sc = { encode: vi.fn() } as unknown as import("nats").Codec<string>;
     const disabledModules = new Set<string>(["kalshi"]);
@@ -186,6 +187,7 @@ describe("POST /api/modules/:name/enable", () => {
     await handler(req, res);
     expect(res.statusCode).toBe(500);
     expect((res.body as { error: string }).error).toBe("NATS down");
+    expect(disabledModules.has("kalshi")).toBe(true);
   });
 
   it("disable then enable restores module state", async () => {
