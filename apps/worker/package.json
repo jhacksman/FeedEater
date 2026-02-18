@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "node --watch dist/index.js",
     "build": "tsup src/index.ts --format esm",
+    "prestart": "npm run build",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "echo \"(no lint configured yet)\"",
     "start": "node dist/index.js"
