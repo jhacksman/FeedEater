@@ -1,6 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
 
-const OPEN_PATHS = ["/api/health/modules"];
+const OPEN_PATHS = ["/api/health/modules", "/api/docs"];
 
 export function apiKeyAuth(req: Request, res: Response, next: NextFunction): void {
   const apiKey = process.env.API_KEY;

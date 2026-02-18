@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
 import express from "express";
 import type { NextFunction, Request, Response } from "express";
 import { connect, StringCodec } from "nats";
@@ -63,6 +66,20 @@ app.get("/", getDashboard);
 
 app.get("/api/health", async (_req: Request, res: Response) => {
   res.json({ ok: true });
+});
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const openapiPath = join(__dirname, "..", "openapi.yaml");
+
+app.get("/api/docs", (_req: Request, res: Response) => {
+  try {
+    const yaml = readFileSync(openapiPath, "utf-8");
+    res.setHeader("Content-Type", "text/yaml; charset=utf-8");
+    res.send(yaml);
+  } catch (err) {
+    res.status(500).json({ error: "Failed to read OpenAPI spec" });
+  }
 });
 
 app.get("/api/health/modules", getModuleHealth(moduleHealthStore));
