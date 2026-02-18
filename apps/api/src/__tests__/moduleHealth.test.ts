@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { ModuleHealthStore } from "../moduleHealth.js";
+import { ModuleHealthStore, getModuleHealth } from "../moduleHealth.js";
 
 describe("ModuleHealthStore", () => {
   let store: ModuleHealthStore;
@@ -87,5 +87,30 @@ describe("ModuleHealthStore", () => {
 
     expect(slack?.messageCount).toBe(2);
     expect(discord?.messageCount).toBe(1);
+  });
+});
+
+describe("GET /api/health/modules", () => {
+  it("returns 200 with ok:true and modules array", async () => {
+    const store = new ModuleHealthStore();
+    store.recordMessage("uniswap-base");
+    const handler = getModuleHealth(store);
+
+    const req = {} as any;
+    let statusCode = 200;
+    let body: any;
+    const res = {
+      status: (code: number) => { statusCode = code; return res; },
+      json: (data: any) => { body = data; },
+    } as any;
+
+    await handler(req, res);
+
+    expect(statusCode).toBe(200);
+    expect(body).toHaveProperty("ok", true);
+    expect(body).toHaveProperty("modules");
+    expect(Array.isArray(body.modules)).toBe(true);
+    expect(body.modules).toHaveLength(1);
+    expect(body.modules[0]).toHaveProperty("module", "uniswap-base");
   });
 });
