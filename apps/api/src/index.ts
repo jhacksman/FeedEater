@@ -12,6 +12,7 @@ import { getJobsStatus, postRunJob } from "./jobs.js";
 import { getBusHistory } from "./busHistory.js";
 import { registerPredictionDataRoutes } from "./predictionData.js";
 import { registerCexDataRoutes } from "./cexData.js";
+import { ModuleHealthStore, getModuleHealth } from "./moduleHealth.js";
 
 const PORT = Number(process.env.PORT ?? "4000");
 const MODULES_DIR = process.env.FEED_MODULES_DIR ?? "/app/modules";
@@ -28,6 +29,7 @@ requiredEnv("DATABASE_URL");
 requiredEnv("FEED_SETTINGS_KEY");
 requiredEnv("FEED_INTERNAL_TOKEN");
 const natsSc = StringCodec();
+const moduleHealthStore = new ModuleHealthStore();
 let natsConnPromise: Promise<import("nats").NatsConnection> | null = null;
 
 function getNatsConn() {
@@ -49,6 +51,8 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 app.get("/api/health", async (_req: Request, res: Response) => {
   res.json({ ok: true });
 });
+
+app.get("/api/health/modules", getModuleHealth(moduleHealthStore));
 
 app.get("/api/modules", async (_req: Request, res: Response) => {
   const modules = await discoverModules(MODULES_DIR);
@@ -152,6 +156,22 @@ app.post("/api/jobs/run", postRunJob({ modulesDir: MODULES_DIR, getNatsConn, sc:
 // Public Data API (v1)
 registerPredictionDataRoutes(app);
 registerCexDataRoutes(app);
+
+getNatsConn()
+  .then(async (nc) => {
+    const sub = nc.subscribe("feedeater.*.messageCreated");
+    (async () => {
+      for await (const m of sub) {
+        const parts = m.subject.split(".");
+        const moduleName = parts[1];
+        if (moduleName) moduleHealthStore.recordMessage(moduleName);
+      }
+    })();
+  })
+  .catch((err) => {
+    // eslint-disable-next-line no-console
+    console.error("[api] module-health NATS subscription failed:", err);
+  });
 
 app.listen(PORT, "0.0.0.0", () => {
   // eslint-disable-next-line no-console
