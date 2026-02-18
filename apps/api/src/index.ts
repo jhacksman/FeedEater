@@ -16,6 +16,7 @@ import { ModuleHealthStore, getModuleHealth } from "./moduleHealth.js";
 import { getDashboard } from "./dashboard.js";
 import { getHistory } from "./history.js";
 import { getExport } from "./export.js";
+import { postModuleRestart } from "./moduleRestart.js";
 import { apiKeyAuth } from "./middleware/auth.js";
 import { rateLimit } from "./middleware/rateLimit.js";
 
@@ -148,6 +149,7 @@ app.get("/api/bus/stream", async (req: Request, res: Response) => {
 
 app.get("/api/history", getHistory);
 app.get("/api/export", getExport);
+app.post("/api/modules/:name/restart", postModuleRestart({ getNatsConn, sc: natsSc }));
 
 // Historical bus messages (from Postgres archive).
 app.get("/api/bus/history", getBusHistory);
