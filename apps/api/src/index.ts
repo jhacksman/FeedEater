@@ -17,6 +17,7 @@ import { getDashboard } from "./dashboard.js";
 import { getHistory } from "./history.js";
 import { getExport } from "./export.js";
 import { apiKeyAuth } from "./middleware/auth.js";
+import { rateLimit } from "./middleware/rateLimit.js";
 
 const PORT = Number(process.env.PORT ?? "4000");
 const MODULES_DIR = process.env.FEED_MODULES_DIR ?? "/app/modules";
@@ -53,6 +54,7 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 });
 
 app.use(apiKeyAuth);
+app.use(rateLimit);
 
 app.get("/", getDashboard);
 
