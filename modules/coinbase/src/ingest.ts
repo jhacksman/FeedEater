@@ -503,9 +503,14 @@ export class CoinbaseIngestor {
   private scheduleReconnect(): void {
     if (!this.isRunning) return;
     if (this.reconnectAttempts >= 10) {
-      this.log("error", "max WebSocket reconnect attempts (10) exhausted", {
+      this.log("error", "module coinbase circuit breaker tripped", {
         attempts: this.reconnectAttempts,
       });
+      this.nats.publish(
+        "feedeater.module.dead.coinbase",
+        this.sc.encode(JSON.stringify({ module: "coinbase", timestamp: new Date().toISOString() }))
+      );
+      this.isRunning = false;
       return;
     }
     this.reconnectAttempts++;
