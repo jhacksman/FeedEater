@@ -9,7 +9,6 @@
     "prestart": "npm run build",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "echo \"(no lint configured yet)\"",
-    "prestart": "npm run build",
     "start": "node dist/index.js"
   },
   "dependencies": {
