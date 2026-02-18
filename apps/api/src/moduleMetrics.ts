@@ -92,6 +92,24 @@ export class ModuleMetricsStore {
     return data.messageTimes;
   }
 
+  resetErrors(module: string): void {
+    const data = this.modules.get(module);
+    if (data) {
+      data.totalErrors = 0;
+      data.errorTimes = [];
+    }
+  }
+
+  resetThroughput(module: string): void {
+    const data = this.modules.get(module);
+    if (data) {
+      data.totalMessages = 0;
+      data.messageTimes = [];
+      data.latencySamples = [];
+      data.lastMessageAt = null;
+    }
+  }
+
   getModuleNames(): string[] {
     return [...this.modules.keys()];
   }
