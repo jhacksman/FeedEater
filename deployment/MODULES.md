@@ -79,6 +79,27 @@ This checks:
 3. .env.example documents all required env vars
 4. Running containers (if deployment is active) include expected services
 
+## Base L2 Sync Status
+
+> **uniswap-base** and **aerodrome-base** require the Base L2 node (`ws://192.168.0.134:8646`) — expected to be fully synced by **2026-02-18 ~9 AM PT**.
+
+Until the node is fully synced, these modules will connect but may return stale or incomplete data. The `check-modules.sh --live` health check will still pass as long as the WebSocket is reachable; it does not verify chain sync progress.
+
+## Deployment
+
+Run the Mac mini deployment script to pull, restart, and verify:
+
+```bash
+./scripts/deploy-mac-mini.sh
+```
+
+This performs:
+1. `git pull origin main`
+2. `docker-compose pull`
+3. `docker-compose up -d --remove-orphans`
+4. 10s startup wait
+5. `./scripts/check-modules.sh --live` health verification
+
 ## RPC Requirements Summary
 
 | Endpoint | Protocol | Used By | Network |
