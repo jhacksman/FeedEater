@@ -90,7 +90,8 @@ export class BinanceIngestor {
   private embedDim: number;
   private ws: WebSocket | null = null;
   private reconnectDelay = 1000;
-  private maxReconnectDelay = 60000;
+  private maxReconnectDelay = 30000;
+  private reconnectAttempts = 0;
   private isRunning = false;
   private candles: Map<string, CandleData> = new Map();
   private lastCandleFlush: Map<string, number> = new Map();
@@ -491,23 +492,51 @@ export class BinanceIngestor {
   }
 
   private scheduleReconnect(): void {
-    this.log("info", `scheduling reconnect in ${this.reconnectDelay}ms`);
+    if (!this.isRunning) return;
+    if (this.reconnectAttempts >= 10) {
+      this.log("error", "max WebSocket reconnect attempts (10) exhausted", {
+        attempts: this.reconnectAttempts,
+      });
+      this.isRunning = false;
+      this.nats.publish(
+        subjectFor("binance", "dead"),
+        this.sc.encode(JSON.stringify({ module: "binance", timestamp: Date.now(), reason: "circuit breaker: 10 reconnect attempts exhausted" }))
+      );
+      return;
+    }
+    this.reconnectAttempts++;
+    const delay = this.reconnectDelay;
+    this.log("warn", `WebSocket disconnected, reconnecting in ${delay}ms (attempt ${this.reconnectAttempts}/10)`, {
+      attempt: this.reconnectAttempts,
+      maxAttempts: 10,
+      delay,
+    });
+    this.nats.publish(
+      subjectFor("binance", "reconnecting"),
+      this.sc.encode(JSON.stringify({ module: "binance", attempt: this.reconnectAttempts, delay }))
+    );
     setTimeout(async () => {
+      if (!this.isRunning) return;
       try {
         await this.connectWebSocket();
+        this.log("info", "WebSocket reconnected successfully", { attempt: this.reconnectAttempts });
+        this.reconnectAttempts = 0;
+        this.reconnectDelay = 1000;
       } catch (err) {
         this.reconnectDelay = Math.min(this.reconnectDelay * 2, this.maxReconnectDelay);
         if (this.isRunning) {
           this.scheduleReconnect();
         }
       }
-    }, this.reconnectDelay);
+    }, delay);
   }
 
   async startStreaming(): Promise<{ tradesCollected: number; candlesFlushed: number; snapshotsSaved: number }> {
     this.isRunning = true;
     this.tradeCounter = 0;
     this.snapshotCounter = 0;
+    this.reconnectAttempts = 0;
+    this.reconnectDelay = 1000;
     let candlesFlushed = 0;
 
     try {

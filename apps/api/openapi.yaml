@@ -1,0 +1,481 @@
+openapi: "3.0.3"
+info:
+  title: FeedEater API
+  version: "1.0.0"
+  description: >
+    REST API for the FeedEater real-time market data ingestion platform.
+    Provides module health monitoring, historical data queries, CSV/JSON export,
+    and module lifecycle management.
+
+servers:
+  - url: http://localhost:4000
+    description: Local development
+
+security:
+  - BearerAuth: []
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      description: >
+        API key passed as a Bearer token in the Authorization header.
+        The GET /api/health/modules endpoint is open (no auth required).
+
+  schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+          example: "Missing or malformed Authorization header"
+
+    ModuleHealthEntry:
+      type: object
+      required: [module, lastMessage, messageCount, status]
+      properties:
+        module:
+          type: string
+          example: binance
+        lastMessage:
+          type: string
+          nullable: true
+          format: date-time
+          example: "2026-02-18T10:30:00.000Z"
+        messageCount:
+          type: integer
+          example: 4521
+        status:
+          type: string
+          enum: [healthy, stale, offline]
+
+    ModuleHealthResponse:
+      type: object
+      required: [ok, modules]
+      properties:
+        ok:
+          type: boolean
+          example: true
+        modules:
+          type: array
+          items:
+            $ref: "#/components/schemas/ModuleHealthEntry"
+
+    StatusModuleEntry:
+      type: object
+      required: [name, status, last_message_at, message_count, reconnect_count]
+      properties:
+        name:
+          type: string
+          example: coinbase
+        status:
+          type: string
+          enum: [healthy, stale, offline]
+        last_message_at:
+          type: string
+          nullable: true
+          format: date-time
+          example: "2026-02-18T10:30:00.000Z"
+        message_count:
+          type: integer
+          example: 1200
+        reconnect_count:
+          type: integer
+          example: 0
+
+    StatusResponse:
+      type: object
+      required: [uptime_seconds, modules, nats_connected, postgres_connected, timestamp]
+      properties:
+        uptime_seconds:
+          type: integer
+          example: 86400
+        modules:
+          type: array
+          items:
+            $ref: "#/components/schemas/StatusModuleEntry"
+        nats_connected:
+          type: boolean
+          example: true
+        postgres_connected:
+          type: boolean
+          example: true
+        timestamp:
+          type: string
+          format: date-time
+          example: "2026-02-18T10:30:00.000Z"
+
+    HistoryRecord:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        price:
+          type: string
+          nullable: true
+        volume:
+          type: string
+          nullable: true
+        side:
+          type: string
+          nullable: true
+        source:
+          type: string
+          nullable: true
+
+    HistoryResponse:
+      type: object
+      required: [market, start, end, records]
+      properties:
+        market:
+          type: string
+          example: "feedeater.binance.messageCreated"
+        start:
+          type: string
+          nullable: true
+          format: date-time
+        end:
+          type: string
+          nullable: true
+          format: date-time
+        records:
+          type: array
+          items:
+            $ref: "#/components/schemas/HistoryRecord"
+
+    ExportRecord:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        price:
+          type: string
+          nullable: true
+        volume:
+          type: string
+          nullable: true
+        side:
+          type: string
+          nullable: true
+        source:
+          type: string
+          nullable: true
+
+    ExportJsonResponse:
+      type: object
+      required: [market, start, end, page, per_page, records]
+      properties:
+        market:
+          type: string
+          example: "feedeater.binance.messageCreated"
+        start:
+          type: string
+          nullable: true
+          format: date-time
+        end:
+          type: string
+          nullable: true
+          format: date-time
+        page:
+          type: integer
+          example: 1
+        per_page:
+          type: integer
+          example: 100
+        records:
+          type: array
+          items:
+            $ref: "#/components/schemas/ExportRecord"
+
+    RestartResponse:
+      type: object
+      required: [ok, module, message]
+      properties:
+        ok:
+          type: boolean
+          example: true
+        module:
+          type: string
+          example: binance
+        message:
+          type: string
+          example: "Restart signal sent for binance"
+
+paths:
+  /api/health/modules:
+    get:
+      summary: Module health status
+      description: >
+        Returns the health status of all modules that have published at least
+        one NATS message since the API started. Status is derived from the
+        elapsed time since the last message: healthy (<5 min), stale (5-30 min),
+        or offline (>30 min). This endpoint does not require authentication.
+      security: []
+      responses:
+        "200":
+          description: Module health list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ModuleHealthResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/status:
+    get:
+      summary: Live module status with uptime and message counts
+      description: >
+        Returns the current status of all tracked modules including per-module
+        message counts, reconnect counts, and last-message timestamps. Also
+        reports API uptime, NATS connection health, and Postgres connectivity.
+      responses:
+        "200":
+          description: Live status snapshot
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatusResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "429":
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/history:
+    get:
+      summary: Historical data query
+      description: >
+        Queries the raw_events Postgres table for historical trade data.
+        Results are ordered by received_at descending and capped by the limit
+        parameter (default 100, max 1000).
+      parameters:
+        - name: market
+          in: query
+          required: true
+          schema:
+            type: string
+          description: >
+            NATS subject to filter on (e.g. feedeater.binance.messageCreated).
+        - name: start
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+          description: ISO 8601 lower bound for received_at (inclusive).
+        - name: end
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+          description: ISO 8601 upper bound for received_at (inclusive).
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 100
+          description: Maximum number of records to return (1-1000).
+      responses:
+        "200":
+          description: Historical records
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HistoryResponse"
+        "400":
+          description: Bad request (missing market or invalid timestamp)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "429":
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/export:
+    get:
+      summary: CSV/JSON data export with pagination
+      description: >
+        Exports trade data from raw_events as paginated JSON or downloadable
+        CSV. Uses the same underlying query as /api/history but adds pagination
+        (page, per_page) and format selection.
+      parameters:
+        - name: market
+          in: query
+          required: true
+          schema:
+            type: string
+          description: NATS subject to filter on.
+        - name: format
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [json, csv]
+            default: json
+          description: Response format — json (default) or csv.
+        - name: start
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+          description: ISO 8601 lower bound for received_at (inclusive).
+        - name: end
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+          description: ISO 8601 upper bound for received_at (inclusive).
+        - name: per_page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 100
+          description: Records per page (1-1000).
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          description: Page number (1-based).
+      responses:
+        "200":
+          description: Exported data (JSON body or CSV file download)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExportJsonResponse"
+            text/csv:
+              schema:
+                type: string
+                description: CSV file with header row (timestamp,price,volume,side,source).
+        "400":
+          description: Bad request (missing market, invalid format/timestamp)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "429":
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/modules/{name}/restart:
+    post:
+      summary: Restart a module
+      description: >
+        Publishes a restart control message on the NATS subject
+        feedeater.control.restart.{name}. The target module is expected to
+        subscribe to this subject and re-initialize its connection.
+        Valid modules: binance, coinbase, bybit, gemini, bitstamp, okx,
+        kalshi, polymarket, aerodrome-base, uniswap-base.
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+            enum:
+              - binance
+              - coinbase
+              - bybit
+              - gemini
+              - bitstamp
+              - okx
+              - kalshi
+              - polymarket
+              - aerodrome-base
+              - uniswap-base
+          description: Module name to restart.
+      responses:
+        "200":
+          description: Restart signal sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RestartResponse"
+        "400":
+          description: Unknown module name
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "429":
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Internal server error (NATS publish failed)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
