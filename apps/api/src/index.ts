@@ -13,6 +13,7 @@ import { getBusHistory } from "./busHistory.js";
 import { registerPredictionDataRoutes } from "./predictionData.js";
 import { registerCexDataRoutes } from "./cexData.js";
 import { ModuleHealthStore, getModuleHealth } from "./moduleHealth.js";
+import { getDashboard } from "./dashboard.js";
 
 const PORT = Number(process.env.PORT ?? "4000");
 const MODULES_DIR = process.env.FEED_MODULES_DIR ?? "/app/modules";
@@ -47,6 +48,8 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   res.setHeader("Content-Security-Policy", "frame-ancestors 'self'");
   next();
 });
+
+app.get("/", getDashboard);
 
 app.get("/api/health", async (_req: Request, res: Response) => {
   res.json({ ok: true });
