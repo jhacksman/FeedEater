@@ -44,6 +44,7 @@ import { postTestAlert } from "./testAlert.js";
 import { getModuleDependencies } from "./moduleDependencies.js";
 import { postBulkEnable, postBulkDisable } from "./bulkModuleControl.js";
 import { ModuleMetricsStore, getModuleMetrics } from "./moduleMetrics.js";
+import { VenueStore, getVenues } from "./venues.js";
 import { setRateLimitDb } from "./middleware/rateLimit.js";
 import { postWebhook, listWebhooks, deleteWebhook, deliverWebhooks, getDeliveries, WebhookDb, DeliveryLog } from "./webhooks.js";
 import type { Webhook } from "./webhooks.js";
@@ -85,6 +86,7 @@ const moduleLogStore = new ModuleLogStore();
 const statusHistoryDb = new StatusHistoryDb(MODULE_DB_PATH);
 const deliveryLog = new DeliveryLog();
 const moduleMetricsStore = new ModuleMetricsStore();
+const venueStore = new VenueStore();
 let natsConnPromise: Promise<import("nats").NatsConnection> | null = null;
 
 function getNatsConn() {
@@ -229,6 +231,7 @@ app.get("/api/modules/:name/dependencies", getModuleDependencies({ modulesDir: M
 app.post("/api/modules/bulk-enable", postBulkEnable({ getNatsConn, sc: natsSc, disabledModules, db: moduleConfigDb }));
 app.post("/api/modules/bulk-disable", postBulkDisable({ getNatsConn, sc: natsSc, disabledModules, db: moduleConfigDb }));
 app.get("/api/modules/:name/metrics", getModuleMetrics({ metricsStore: moduleMetricsStore }));
+app.get("/api/venues", getVenues({ venueStore, disabledModules }));
 app.get("/api/modules/:name/reconnects", getModuleReconnectsHandler());
 app.get("/api/reconnects", getReconnectSummaryHandler());
 app.get("/api/staleness", getStaleness({ tracker: stalenessTracker }));
@@ -284,6 +287,7 @@ getNatsConn()
           liveStatusStore.recordMessage(moduleName);
           stalenessTracker.updateModuleSeen(moduleName);
           moduleMetricsStore.recordMessage(moduleName);
+          venueStore.recordMessage(moduleName);
           moduleLogStore.record(moduleName, "info", `Message received on ${m.subject}`);
           statusHistoryDb.record(moduleName, "started", `Message received on ${m.subject}`);
 
