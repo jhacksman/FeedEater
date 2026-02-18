@@ -70,6 +70,7 @@ import { postModuleReset } from "./moduleReset.js";
 import { SubscriptionStore, getModuleSubscriptions } from "./moduleSubscriptions.js";
 import { DataQualityHistoryStore, getModuleDataQualityHistory } from "./moduleDataQualityHistory.js";
 import { AlertConfigStore, getModuleAlertConfig, patchModuleAlertConfig } from "./moduleAlertConfig.js";
+import { SnapshotStore, getModuleSnapshot } from "./moduleSnapshot.js";
 import { QueueStatsStore, getSystemQueues } from "./systemQueues.js";
 import { setRateLimitDb } from "./middleware/rateLimit.js";
 import { postWebhook, listWebhooks, deleteWebhook, deliverWebhooks, getDeliveries, WebhookDb, DeliveryLog } from "./webhooks.js";
@@ -122,6 +123,7 @@ const dataQualityHistoryStore = new DataQualityHistoryStore();
 const pipelineStatsStore = new PipelineStatsStore();
 const alertConfigStore = new AlertConfigStore();
 const systemEventStore = new SystemEventStore();
+const snapshotStore = new SnapshotStore();
 let natsConnPromise: Promise<import("nats").NatsConnection> | null = null;
 
 function getNatsConn() {
@@ -278,6 +280,7 @@ app.get("/api/modules/:name/subscriptions", getModuleSubscriptions({ subscriptio
 app.get("/api/modules/:name/data-quality-history", getModuleDataQualityHistory({ historyStore: dataQualityHistoryStore }));
 app.get("/api/modules/:name/alert-config", getModuleAlertConfig({ configStore: alertConfigStore }));
 app.patch("/api/modules/:name/alert-config", patchModuleAlertConfig({ configStore: alertConfigStore }));
+app.get("/api/modules/:name/snapshot", getModuleSnapshot({ snapshotStore }));
 app.post("/api/modules/:name/reset", postModuleReset({ metricsStore: moduleMetricsStore, reconnectStore: reconnectStatsStore }));
 app.get("/api/modules/:name/pipeline-stats", getModulePipelineStats({ pipelineStore: pipelineStatsStore }));
 app.get("/api/venues", getVenues({ venueStore, disabledModules }));
@@ -377,6 +380,7 @@ getNatsConn()
           } catch {
             data = { raw: natsSc.decode(m.data) };
           }
+          snapshotStore.record(moduleName, m.subject, data);
           deliverWebhooks(webhooks, moduleName, data, deliveryLog).catch(() => {});
         }
       }
@@ -406,4 +410,3 @@ app.listen(PORT, "0.0.0.0", () => {
   // eslint-disable-next-line no-console
   console.log(`[api] listening on :${PORT}`);
 });
-
