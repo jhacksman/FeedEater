@@ -506,6 +506,11 @@ export class CoinbaseIngestor {
       this.log("error", "max WebSocket reconnect attempts (10) exhausted", {
         attempts: this.reconnectAttempts,
       });
+      this.isRunning = false;
+      this.nats.publish(
+        subjectFor("coinbase", "dead"),
+        this.sc.encode(JSON.stringify({ module: "coinbase", timestamp: Date.now(), reason: "circuit breaker: 10 reconnect attempts exhausted" }))
+      );
       return;
     }
     this.reconnectAttempts++;

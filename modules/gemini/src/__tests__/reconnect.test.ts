@@ -127,4 +127,24 @@ describe("Gemini WebSocket Reconnection", () => {
     const reconnectingEvent = logs.some((l) => l.includes('"module":"gemini"') && l.includes('"attempt":1'));
     expect(reconnectingEvent).toBe(true);
   });
+
+  it("should trip circuit breaker after 10 failed reconnects", async () => {
+    const mod = await import("../ingest.js");
+    const { settings, db, nats, sc, opts } = makeMocks();
+    const ingestor = new (mod as any).GeminiIngestor(settings, db, nats, sc, opts);
+
+    ingestor["isRunning"] = true;
+    ingestor["reconnectAttempts"] = 10;
+    ingestor["scheduleReconnect"]();
+
+    expect(ingestor["isRunning"]).toBe(false);
+    const deadCall = nats.publish.mock.calls.find(
+      (c: any[]) => typeof c[0] === "string" && c[0].includes("dead")
+    );
+    expect(deadCall).toBeDefined();
+    const payload = JSON.parse(new TextDecoder().decode(deadCall![1]));
+    expect(payload.module).toBe("gemini");
+    expect(payload.timestamp).toBeDefined();
+    expect(payload.reason).toBe("circuit breaker: 10 reconnect attempts exhausted");
+  });
 });
