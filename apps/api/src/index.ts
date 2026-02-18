@@ -38,6 +38,7 @@ import { getStatusSummary } from "./statusSummary.js";
 import { getAlerts } from "./alerts.js";
 import { RateLimitDb, adminKeyAuth, listRateLimits, putRateLimit, deleteRateLimit } from "./rateLimitConfig.js";
 import { getDataQuality } from "./dataQuality.js";
+import { ModuleLogStore, getModuleLogs } from "./moduleLogs.js";
 import { setRateLimitDb } from "./middleware/rateLimit.js";
 import { postWebhook, listWebhooks, deleteWebhook, deliverWebhooks, getDeliveries, WebhookDb, DeliveryLog } from "./webhooks.js";
 import type { Webhook } from "./webhooks.js";
@@ -75,6 +76,7 @@ setRateLimitDb(rateLimitDb);
 const WEBHOOK_DB_PATH = process.env.WEBHOOK_DB_PATH ?? "feedeater-webhooks.db";
 const webhookDb = new WebhookDb(WEBHOOK_DB_PATH);
 const webhooks: Webhook[] = webhookDb.loadAll();
+const moduleLogStore = new ModuleLogStore();
 const deliveryLog = new DeliveryLog();
 let natsConnPromise: Promise<import("nats").NatsConnection> | null = null;
 
@@ -213,6 +215,7 @@ app.post("/api/modules/:name/disable", postModuleDisable({ getNatsConn, sc: nats
 app.post("/api/modules/:name/enable", postModuleEnable({ getNatsConn, sc: natsSc, disabledModules, db: moduleConfigDb }));
 app.get("/api/modules/:name/config", getModuleConfig({ disabledModules, db: moduleConfigDb }));
 app.patch("/api/modules/:name/config", adminKeyAuth, patchModuleConfig({ db: moduleConfigDb, getNatsConn, sc: natsSc }));
+app.get("/api/modules/:name/logs", getModuleLogs({ logStore: moduleLogStore }));
 app.get("/api/modules/:name/reconnects", getModuleReconnectsHandler());
 app.get("/api/reconnects", getReconnectSummaryHandler());
 app.get("/api/staleness", getStaleness({ tracker: stalenessTracker }));
@@ -267,6 +270,7 @@ getNatsConn()
           moduleHealthStore.recordMessage(moduleName);
           liveStatusStore.recordMessage(moduleName);
           stalenessTracker.updateModuleSeen(moduleName);
+          moduleLogStore.record(moduleName, "info", `Message received on ${m.subject}`);
 
           let data: unknown = null;
           try {
@@ -287,6 +291,7 @@ getNatsConn()
         if (moduleName && !disabledModules.has(moduleName)) {
           liveStatusStore.recordReconnect(moduleName);
           recordReconnect(moduleName);
+          moduleLogStore.record(moduleName, "warn", `WebSocket reconnecting for ${moduleName}`);
         }
       }
     })();
