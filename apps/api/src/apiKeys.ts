@@ -50,6 +50,10 @@ export class ApiKeyDb {
   }
 
   isValidKey(key: string): boolean {
+    return this.validateAndGetId(key) !== null;
+  }
+
+  validateAndGetId(key: string): string | null {
     const row = this.db
       .prepare("SELECT id FROM api_keys WHERE key = ? AND revoked = 0")
       .get(key) as { id: string } | undefined;
@@ -57,9 +61,9 @@ export class ApiKeyDb {
       this.db
         .prepare("UPDATE api_keys SET last_used_at = ? WHERE id = ?")
         .run(new Date().toISOString(), row.id);
-      return true;
+      return row.id;
     }
-    return false;
+    return null;
   }
 
   close(): void {
