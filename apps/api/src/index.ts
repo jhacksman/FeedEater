@@ -32,7 +32,8 @@ import { postModuleDisable, postModuleEnable, getModuleConfig, ModuleConfigDb } 
 import { StalenessTracker, getStaleness } from "./staleness.js";
 import { recordReconnect, getModuleReconnectsHandler, getReconnectSummaryHandler } from "./reconnects.js";
 import { ApiKeyDb, masterKeyAuth, postApiKey, listApiKeys, deleteApiKey } from "./apiKeys.js";
-import { setDynamicKeyDb } from "./middleware/auth.js";
+import { UsageTracker, getKeyUsage } from "./usageTracker.js";
+import { setDynamicKeyDb, setUsageTracker } from "./middleware/auth.js";
 import { postWebhook, listWebhooks, deleteWebhook, deliverWebhooks, getDeliveries, WebhookDb, DeliveryLog } from "./webhooks.js";
 import type { Webhook } from "./webhooks.js";
 
@@ -60,6 +61,9 @@ const stalenessTracker = new StalenessTracker();
 const API_KEY_DB_PATH = process.env.API_KEY_DB_PATH ?? "feedeater-apikeys.db";
 const apiKeyDb = new ApiKeyDb(API_KEY_DB_PATH);
 setDynamicKeyDb(apiKeyDb);
+const USAGE_DB_PATH = process.env.USAGE_DB_PATH ?? "feedeater-usage.db";
+const usageTracker = new UsageTracker(USAGE_DB_PATH);
+setUsageTracker(usageTracker);
 const WEBHOOK_DB_PATH = process.env.WEBHOOK_DB_PATH ?? "feedeater-webhooks.db";
 const webhookDb = new WebhookDb(WEBHOOK_DB_PATH);
 const webhooks: Webhook[] = webhookDb.loadAll();
@@ -207,6 +211,7 @@ app.get("/api/staleness", getStaleness({ tracker: stalenessTracker }));
 app.post("/api/keys", masterKeyAuth, postApiKey({ db: apiKeyDb }));
 app.get("/api/keys", masterKeyAuth, listApiKeys({ db: apiKeyDb }));
 app.delete("/api/keys/:id", masterKeyAuth, deleteApiKey({ db: apiKeyDb }));
+app.get("/api/keys/:id/usage", masterKeyAuth, getKeyUsage({ tracker: usageTracker }));
 
 app.post("/api/webhooks", postWebhook({ webhooks, db: webhookDb }));
 app.get("/api/webhooks", listWebhooks({ webhooks }));

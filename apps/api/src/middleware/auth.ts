@@ -1,12 +1,18 @@
 import type { NextFunction, Request, Response } from "express";
 import type { ApiKeyDb } from "../apiKeys.js";
+import type { UsageTracker } from "../usageTracker.js";
 
 const OPEN_PATHS = ["/api/health/modules", "/api/docs", "/metrics"];
 
 let _dynamicKeyDb: ApiKeyDb | null = null;
+let _usageTracker: UsageTracker | null = null;
 
 export function setDynamicKeyDb(db: ApiKeyDb): void {
   _dynamicKeyDb = db;
+}
+
+export function setUsageTracker(tracker: UsageTracker): void {
+  _usageTracker = tracker;
 }
 
 export function apiKeyAuth(req: Request, res: Response, next: NextFunction): void {
@@ -33,9 +39,15 @@ export function apiKeyAuth(req: Request, res: Response, next: NextFunction): voi
     return;
   }
 
-  if (_dynamicKeyDb && _dynamicKeyDb.isValidKey(token)) {
-    next();
-    return;
+  if (_dynamicKeyDb) {
+    const keyId = _dynamicKeyDb.validateAndGetId(token);
+    if (keyId) {
+      if (_usageTracker) {
+        try { _usageTracker.recordRequest(keyId); } catch {}
+      }
+      next();
+      return;
+    }
   }
 
   res.status(401).json({ error: "Invalid API key" });
