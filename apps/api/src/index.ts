@@ -52,6 +52,7 @@ import { getModuleRuntimeConfig } from "./moduleRuntimeConfig.js";
 import { getSystemInfo } from "./systemInfo.js";
 import { getModuleEvents } from "./moduleEvents.js";
 import { AcknowledgedAlerts, postAcknowledgeAlert, listAcknowledgedAlerts, deleteAcknowledgedAlert } from "./alertAcknowledge.js";
+import { getActiveAlerts } from "./activeAlerts.js";
 import { getModuleHealthCheck } from "./moduleHealthCheck.js";
 import { getModuleLatency } from "./moduleLatency.js";
 import { getModuleThroughput } from "./moduleThroughput.js";
@@ -279,6 +280,7 @@ const ackedAlerts = new AcknowledgedAlerts();
 app.post("/api/alerts/acknowledge", postAcknowledgeAlert({ store: ackedAlerts }));
 app.get("/api/alerts/acknowledged", listAcknowledgedAlerts({ store: ackedAlerts }));
 app.delete("/api/alerts/acknowledge", deleteAcknowledgedAlert({ store: ackedAlerts }));
+app.get("/api/alerts/active", getActiveAlerts({ stalenessTracker, disabledModules, ackedAlerts }));
 app.get("/api/system/info", getSystemInfo({ startedAt: serverStartedAt }));
 app.get("/api/system/metrics", getSystemMetrics({ metricsStore: moduleMetricsStore, reconnectStore: reconnectStatsStore, uptimeStore }));
 
