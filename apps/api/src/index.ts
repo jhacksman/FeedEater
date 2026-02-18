@@ -52,6 +52,7 @@ import { getSystemInfo } from "./systemInfo.js";
 import { getModuleEvents } from "./moduleEvents.js";
 import { AcknowledgedAlerts, postAcknowledgeAlert, listAcknowledgedAlerts, deleteAcknowledgedAlert } from "./alertAcknowledge.js";
 import { getModuleHealthCheck } from "./moduleHealthCheck.js";
+import { getModuleLatency } from "./moduleLatency.js";
 import { setRateLimitDb } from "./middleware/rateLimit.js";
 import { postWebhook, listWebhooks, deleteWebhook, deliverWebhooks, getDeliveries, WebhookDb, DeliveryLog } from "./webhooks.js";
 import type { Webhook } from "./webhooks.js";
@@ -240,6 +241,7 @@ app.post("/api/modules/bulk-disable", postBulkDisable({ getNatsConn, sc: natsSc,
 app.get("/api/modules/:name/metrics", getModuleMetrics({ metricsStore: moduleMetricsStore }));
 app.get("/api/modules/:name/events", getModuleEvents({ historyDb: statusHistoryDb }));
 app.get("/api/modules/:name/health", getModuleHealthCheck({ healthStore: moduleHealthStore, disabledModules, startedAt: serverStartedAt }));
+app.get("/api/modules/:name/latency", getModuleLatency({ metricsStore: moduleMetricsStore }));
 app.get("/api/venues", getVenues({ venueStore, disabledModules }));
 app.post("/api/modules/restart-all", postRestartAll({ getNatsConn, sc: natsSc, disabledModules }));
 

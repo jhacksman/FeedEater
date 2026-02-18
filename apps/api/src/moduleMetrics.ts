@@ -86,6 +86,12 @@ export class ModuleMetricsStore {
     };
   }
 
+  getLatencySamples(module: string, _windowMs?: number): number[] {
+    const data = this.modules.get(module);
+    if (!data) return [];
+    return data.latencySamples;
+  }
+
   private getOrCreate(module: string, now: number): ModuleData {
     let data = this.modules.get(module);
     if (!data) {
