@@ -45,6 +45,7 @@ import { getModuleDependencies } from "./moduleDependencies.js";
 import { postBulkEnable, postBulkDisable } from "./bulkModuleControl.js";
 import { ModuleMetricsStore, getModuleMetrics } from "./moduleMetrics.js";
 import { VenueStore, getVenues } from "./venues.js";
+import { postRestartAll } from "./restartAll.js";
 import { setRateLimitDb } from "./middleware/rateLimit.js";
 import { postWebhook, listWebhooks, deleteWebhook, deliverWebhooks, getDeliveries, WebhookDb, DeliveryLog } from "./webhooks.js";
 import type { Webhook } from "./webhooks.js";
@@ -232,6 +233,7 @@ app.post("/api/modules/bulk-enable", postBulkEnable({ getNatsConn, sc: natsSc, d
 app.post("/api/modules/bulk-disable", postBulkDisable({ getNatsConn, sc: natsSc, disabledModules, db: moduleConfigDb }));
 app.get("/api/modules/:name/metrics", getModuleMetrics({ metricsStore: moduleMetricsStore }));
 app.get("/api/venues", getVenues({ venueStore, disabledModules }));
+app.post("/api/modules/restart-all", postRestartAll({ getNatsConn, sc: natsSc, disabledModules }));
 app.get("/api/modules/:name/reconnects", getModuleReconnectsHandler());
 app.get("/api/reconnects", getReconnectSummaryHandler());
 app.get("/api/staleness", getStaleness({ tracker: stalenessTracker }));
