@@ -1,0 +1,31 @@
+{
+  "name": "uniswap-base",
+  "version": "0.1.0",
+  "description": "Uniswap V3 swap collector for Base L2. Subscribes to Swap events via WebSocket, tracks top pools by volume, and publishes tradeExecuted events to NATS.",
+  "namespace": "feedeater.uniswap_base",
+  "runtime": { "entry": "dist/runtime.js" },
+  "queues": ["mod_uniswap_base"],
+  "jobs": [
+    {
+      "name": "stream",
+      "queue": "mod_uniswap_base",
+      "schedule": "*/1 * * * *",
+      "description": "Maintain WebSocket connection to Base L2 RPC for real-time Uniswap V3 swap events."
+    },
+    {
+      "name": "collectSwaps",
+      "queue": "mod_uniswap_base",
+      "schedule": "*/5 * * * *",
+      "description": "Fetch recent Uniswap V3 swap events via eth_getLogs and persist into mod_uniswap_base.swaps."
+    }
+  ],
+  "settings": [
+    { "key": "enabled", "type": "boolean", "default": true },
+    { "key": "rpcUrl", "type": "string", "default": "ws://192.168.0.134:8646", "description": "Base L2 WebSocket RPC endpoint (local node)" },
+    { "key": "whaleThreshold", "type": "number", "default": 50000, "description": "USD threshold to flag whale swaps" },
+    { "key": "watchedUniswapPools", "type": "string", "default": "[\"0xd0b53D9277642d899DF5C87A3966A349A798F224\",\"0x6c561B446416E1A00E8E93E221854d6eA4171372\"]", "description": "JSON array of Uniswap V3 pool addresses on Base (WETH/USDC 0.05%, WETH/USDC 0.3%)" }
+  ],
+  "cards": [
+    { "id": "uniswapBaseStatus", "title": "Uniswap Base Collector" }
+  ]
+}
