@@ -39,6 +39,7 @@ import { getAlerts } from "./alerts.js";
 import { RateLimitDb, adminKeyAuth, listRateLimits, putRateLimit, deleteRateLimit } from "./rateLimitConfig.js";
 import { getDataQuality } from "./dataQuality.js";
 import { ModuleLogStore, getModuleLogs } from "./moduleLogs.js";
+import { StatusHistoryDb, getModuleStatusHistory } from "./moduleStatusHistory.js";
 import { setRateLimitDb } from "./middleware/rateLimit.js";
 import { postWebhook, listWebhooks, deleteWebhook, deliverWebhooks, getDeliveries, WebhookDb, DeliveryLog } from "./webhooks.js";
 import type { Webhook } from "./webhooks.js";
@@ -77,6 +78,7 @@ const WEBHOOK_DB_PATH = process.env.WEBHOOK_DB_PATH ?? "feedeater-webhooks.db";
 const webhookDb = new WebhookDb(WEBHOOK_DB_PATH);
 const webhooks: Webhook[] = webhookDb.loadAll();
 const moduleLogStore = new ModuleLogStore();
+const statusHistoryDb = new StatusHistoryDb(MODULE_DB_PATH);
 const deliveryLog = new DeliveryLog();
 let natsConnPromise: Promise<import("nats").NatsConnection> | null = null;
 
@@ -216,6 +218,7 @@ app.post("/api/modules/:name/enable", postModuleEnable({ getNatsConn, sc: natsSc
 app.get("/api/modules/:name/config", getModuleConfig({ disabledModules, db: moduleConfigDb }));
 app.patch("/api/modules/:name/config", adminKeyAuth, patchModuleConfig({ db: moduleConfigDb, getNatsConn, sc: natsSc }));
 app.get("/api/modules/:name/logs", getModuleLogs({ logStore: moduleLogStore }));
+app.get("/api/modules/:name/status/history", getModuleStatusHistory({ historyDb: statusHistoryDb }));
 app.get("/api/modules/:name/reconnects", getModuleReconnectsHandler());
 app.get("/api/reconnects", getReconnectSummaryHandler());
 app.get("/api/staleness", getStaleness({ tracker: stalenessTracker }));
@@ -271,6 +274,7 @@ getNatsConn()
           liveStatusStore.recordMessage(moduleName);
           stalenessTracker.updateModuleSeen(moduleName);
           moduleLogStore.record(moduleName, "info", `Message received on ${m.subject}`);
+          statusHistoryDb.record(moduleName, "started", `Message received on ${m.subject}`);
 
           let data: unknown = null;
           try {
@@ -292,6 +296,7 @@ getNatsConn()
           liveStatusStore.recordReconnect(moduleName);
           recordReconnect(moduleName);
           moduleLogStore.record(moduleName, "warn", `WebSocket reconnecting for ${moduleName}`);
+          statusHistoryDb.record(moduleName, "reconnected", `WebSocket reconnecting for ${moduleName}`);
         }
       }
     })();
