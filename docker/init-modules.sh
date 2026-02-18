@@ -30,9 +30,10 @@ enable_module() {
   is_secret="${4:-false}"
 
   echo "[init-modules] ${module}: setting ${key}"
-  wget -q -O /dev/null --post-data="{\"value\":\"${value}\",\"isSecret\":${is_secret}}" \
-    --header="Content-Type: application/json" \
-    "${API_URL}/api/settings/${module}/${key}" 2>/dev/null || \
+  curl -sf -X PUT \
+    -H "Content-Type: application/json" \
+    -d "{\"value\":\"${value}\",\"isSecret\":${is_secret}}" \
+    "${API_URL}/api/settings/${module}/${key}" > /dev/null || \
     echo "[init-modules] WARN: failed to set ${module}.${key}"
 }
 

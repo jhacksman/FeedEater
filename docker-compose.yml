@@ -137,7 +137,7 @@ services:
     restart: unless-stopped
 
   module-init:
-    image: node:20-alpine
+    image: curlimages/curl:latest
     entrypoint: ["/bin/sh", "/init-modules.sh"]
     volumes:
       - ./docker/init-modules.sh:/init-modules.sh:ro
