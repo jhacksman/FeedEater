@@ -53,6 +53,7 @@ import { getSystemInfo } from "./systemInfo.js";
 import { getModuleEvents } from "./moduleEvents.js";
 import { AcknowledgedAlerts, postAcknowledgeAlert, listAcknowledgedAlerts, deleteAcknowledgedAlert } from "./alertAcknowledge.js";
 import { getActiveAlerts } from "./activeAlerts.js";
+import { PipelineStatsStore, getModulePipelineStats } from "./pipelineStats.js";
 import { AlertHistoryStore, getAlertHistory } from "./alertHistory.js";
 import { getModuleHealthCheck } from "./moduleHealthCheck.js";
 import { getModuleLatency } from "./moduleLatency.js";
@@ -115,6 +116,7 @@ const queueStatsStore = new QueueStatsStore();
 const moduleDataQualityStore = new ModuleDataQualityStore();
 const subscriptionStore = new SubscriptionStore();
 const dataQualityHistoryStore = new DataQualityHistoryStore();
+const pipelineStatsStore = new PipelineStatsStore();
 let natsConnPromise: Promise<import("nats").NatsConnection> | null = null;
 
 function getNatsConn() {
@@ -270,6 +272,7 @@ app.get("/api/modules/:name/data-quality", getModuleDataQuality({ qualityStore: 
 app.get("/api/modules/:name/subscriptions", getModuleSubscriptions({ subscriptionStore }));
 app.get("/api/modules/:name/data-quality-history", getModuleDataQualityHistory({ historyStore: dataQualityHistoryStore }));
 app.post("/api/modules/:name/reset", postModuleReset({ metricsStore: moduleMetricsStore, reconnectStore: reconnectStatsStore }));
+app.get("/api/modules/:name/pipeline-stats", getModulePipelineStats({ pipelineStore: pipelineStatsStore }));
 app.get("/api/venues", getVenues({ venueStore, disabledModules }));
 app.post("/api/modules/restart-all", postRestartAll({ getNatsConn, sc: natsSc, disabledModules }));
 
@@ -388,5 +391,4 @@ app.listen(PORT, "0.0.0.0", () => {
   // eslint-disable-next-line no-console
   console.log(`[api] listening on :${PORT}`);
 });
-
 
