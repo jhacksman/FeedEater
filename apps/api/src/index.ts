@@ -41,6 +41,7 @@ import { getDataQuality } from "./dataQuality.js";
 import { ModuleLogStore, getModuleLogs } from "./moduleLogs.js";
 import { StatusHistoryDb, getModuleStatusHistory } from "./moduleStatusHistory.js";
 import { postTestAlert } from "./testAlert.js";
+import { getModuleDependencies } from "./moduleDependencies.js";
 import { setRateLimitDb } from "./middleware/rateLimit.js";
 import { postWebhook, listWebhooks, deleteWebhook, deliverWebhooks, getDeliveries, WebhookDb, DeliveryLog } from "./webhooks.js";
 import type { Webhook } from "./webhooks.js";
@@ -221,6 +222,7 @@ app.patch("/api/modules/:name/config", adminKeyAuth, patchModuleConfig({ db: mod
 app.get("/api/modules/:name/logs", getModuleLogs({ logStore: moduleLogStore }));
 app.get("/api/modules/:name/status/history", getModuleStatusHistory({ historyDb: statusHistoryDb }));
 app.post("/api/modules/:name/test-alert", adminKeyAuth, postTestAlert({ webhooks }));
+app.get("/api/modules/:name/dependencies", getModuleDependencies({ modulesDir: MODULES_DIR }));
 app.get("/api/modules/:name/reconnects", getModuleReconnectsHandler());
 app.get("/api/reconnects", getReconnectSummaryHandler());
 app.get("/api/staleness", getStaleness({ tracker: stalenessTracker }));
