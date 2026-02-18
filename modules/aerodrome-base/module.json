@@ -1,0 +1,31 @@
+{
+  "name": "aerodrome-base",
+  "version": "0.1.0",
+  "description": "Aerodrome DEX collector for Base L2. Subscribes to Aerodrome Swap events via WebSocket and publishes tradeExecuted events to NATS.",
+  "namespace": "feedeater.aerodrome_base",
+  "runtime": { "entry": "dist/runtime.js" },
+  "queues": ["mod_aerodrome_base"],
+  "jobs": [
+    {
+      "name": "stream",
+      "queue": "mod_aerodrome_base",
+      "schedule": "*/1 * * * *",
+      "description": "Maintain WebSocket connection to Base RPC for real-time Aerodrome swap events."
+    },
+    {
+      "name": "collectSwaps",
+      "queue": "mod_aerodrome_base",
+      "schedule": "*/5 * * * *",
+      "description": "Fetch recent Aerodrome swap events via eth_getLogs and persist into mod_aerodrome_base.swaps."
+    }
+  ],
+  "settings": [
+    { "key": "enabled", "type": "boolean", "default": true },
+    { "key": "rpcUrl", "type": "string", "default": "ws://192.168.0.134:8646", "description": "Base L2 WebSocket RPC URL" },
+    { "key": "whaleThreshold", "type": "number", "default": 50000, "description": "USD threshold to flag large swaps" },
+    { "key": "watchedPools", "type": "string", "default": "[\"0xcDAC0d6c6C59727a65F871236188350531885C43\",\"0x6cDcb1C4A4D1C3C6d054b27AC5B77e89eAFb971d\",\"0x44Ecc644449fC3a9858d2007CaA8CFAa4C561f91\"]", "description": "JSON array of Aerodrome pool addresses on Base (WETH/USDC volatile, USDC/USDbC stable, WETH/cbETH)" }
+  ],
+  "cards": [
+    { "id": "aerodromeBaseStatus", "title": "Aerodrome Base DEX Collector" }
+  ]
+}
