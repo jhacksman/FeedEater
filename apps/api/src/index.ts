@@ -54,6 +54,7 @@ import { getModuleEvents } from "./moduleEvents.js";
 import { AcknowledgedAlerts, postAcknowledgeAlert, listAcknowledgedAlerts, deleteAcknowledgedAlert } from "./alertAcknowledge.js";
 import { getActiveAlerts } from "./activeAlerts.js";
 import { PipelineStatsStore, getModulePipelineStats } from "./pipelineStats.js";
+import { getSystemDependencies, makeNatsChecker, makePostgresChecker, makeRedisChecker } from "./systemDependencies.js";
 import { AlertHistoryStore, getAlertHistory } from "./alertHistory.js";
 import { getModuleHealthCheck } from "./moduleHealthCheck.js";
 import { getModuleLatency } from "./moduleLatency.js";
@@ -303,6 +304,13 @@ app.get("/api/system/info", getSystemInfo({ startedAt: serverStartedAt }));
 app.get("/api/system/metrics", getSystemMetrics({ metricsStore: moduleMetricsStore, reconnectStore: reconnectStatsStore, uptimeStore }));
 app.get("/api/system/capacity", getSystemCapacity({ metricsStore: moduleMetricsStore }));
 app.get("/api/system/queues", getSystemQueues({ queueStore: queueStatsStore }));
+app.get("/api/system/dependencies", getSystemDependencies({
+  checkers: [
+    makeNatsChecker(getNatsConn),
+    makePostgresChecker(() => prisma.$queryRaw`SELECT 1`),
+    makeRedisChecker(),
+  ],
+}));
 
 const rlDeps = { db: rateLimitDb, defaultLimit: 100 };
 app.get("/api/rate-limits", adminKeyAuth, listRateLimits(rlDeps));
@@ -391,4 +399,5 @@ app.listen(PORT, "0.0.0.0", () => {
   // eslint-disable-next-line no-console
   console.log(`[api] listening on :${PORT}`);
 });
+
 
