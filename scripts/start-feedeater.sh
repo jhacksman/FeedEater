@@ -1,43 +1,35 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-root_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
 # Load .env if present
-if [ -f "${root_dir}/.env" ]; then
+if [ -f "$REPO_ROOT/.env" ]; then
   set -a
-  source "${root_dir}/.env"
+  # shellcheck disable=SC1091
+  . "$REPO_ROOT/.env"
   set +a
 fi
 
-build_pkg() {
-  local pkg_dir="$1"
-  echo "==> Building ${pkg_dir}"
-  (cd "${root_dir}/${pkg_dir}" && npm install --silent && npm run build)
-}
+echo "[start-feedeater] building packages..."
+npm run build --prefix "$REPO_ROOT/packages/core"
+npm run build --prefix "$REPO_ROOT/packages/db"
+npm run build --prefix "$REPO_ROOT/packages/module-sdk"
 
-build_app() {
-  local app_dir="$1"
-  echo "==> Building ${app_dir}"
-  (cd "${root_dir}/${app_dir}" && npm install --silent && npm run build)
-}
+echo "[start-feedeater] building apps..."
+npm run build --prefix "$REPO_ROOT/apps/api"
+npm run build --prefix "$REPO_ROOT/apps/worker"
 
-start_app() {
-  local app_dir="$1"
-  echo "==> Starting ${app_dir}"
-  (cd "${root_dir}/${app_dir}" && node dist/index.js)
-}
+echo "[start-feedeater] starting api (log: /tmp/feedeater-api.log)..."
+node "$REPO_ROOT/apps/api/dist/index.js" > /tmp/feedeater-api.log 2>&1 &
+API_PID=$!
+echo "[start-feedeater] api started (pid=$API_PID)"
 
-# Build packages first (dependencies for apps)
-build_pkg "packages/core"
-build_pkg "packages/db"
+echo "[start-feedeater] starting worker (log: /tmp/feedeater-worker.log)..."
+node "$REPO_ROOT/apps/worker/dist/index.js" > /tmp/feedeater-worker.log 2>&1 &
+WORKER_PID=$!
+echo "[start-feedeater] worker started (pid=$WORKER_PID)"
 
-# Build apps
-build_app "apps/worker"
-build_app "apps/api"
-
-# Start both in parallel
-start_app "apps/api" &
-start_app "apps/worker" &
-
-wait
+echo "[start-feedeater] done — api=$API_PID worker=$WORKER_PID"
+echo "  tail -f /tmp/feedeater-api.log"
+echo "  tail -f /tmp/feedeater-worker.log"
