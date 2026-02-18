@@ -29,6 +29,8 @@ import { getStats } from "./stats.js";
 import { getStream } from "./stream.js";
 import { getHealthCheck } from "./healthCheck.js";
 import { postModuleDisable, postModuleEnable } from "./moduleControl.js";
+import { postWebhook, listWebhooks, deleteWebhook, deliverWebhooks } from "./webhooks.js";
+import type { Webhook } from "./webhooks.js";
 
 const PORT = Number(process.env.PORT ?? "4000");
 const MODULES_DIR = process.env.FEED_MODULES_DIR ?? "/app/modules";
@@ -48,6 +50,7 @@ const natsSc = StringCodec();
 const moduleHealthStore = new ModuleHealthStore();
 const liveStatusStore = new LiveStatusStore();
 const disabledModules = new Set<string>();
+const webhooks: Webhook[] = [];
 let natsConnPromise: Promise<import("nats").NatsConnection> | null = null;
 
 function getNatsConn() {
@@ -184,6 +187,10 @@ app.post("/api/modules/:name/restart", postModuleRestart({ getNatsConn, sc: nats
 app.post("/api/modules/:name/disable", postModuleDisable({ getNatsConn, sc: natsSc, disabledModules }));
 app.post("/api/modules/:name/enable", postModuleEnable({ getNatsConn, sc: natsSc, disabledModules }));
 
+app.post("/api/webhooks", postWebhook({ webhooks }));
+app.get("/api/webhooks", listWebhooks({ webhooks }));
+app.delete("/api/webhooks/:id", deleteWebhook({ webhooks }));
+
 // Historical bus messages (from Postgres archive).
 app.get("/api/bus/history", getBusHistory);
 app.get("/api/contexts/history", getContextsHistory);
@@ -215,6 +222,14 @@ getNatsConn()
         if (moduleName && !disabledModules.has(moduleName)) {
           moduleHealthStore.recordMessage(moduleName);
           liveStatusStore.recordMessage(moduleName);
+
+          let data: unknown = null;
+          try {
+            data = JSON.parse(natsSc.decode(m.data));
+          } catch {
+            data = { raw: natsSc.decode(m.data) };
+          }
+          deliverWebhooks(webhooks, moduleName, data).catch(() => {});
         }
       }
     })();
