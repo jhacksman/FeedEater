@@ -86,6 +86,12 @@ export class ModuleMetricsStore {
     };
   }
 
+  getMessageTimes(module: string): number[] {
+    const data = this.modules.get(module);
+    if (!data) return [];
+    return data.messageTimes;
+  }
+
   getLatencySamples(module: string, _windowMs?: number): number[] {
     const data = this.modules.get(module);
     if (!data) return [];
