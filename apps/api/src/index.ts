@@ -59,6 +59,8 @@ import { getSystemDependencies, makeNatsChecker, makePostgresChecker, makeRedisC
 import { AlertHistoryStore, getAlertHistory } from "./alertHistory.js";
 import { SystemEventStore, getSystemEvents } from "./systemEvents.js";
 import { RuntimeConfig, getSystemConfig, patchSystemConfig } from "./systemConfig.js";
+import { postSystemFlush } from "./systemFlush.js";
+import { getSystemVersion } from "./systemVersion.js";
 import { getModuleHealthCheck } from "./moduleHealthCheck.js";
 import { getModuleLatency } from "./moduleLatency.js";
 import { getModuleThroughput } from "./moduleThroughput.js";
@@ -332,6 +334,8 @@ app.get("/api/system/queues", getSystemQueues({ queueStore: queueStatsStore }));
 app.get("/api/system/events", getSystemEvents({ eventStore: systemEventStore }));
 app.get("/api/system/config", getSystemConfig({ runtimeConfig, natsUrl: NATS_URL, postgresEnabled: !!process.env.DATABASE_URL, apiPort: PORT, version: "1.0.0" }));
 app.patch("/api/system/config", patchSystemConfig({ runtimeConfig }));
+app.get("/api/system/version", getSystemVersion({ startedAt: serverStartedAt, buildTime: process.env.BUILD_TIME, gitSha: process.env.GIT_SHA }));
+app.post("/api/system/flush", postSystemFlush({ metricsStore: moduleMetricsStore, reconnectStore: reconnectStatsStore }));
 app.get("/api/system/dependencies", getSystemDependencies({
   checkers: [
     makeNatsChecker(getNatsConn),
