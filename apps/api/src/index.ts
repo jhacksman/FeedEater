@@ -81,7 +81,7 @@ import { DataQualityHistoryStore, getModuleDataQualityHistory } from "./moduleDa
 import { AlertConfigStore, getModuleAlertConfig, patchModuleAlertConfig } from "./moduleAlertConfig.js";
 import { SnapshotStore, getModuleSnapshot } from "./moduleSnapshot.js";
 import { RawFeedStore, getModuleRawFeed } from "./moduleRawFeed.js";
-import { postModulePurge, makePostgresPurge } from "./modulePurge.js";
+import { ProcessingQueueStore, getModuleProcessingQueue } from "./moduleProcessingQueue.js";
 import { QueueStatsStore, getSystemQueues } from "./systemQueues.js";
 import { setRateLimitDb } from "./middleware/rateLimit.js";
 import { postWebhook, listWebhooks, deleteWebhook, deliverWebhooks, getDeliveries, WebhookDb, DeliveryLog } from "./webhooks.js";
@@ -142,7 +142,7 @@ const systemEventStore = new SystemEventStore();
 const runtimeConfig = new RuntimeConfig();
 const snapshotStore = new SnapshotStore();
 const rawFeedStore = new RawFeedStore();
-const storageStore = new StorageStore();
+const processingQueueStore = new ProcessingQueueStore();
 let natsConnPromise: Promise<import("nats").NatsConnection> | null = null;
 
 function getNatsConn() {
@@ -304,8 +304,7 @@ app.get("/api/modules/:name/alert-config", getModuleAlertConfig({ configStore: a
 app.patch("/api/modules/:name/alert-config", patchModuleAlertConfig({ configStore: alertConfigStore }));
 app.get("/api/modules/:name/snapshot", getModuleSnapshot({ snapshotStore }));
 app.get("/api/modules/:name/raw-feed", getModuleRawFeed({ rawFeedStore }));
-
-app.post("/api/modules/:name/purge", postModulePurge({ runPurge: makePostgresPurge() }));
+app.get("/api/modules/:name/processing-queue", getModuleProcessingQueue({ queueStore: processingQueueStore }));
 app.post("/api/modules/:name/reset", postModuleReset({ metricsStore: moduleMetricsStore, reconnectStore: reconnectStatsStore }));
 app.get("/api/modules/:name/pipeline-stats", getModulePipelineStats({ pipelineStore: pipelineStatsStore }));
 app.get("/api/venues", getVenues({ venueStore, disabledModules }));
