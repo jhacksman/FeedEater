@@ -68,6 +68,7 @@ import { ConnectionStatusStore, getModuleConnectionStatus } from "./moduleConnec
 import { UptimeStore, getModuleUptime } from "./moduleUptime.js";
 import { getSystemMetrics } from "./systemMetrics.js";
 import { getSystemCapacity } from "./systemCapacity.js";
+import { BandwidthStore, getSystemBandwidth } from "./systemBandwidth.js";
 import { ModuleDataQualityStore, getModuleDataQuality } from "./moduleDataQuality.js";
 import { postModuleReset } from "./moduleReset.js";
 import { SubscriptionStore, getModuleSubscriptions } from "./moduleSubscriptions.js";
@@ -122,6 +123,7 @@ const reconnectStatsStore = new ReconnectStatsStore();
 const connectionStatusStore = new ConnectionStatusStore();
 const uptimeStore = new UptimeStore();
 const queueStatsStore = new QueueStatsStore();
+const bandwidthStore = new BandwidthStore();
 const moduleDataQualityStore = new ModuleDataQualityStore();
 const subscriptionStore = new SubscriptionStore();
 const dataQualityHistoryStore = new DataQualityHistoryStore();
@@ -321,6 +323,7 @@ app.get("/api/alerts/active", getActiveAlerts({ stalenessTracker, disabledModule
 app.get("/api/alerts/history", getAlertHistory({ store: alertHistoryStore }));
 app.get("/api/system/info", getSystemInfo({ startedAt: serverStartedAt }));
 app.get("/api/system/metrics", getSystemMetrics({ metricsStore: moduleMetricsStore, reconnectStore: reconnectStatsStore, uptimeStore }));
+app.get("/api/system/bandwidth", getSystemBandwidth({ bandwidthStore }));
 app.get("/api/system/capacity", getSystemCapacity({ metricsStore: moduleMetricsStore }));
 app.get("/api/system/queues", getSystemQueues({ queueStore: queueStatsStore }));
 app.get("/api/system/events", getSystemEvents({ eventStore: systemEventStore }));
