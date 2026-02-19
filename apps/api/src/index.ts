@@ -57,6 +57,7 @@ import { PipelineStatsStore, getModulePipelineStats } from "./pipelineStats.js";
 import { getSystemDependencies, makeNatsChecker, makePostgresChecker, makeRedisChecker } from "./systemDependencies.js";
 import { AlertHistoryStore, getAlertHistory } from "./alertHistory.js";
 import { SystemEventStore, getSystemEvents } from "./systemEvents.js";
+import { RuntimeConfig, getSystemConfig, patchSystemConfig } from "./systemConfig.js";
 import { getModuleHealthCheck } from "./moduleHealthCheck.js";
 import { getModuleLatency } from "./moduleLatency.js";
 import { getModuleThroughput } from "./moduleThroughput.js";
@@ -123,6 +124,7 @@ const dataQualityHistoryStore = new DataQualityHistoryStore();
 const pipelineStatsStore = new PipelineStatsStore();
 const alertConfigStore = new AlertConfigStore();
 const systemEventStore = new SystemEventStore();
+const runtimeConfig = new RuntimeConfig();
 const snapshotStore = new SnapshotStore();
 let natsConnPromise: Promise<import("nats").NatsConnection> | null = null;
 
@@ -314,6 +316,8 @@ app.get("/api/system/metrics", getSystemMetrics({ metricsStore: moduleMetricsSto
 app.get("/api/system/capacity", getSystemCapacity({ metricsStore: moduleMetricsStore }));
 app.get("/api/system/queues", getSystemQueues({ queueStore: queueStatsStore }));
 app.get("/api/system/events", getSystemEvents({ eventStore: systemEventStore }));
+app.get("/api/system/config", getSystemConfig({ runtimeConfig, natsUrl: NATS_URL, postgresEnabled: !!process.env.DATABASE_URL, apiPort: PORT, version: "1.0.0" }));
+app.patch("/api/system/config", patchSystemConfig({ runtimeConfig }));
 app.get("/api/system/dependencies", getSystemDependencies({
   checkers: [
     makeNatsChecker(getNatsConn),
