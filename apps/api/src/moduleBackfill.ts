@@ -145,7 +145,6 @@ export function postModuleBackfill({ backfillStore, nowFn }: BackfillDeps) {
       limit = parsed;
     }
 
-    const now = nowFn?.() ?? Date.now();
     const state = backfillStore.start(name, req.body.since, limit);
 
     res.json({
