@@ -187,7 +187,7 @@ async function runMeasure(cfg: BaseCollectorSettings, args: string[]): Promise<v
     ...m.report(fromBlock, toBlock),
   };
   await fs.writeFile(out, `${JSON.stringify(report, null, 2)}\n`);
-  process.stdout.write(`${JSON.stringify({ out, window: report.window, liveDeliveryPct: report.liveDeliveryPct, duplicateLivePublishes: report.duplicateLivePublishes, backfillOnLiveSubjects: report.backfillOnLiveSubjects, addedLatencyMs: report.addedLatencyMs, dat011: report.dat011 })}\n`);
+  process.stdout.write(`${JSON.stringify({ out, window: report.window, liveDeliveryPct: report.liveDeliveryPct, duplicateLivePublishes: report.duplicateLivePublishes, backfillOnLiveSubjects: report.backfillOnLiveSubjects, addedLatencyMs: report.addedLatencyMs, byKind: report.byKind, scope: report.scope, dat011: report.dat011 })}\n`);
 }
 
 /** Compare persisted state over a block range with the node's canonical eth_getLogs. */

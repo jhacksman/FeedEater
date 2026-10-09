@@ -104,6 +104,25 @@ Persister (persistence recovery, `recovery: "persister"`):
   heartbeat arrived within `persisterTimeoutMs`. Heartbeats report queue depth, overflow drops,
   last error and gap blocks. A failed batch stays queued and is retried.
 
+## Pool tracking on a fresh forward collector
+
+A Swap is published only for a tracked pool. A pool becomes tracked from:
+
+1. a PoolManager `Initialize` (live or `.backfill`) whose `hooks` is one of the six suite hooks or
+   `extraHooks`; Swaps later in the same block are processed after it (block, logIndex order);
+2. `extraPoolIds`;
+3. pools restored from the checkpoint (same filter digest);
+4. `BASE_COLLECTOR_START_BLOCK`: the first reconcile replays `[startBlock, H0]` (bounded by
+   `maxBackfillBlocks`) onto `.backfill`, so Initializes in that range are tracked.
+
+Without a start block, a fresh collector starts at the head (`trackedSinceBlock = H0`) with zero
+tracked pools. Swaps of pools initialized before `trackedSinceBlock` (including o1 launches older
+than the collector) and not in `extraPoolIds` or the checkpoint are excluded: the Initialize that
+would identify their hook was never seen, so they cannot be told apart from non-o1 v4 pools. They
+are counted in `coverage.untrackedSwaps` (all non-tracked PoolManager Swaps, o1 or not) and are not
+in measurement `expected`. Covering them needs a bounded start block back to the suite's first
+block or a supplied pool list; neither is fetched here.
+
 ## Coverage bounds
 
 `maxTrackedPools` (LRU) and `poolIdleBlocks` (0 = off) bound tracked pools. Evictions are recorded:
@@ -158,6 +177,31 @@ Report fields: `expected`, `deliveredLive`, `liveDeliveryPct`, `missedLiveRecove
 `missedEntirely`, `duplicateLivePublishes`, `backfillOnLiveSubjects`, `lateLiveAfterBackfill`,
 `addedLatencyMs` (p50/p95/p99/max), persistence samples, and `dat011` booleans
 (100% live, zero duplicate live, zero backfill contamination, p99 added ≤ 10 ms).
+
+Beside the latency, every report carries:
+
+- `byKind.{initialize,swap,factory}`: `expected`, `delivered`, `recoveredOnBackfill`,
+  `missedEntirely`, `latencyN` (latency samples of that type) and `p99`.
+- `scope`: `targetSwapsExpected`, `trackedPoolsMeasured`, the collector's last `trackedPools`,
+  `untrackedSwaps` and `coverage.complete`, `persistence` (`ok_every_sample` | `missing_observed` |
+  `unknown_observed` | `not_observed`), `statusSamples`, `persistenceStates`, `heartbeatSamples`,
+  `disconnectObserved`, `reconnectObserved` (epoch change or `connects` increase against the previous
+  sample, or `connected: false`), `filterDigestMismatchObserved`, and `notCovered`.
+- Scope uses the same block cut as the event rows: only status samples with `headBlock` in
+  `[fromBlock, toBlock]` count; warmup/teardown samples are excluded. Heartbeats count from the
+  earliest in-window event/status (or after the last pre-window status) until the first status past
+  `toBlock`. `ok_every_sample` requires every in-window status to be explicitly `ok` and at least one
+  in-window heartbeat; `unknown` is never upgraded by heartbeat presence. Any in-window incomplete
+  coverage, disconnect, reconnect or filter-digest mismatch stays in `notCovered`
+  (`collector_coverage_incomplete`, `collector_disconnected`, `collector_reconnected`,
+  `filter_digest_mismatch`) even if a later status is good; `filterDigestVerified` (and `dat011.pass`)
+  needs every in-window status to carry the harness digest. Other entries: `persistence_unknown`,
+  `collector_status_not_observed`.
+- `scope.sourceValidationWindow` is true only when `notCovered` is empty. It is false for
+  `no_target_swaps`, `no_tracked_pools`, `persistence_missing` / `persistence_not_observed`,
+  `collector_coverage_incomplete` or `filter_digest_unverified`. A `dat011.pass` window
+  with `sourceValidationWindow: false` (e.g. Initialize-only, no persister) is a smoke sample, not
+  source validation. `dat011` thresholds are unchanged.
 
 Run separately, each with its own `measure` report:
 
