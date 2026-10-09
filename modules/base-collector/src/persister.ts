@@ -34,6 +34,7 @@ export type PersisterConfig = {
   persistRecoverIntervalMs: number;
   persistRecoverOverlapBlocks: number;
   persistMissingSealGraceBlocks: number;
+  persistStartBlock: number | null;
 };
 
 type Item = LogRecord | SealRecord;
@@ -55,6 +56,8 @@ export class Persister {
   private lastFlushOkMs: number | null = null;
   private lastError: string | null = null;
   private flushing = false;
+  private boundaryPending = false;
+  private startBoundary: number | null = null;
   private timers: Array<ReturnType<typeof setInterval>> = [];
   private readonly clock: Clock;
   private readonly log: Logger;
@@ -79,6 +82,7 @@ export class Persister {
 
   async start(): Promise<void> {
     this.contiguous = await this.store.init();
+    if (this.contiguous === null && this.cfg.persistStartBlock !== null) await this.setBoundary(this.cfg.persistStartBlock);
     this.bus.subscribe(ALL, (data) => this.onMessage(data));
     this.timers.push(setInterval(() => void this.flush(), this.cfg.persistFlushMs));
     this.timers.push(setInterval(() => this.publishHeartbeat(), this.cfg.persistHeartbeatMs));
@@ -98,6 +102,10 @@ export class Persister {
     try {
       x = decodeJson(data);
     } catch {
+      return;
+    }
+    if (isRecord(x) && x.type === "status" && typeof x.trackedSinceBlock === "number") {
+      if (this.contiguous === null && !this.boundaryPending) void this.setBoundary(x.trackedSinceBlock);
       return;
     }
     if (!isRecord(x) || (x.type !== "log" && x.type !== "seal")) return;
@@ -161,12 +169,11 @@ export class Persister {
 
   private async handleSeal(seal: SealRecord): Promise<void> {
     if (this.maxSealBlock === null || seal.blockNumber > this.maxSealBlock) this.maxSealBlock = seal.blockNumber;
-    if (this.contiguous === null) this.contiguous = seal.blockNumber - 1;
     const ok = await this.store.applySeal(seal);
     if (ok) {
       this.unmatched.delete(seal.blockNumber);
       this.lostBlocks.delete(seal.blockNumber);
-      if (seal.blockNumber > this.contiguous) this.acked.add(seal.blockNumber);
+      if (this.contiguous === null || seal.blockNumber > this.contiguous) this.acked.add(seal.blockNumber);
     } else {
       const prev = this.unmatched.get(seal.blockNumber);
       if (prev === undefined || newer(seal, prev)) this.unmatched.set(seal.blockNumber, seal);
@@ -182,6 +189,27 @@ export class Persister {
       this.contiguous += 1;
     }
     if (this.contiguous !== before) await this.store.saveContiguous(this.contiguous);
+  }
+
+  /**
+   * Fresh store only: acknowledge from `block` (collector `trackedSinceBlock` or `persistStartBlock`).
+   * The boundary is persisted before anything is acknowledged; seals seen earlier stay pending.
+   */
+  async setBoundary(block: number): Promise<void> {
+    if (this.contiguous !== null) return;
+    this.boundaryPending = true;
+    try {
+      await this.store.saveContiguous(block - 1);
+      this.contiguous = block - 1;
+      this.startBoundary = block;
+      for (const b of [...this.acked]) if (b <= this.contiguous) this.acked.delete(b);
+      await this.advance();
+      this.requestRecovery("start");
+    } catch (e) {
+      this.lastError = e instanceof Error ? e.message : String(e);
+    } finally {
+      this.boundaryPending = false;
+    }
   }
 
   /** Unacknowledged blocks between the contiguous block and the newest seal (minus grace). */
@@ -223,6 +251,7 @@ export class Persister {
       type: "persister",
       atMs: this.clock.nowMs(),
       contiguousBlock: this.contiguous,
+      startBoundary: this.startBoundary,
       queued: this.queue.length,
       droppedOverflow: this.droppedOverflow,
       lastFlushOkMs: this.lastFlushOkMs,

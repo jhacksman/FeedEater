@@ -60,6 +60,8 @@ export const BaseCollectorSettingsSchema = z
     persistHeartbeatMs: count(5_000, 100),
     persistRecoverIntervalMs: count(30_000, 100),
     persistRecoverOverlapBlocks: count(64),
+    /** Fresh persister only: explicit first block to acknowledge from. Otherwise the collector status `trackedSinceBlock`. */
+    persistStartBlock: z.number().int().min(0).nullable().default(null),
     /** Seals missing this many blocks below the newest seal count as gaps. */
     persistMissingSealGraceBlocks: count(30, 1),
   })

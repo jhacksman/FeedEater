@@ -16,7 +16,7 @@ export type EventKind = "initialize" | "swap" | "factory";
 export type DeliveryPath = "live" | "backfill";
 
 /** Why a record is on a backfill subject. `null` only for live records. */
-export type Recovery = "reconnect" | "persister" | "stale" | "pending_swap" | null;
+export type Recovery = "reconnect" | "persister" | "stale" | "pending_swap" | "publish_retry" | null;
 
 export type DecodedInitialize = {
   poolId: string;
@@ -111,12 +111,14 @@ export type CollectorStatus = {
     untrackedSwaps: number;
     pendingSwapsDropped: number;
     backfillTruncatedBlocks: number;
+    undeliveredBlocks: number[];
   };
   counters: Record<string, number>;
   persistence: {
     state: "ok" | "missing" | "unknown";
     lastHeartbeatMs: number | null;
     contiguousBlock: number | null;
+  startBoundary: number | null;
     gaps: number;
   };
 };
@@ -135,6 +137,7 @@ export type PersisterHeartbeat = {
   type: "persister";
   atMs: number;
   contiguousBlock: number | null;
+  startBoundary: number | null;
   queued: number;
   droppedOverflow: number;
   lastFlushOkMs: number | null;
