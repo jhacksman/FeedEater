@@ -184,8 +184,19 @@ Beside the latency, every report carries:
   `missedEntirely`, `latencyN` (latency samples of that type) and `p99`.
 - `scope`: `targetSwapsExpected`, `trackedPoolsMeasured`, the collector's last `trackedPools`,
   `untrackedSwaps` and `coverage.complete`, `persistence` (`ok_every_sample` | `missing_observed` |
-  `not_observed`), `heartbeatSamples`, `reconnectObserved` (epoch change, `connects` increase or
-  `connected: false` in a status sample), and `notCovered`.
+  `unknown_observed` | `not_observed`), `statusSamples`, `persistenceStates`, `heartbeatSamples`,
+  `disconnectObserved`, `reconnectObserved` (epoch change or `connects` increase against the previous
+  sample, or `connected: false`), `filterDigestMismatchObserved`, and `notCovered`.
+- Scope uses the same block cut as the event rows: only status samples with `headBlock` in
+  `[fromBlock, toBlock]` count; warmup/teardown samples are excluded. Heartbeats count from the
+  earliest in-window event/status (or after the last pre-window status) until the first status past
+  `toBlock`. `ok_every_sample` requires every in-window status to be explicitly `ok` and at least one
+  in-window heartbeat; `unknown` is never upgraded by heartbeat presence. Any in-window incomplete
+  coverage, disconnect, reconnect or filter-digest mismatch stays in `notCovered`
+  (`collector_coverage_incomplete`, `collector_disconnected`, `collector_reconnected`,
+  `filter_digest_mismatch`) even if a later status is good; `filterDigestVerified` (and `dat011.pass`)
+  needs every in-window status to carry the harness digest. Other entries: `persistence_unknown`,
+  `collector_status_not_observed`.
 - `scope.sourceValidationWindow` is true only when `notCovered` is empty. It is false for
   `no_target_swaps`, `no_tracked_pools`, `persistence_missing` / `persistence_not_observed`,
   `collector_coverage_incomplete` or `filter_digest_unverified`. A `dat011.pass` window
