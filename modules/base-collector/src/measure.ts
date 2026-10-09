@@ -40,9 +40,13 @@ export type MeasurementReport = {
     collectorTrackedPools: number | null;
     collectorUntrackedSwaps: number | null;
     collectorCoverageComplete: boolean | null;
-    persistence: "ok_every_sample" | "missing_observed" | "not_observed";
+    persistence: "ok_every_sample" | "missing_observed" | "unknown_observed" | "not_observed";
+    statusSamples: number;
+    persistenceStates: { ok: number; missing: number; unknown: number };
     heartbeatSamples: number;
+    disconnectObserved: boolean;
     reconnectObserved: boolean;
+    filterDigestMismatchObserved: boolean;
     notCovered: string[];
     sourceValidationWindow: boolean;
   };
@@ -81,7 +85,8 @@ export class Measurement {
   private directRepeats = 0;
   private statusSamples = 0;
   private heartbeatSamples = 0;
-  private reconnectObserved = false;
+  private readonly statusLog: Array<{ tNs: bigint; st: CollectorStatus }> = [];
+  private readonly heartbeatLog: bigint[] = [];
   private missingSamples = 0;
   private lastStatus: CollectorStatus | null = null;
   private lastHeartbeat: PersisterHeartbeat | null = null;
@@ -120,15 +125,14 @@ export class Measurement {
       const st = payload as unknown as CollectorStatus;
       this.statusSamples += 1;
       if (st.persistence.state === "missing") this.missingSamples += 1;
-      const prev = this.lastStatus;
-      if (prev !== null && (st.epoch !== prev.epoch || (st.counters?.connects ?? 0) > (prev.counters?.connects ?? 0))) this.reconnectObserved = true;
-      if (st.connected === false) this.reconnectObserved = true;
+      this.statusLog.push({ tNs, st });
       this.lastStatus = st;
       return;
     }
     if (payload.type === "persister") {
       this.lastHeartbeat = payload as unknown as PersisterHeartbeat;
       this.heartbeatSamples += 1;
+      this.heartbeatLog.push(tNs);
       return;
     }
     if (payload.type !== "log") return;
@@ -216,22 +220,69 @@ export class Measurement {
     }
     const p99 = quantile(latencies, 0.99);
     const pct = expected === 0 ? 0 : (100 * delivered) / expected;
-    const digestOk = this.lastStatus?.filterDigest === this.digest;
+    // Window cut, same block range as the event rows: status samples whose headBlock is in
+    // [fromBlock, toBlock]. Warmup/teardown samples are excluded.
+    const win = this.statusLog.map((x, i) => ({ ...x, i })).filter((x) => typeof x.st.headBlock === "number" && inWindow(x.st.headBlock));
+    let tMin: bigint | null = null;
+    const span = (t: bigint) => {
+      if (tMin === null || t < tMin) tMin = t;
+    };
+    for (const d of this.direct.values()) if (inWindow(d.blockNumber)) for (const o of d.seq) span(o.tNs);
+    for (const x of win) span(x.tNs);
+    // Heartbeats count from the earliest in-window event/status (or after the last pre-window status)
+    // until the first status sample past toBlock.
+    let lo: bigint | null = tMin;
+    let hi: bigint | null = null;
+    for (const x of this.statusLog) {
+      const h = x.st.headBlock;
+      if (typeof h !== "number") continue;
+      if (h < fromBlock && (lo === null || x.tNs > lo)) lo = x.tNs;
+      if (h > toBlock && (hi === null || x.tNs < hi)) hi = x.tNs;
+    }
+    const heartbeats = win.length === 0 ? 0 : this.heartbeatLog.filter((t) => lo !== null && t >= lo && (hi === null || t < hi)).length;
+    const states = { ok: 0, missing: 0, unknown: 0 };
+    for (const x of win) {
+      const ps = x.st.persistence?.state;
+      if (ps === "ok") states.ok += 1;
+      else if (ps === "missing") states.missing += 1;
+      else states.unknown += 1;
+    }
+    const disconnect = win.some((x) => x.st.connected === false);
+    const reconnect =
+      disconnect ||
+      win.some((x) => {
+        const prev = this.statusLog[x.i - 1]?.st;
+        return prev !== undefined && (x.st.epoch !== prev.epoch || (x.st.counters?.connects ?? 0) > (prev.counters?.connects ?? 0));
+      });
+    const mismatch = win.some((x) => x.st.filterDigest !== this.digest);
+    const digestOk = win.length > 0 && !mismatch;
     const dat = {
       liveDelivery100: expected > 0 && delivered === expected && extra === 0,
       zeroDuplicateLive: duplicates === 0,
       zeroBackfillContamination: this.contamination === 0 && this.lateLive === 0,
       p99AddedLe10ms: p99 !== null && p99 <= 10,
     };
-    const st = this.lastStatus;
+    const st = win[win.length - 1]?.st ?? null;
     const persistence =
-      this.missingSamples > 0 ? "missing_observed" : this.heartbeatSamples > 0 && this.statusSamples > 0 ? "ok_every_sample" : "not_observed";
+      states.missing > 0
+        ? "missing_observed"
+        : states.unknown > 0
+          ? "unknown_observed"
+          : states.ok > 0 && heartbeats > 0
+            ? "ok_every_sample"
+            : "not_observed";
+    const coverageComplete = win.length === 0 ? null : win.every((x) => x.st.coverage?.complete === true);
     const notCovered: string[] = [];
     if (kinds.swap!.expected === 0) notCovered.push("no_target_swaps");
     if (this.pools.size === 0) notCovered.push("no_tracked_pools");
-    if (persistence !== "ok_every_sample") notCovered.push(persistence === "missing_observed" ? "persistence_missing" : "persistence_not_observed");
-    if (st?.coverage?.complete !== true) notCovered.push("collector_coverage_incomplete");
-    if (!digestOk) notCovered.push("filter_digest_unverified");
+    if (persistence !== "ok_every_sample")
+      notCovered.push({ missing_observed: "persistence_missing", unknown_observed: "persistence_unknown", not_observed: "persistence_not_observed" }[persistence]);
+    if (win.length === 0) notCovered.push("collector_status_not_observed");
+    else if (coverageComplete !== true) notCovered.push("collector_coverage_incomplete");
+    if (disconnect) notCovered.push("collector_disconnected");
+    if (reconnect) notCovered.push("collector_reconnected");
+    if (mismatch) notCovered.push("filter_digest_mismatch");
+    else if (!digestOk) notCovered.push("filter_digest_unverified");
     return {
       filterDigest: this.digest,
       filterDigestVerified: digestOk,
@@ -253,10 +304,14 @@ export class Measurement {
         trackedPoolsMeasured: this.pools.size,
         collectorTrackedPools: st?.trackedPools ?? null,
         collectorUntrackedSwaps: st?.coverage?.untrackedSwaps ?? null,
-        collectorCoverageComplete: st?.coverage?.complete ?? null,
+        collectorCoverageComplete: coverageComplete,
         persistence,
-        heartbeatSamples: this.heartbeatSamples,
-        reconnectObserved: this.reconnectObserved,
+        statusSamples: win.length,
+        persistenceStates: states,
+        heartbeatSamples: heartbeats,
+        disconnectObserved: disconnect,
+        reconnectObserved: reconnect,
+        filterDigestMismatchObserved: mismatch,
         notCovered,
         sourceValidationWindow: notCovered.length === 0,
       },

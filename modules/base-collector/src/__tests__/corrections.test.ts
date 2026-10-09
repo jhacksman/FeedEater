@@ -9,7 +9,7 @@ import { FakeBus, cfg, initLog, poolId, quiet, rig, settle, swapLog } from "./fi
 
 describe("measurement counts ordered transitions (synthetic timestamps; not a latency result)", () => {
   const s = cfg();
-  const status = { type: "status", filterDigest: filterDigest(s), persistence: { state: "ok" } };
+  const status = { type: "status", headBlock: 10, filterDigest: filterDigest(s), persistence: { state: "ok" } };
   const l = initLog({ block: 10, logIndex: 0, pool: poolId(1) });
   const id = `${l.blockHash}:0`;
   const bus = (removed: boolean) => ({ type: "log", id, removed, path: "live", realtime: true, recovery: null, kind: "initialize" });
@@ -146,7 +146,7 @@ describe("measurement scope (synthetic timestamps; not a latency result)", () =>
   const id = (l: ReturnType<typeof initLog>) => `${l.blockHash}:${Number.parseInt(l.logIndex, 16)}`;
   const live = (l: ReturnType<typeof initLog>, kind: string) => ({ type: "log", id: id(l), removed: false, path: "live", realtime: true, recovery: null, kind });
   const status = (over: Record<string, unknown> = {}) => ({
-    type: "status", epoch: 1, connected: true, filterDigest: filterDigest(s), trackedPools: 1, counters: { connects: 1 },
+    type: "status", epoch: 1, headBlock: 10, connected: true, filterDigest: filterDigest(s), trackedPools: 1, counters: { connects: 1 },
     coverage: { complete: true, untrackedSwaps: 0 }, persistence: { state: "ok" }, ...over,
   });
   const hb = { type: "persister", contiguousBlock: 10, gapBlocks: [] };
@@ -184,6 +184,84 @@ describe("measurement scope (synthetic timestamps; not a latency result)", () =>
     expect(ok.scope).toMatchObject({ targetSwapsExpected: 1, trackedPoolsMeasured: 1, persistence: "ok_every_sample", heartbeatSamples: 1, reconnectObserved: false, notCovered: [], sourceValidationWindow: true });
     m.recordBus(STATUS, status({ counters: { connects: 2 } }), 4_000_000n);
     expect(m.report(10, 10).scope.reconnectObserved).toBe(true);
+  });
+});
+
+describe("measurement scope uses only in-window samples and keeps any bad observation", () => {
+  const s = cfg();
+  const P = poolId(1);
+  const ms = (n: number) => BigInt(n) * 1_000_000n;
+  const good = { type: "status", epoch: 1, headBlock: 10, connected: true, filterDigest: filterDigest(s), trackedPools: 1, counters: { connects: 1 }, coverage: { complete: true, untrackedSwaps: 0 }, persistence: { state: "ok" } };
+  const hb = { type: "persister", contiguousBlock: 10, gapBlocks: [] };
+  const run = (statuses: Array<[number, Record<string, unknown>]>, heartbeatsAt: number[] = [20]) => {
+    const m = new Measurement(s);
+    const i = initLog({ block: 10, logIndex: 0, pool: P });
+    const w = swapLog({ block: 10, logIndex: 1, pool: P });
+    const live = (l: ReturnType<typeof initLog>, kind: string) => ({ type: "log", id: `${l.blockHash}:${Number.parseInt(l.logIndex, 16)}`, removed: false, path: "live", realtime: true, recovery: null, kind });
+    m.recordDirect(i, ms(10));
+    m.recordDirect(w, ms(10));
+    m.recordBus("feedeater.base_collector.initialize", live(i, "initialize"), ms(11));
+    m.recordBus("feedeater.base_collector.swap", live(w, "swap"), ms(11));
+    for (const t of heartbeatsAt) m.recordBus("feedeater.base_collector.ctl.persister", hb, ms(t));
+    for (const [t, over] of statuses.sort((a, b) => a[0] - b[0])) m.recordBus(STATUS, { ...good, ...over }, ms(t));
+    return m.report(10, 10);
+  };
+
+  it("control: all in-window statuses ok with a heartbeat is a covered window", () => {
+    const rep = run([[15, {}], [30, {}]]);
+    expect(rep.scope).toMatchObject({ persistence: "ok_every_sample", statusSamples: 2, heartbeatSamples: 1, notCovered: [], sourceValidationWindow: true });
+    expect(rep.dat011.pass).toBe(true);
+  });
+
+  it("persistence unknown plus a heartbeat is not ok", () => {
+    const rep = run([[15, { persistence: { state: "unknown" } }]]);
+    expect(rep.scope).toMatchObject({ persistence: "unknown_observed", persistenceStates: { ok: 0, missing: 0, unknown: 1 }, heartbeatSamples: 1, sourceValidationWindow: false });
+    expect(rep.scope.notCovered).toEqual(["persistence_unknown"]);
+  });
+
+  it("unknown -> ok keeps persistence_unknown", () => {
+    const rep = run([[15, { persistence: { state: "unknown" } }], [30, {}]]);
+    expect(rep.scope).toMatchObject({ persistence: "unknown_observed", persistenceStates: { ok: 1, unknown: 1 }, sourceValidationWindow: false });
+  });
+
+  it("incomplete -> complete keeps collector_coverage_incomplete", () => {
+    const rep = run([[15, { coverage: { complete: false, untrackedSwaps: 0 } }], [30, {}]]);
+    expect(rep.scope).toMatchObject({ collectorCoverageComplete: false, notCovered: ["collector_coverage_incomplete"], sourceValidationWindow: false });
+  });
+
+  it("filter mismatch -> correct keeps filter_digest_mismatch and fails dat011", () => {
+    const rep = run([[15, { filterDigest: "0xother" }], [30, {}]]);
+    expect(rep.filterDigestVerified).toBe(false);
+    expect(rep.dat011.pass).toBe(false);
+    expect(rep.scope).toMatchObject({ filterDigestMismatchObserved: true, notCovered: ["filter_digest_mismatch"], sourceValidationWindow: false });
+  });
+
+  it("disconnect -> connected keeps collector_disconnected and collector_reconnected", () => {
+    const rep = run([[15, { connected: false }], [30, { counters: { connects: 2 } }]]);
+    expect(rep.scope).toMatchObject({ disconnectObserved: true, reconnectObserved: true, notCovered: ["collector_disconnected", "collector_reconnected"], sourceValidationWindow: false });
+  });
+
+  it("warmup/teardown samples do not enter the window scope", () => {
+    const rep = run(
+      [
+        [1, { headBlock: 9, persistence: { state: "unknown" }, coverage: { complete: false }, connected: false, filterDigest: "0xother" }],
+        [15, {}],
+        [40, { headBlock: 11, persistence: { state: "missing" }, coverage: { complete: false } }],
+      ],
+      [1, 20, 41],
+    );
+    expect(rep.scope).toMatchObject({ statusSamples: 1, heartbeatSamples: 1, notCovered: [], sourceValidationWindow: true });
+  });
+
+  it("a heartbeat only outside the window leaves persistence not observed", () => {
+    const rep = run([[15, {}]], [1]);
+    expect(rep.scope).toMatchObject({ persistence: "not_observed", heartbeatSamples: 0, notCovered: ["persistence_not_observed"], sourceValidationWindow: false });
+  });
+
+  it("no in-window status: collector_status_not_observed and digest unverified", () => {
+    const rep = run([[1, { headBlock: 9 }]]);
+    expect(rep.scope.notCovered).toEqual(["persistence_not_observed", "collector_status_not_observed", "filter_digest_unverified"]);
+    expect(rep.dat011.pass).toBe(false);
   });
 });
 

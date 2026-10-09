@@ -24,7 +24,7 @@ describe("decode", () => {
 
 describe("measurement bookkeeping (synthetic timestamps; not a latency result)", () => {
   const s = cfg();
-  const status = { type: "status", filterDigest: filterDigest(s), persistence: { state: "ok" } };
+  const status = { type: "status", headBlock: 10, filterDigest: filterDigest(s), persistence: { state: "ok" } };
   const live = (l: ReturnType<typeof swapLog>, extra: Record<string, unknown> = {}) => ({
     type: "log", id: `${l.blockHash}:${Number.parseInt(l.logIndex, 16)}`, removed: l.removed, path: "live", realtime: true, recovery: null, kind: "swap", ...extra,
   });
