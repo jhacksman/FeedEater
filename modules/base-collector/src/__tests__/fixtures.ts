@@ -71,8 +71,14 @@ export class FakeBus implements Bus {
   readonly published: Published[] = [];
   private readonly subs: Array<{ pattern: string; cb: (d: Uint8Array, s: string) => void }> = [];
   offline = false;
+  /** Number of upcoming log publications that throw (a closed/failed core-NATS connection). */
+  failLogs = 0;
 
   publish(subject: string, data: Uint8Array): void {
+    if (this.failLogs > 0 && (decodeJson(data) as { type?: unknown }).type === "log") {
+      this.failLogs -= 1;
+      throw new Error("nats connection closed");
+    }
     this.published.push({ subject, payload: decodeJson(data) as Record<string, unknown> });
     if (this.offline) return;
     for (const s of [...this.subs]) if (matches(s.pattern, subject)) s.cb(data, subject);

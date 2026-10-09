@@ -26,6 +26,7 @@ const NUMERIC_KEYS = [
   "persistRecoverIntervalMs",
   "persistRecoverOverlapBlocks",
   "persistMissingSealGraceBlocks",
+  "persistStartBlock",
 ] as const;
 
 const STRING_KEYS = ["wsUrl", "httpUrl", "natsUrl", "databaseUrl", "stateDir", "poolManager"] as const;

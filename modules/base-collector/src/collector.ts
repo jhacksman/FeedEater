@@ -131,6 +131,9 @@ export class Collector {
   private untrackedSwaps = 0;
   private pendingSwapsDropped = 0;
   private backfillTruncatedBlocks = 0;
+  private readonly undelivered = new Set<number>();
+  private retrying = false;
+  private retryHead = -1;
 
   private startedAtMs = 0;
   private heartbeat: { atMs: number; hb: PersisterHeartbeat } | null = null;
@@ -352,7 +355,7 @@ export class Collector {
       this.counters.staleLive += 1;
     }
     const id = `${blockHash}:${logIndex}`;
-    if (this.ledger.transition(id, blockNumber, blockHash, !removed) === "duplicate" && opts.force !== true) {
+    if (this.ledger.state(id) === !removed && opts.force !== true) {
       if (p === "live") this.counters.duplicatesLive += 1;
       else this.counters.duplicatesBackfill += 1;
       return null;
@@ -380,17 +383,24 @@ export class Collector {
       suite,
       receivedAtMs,
     };
-    this.publish(logSubject(rec.kind, p, removed), rec);
+    // Commit identity state only after a successful publish, so an undelivered record stays recoverable.
+    if (!this.publish(logSubject(rec.kind, p, removed), rec)) {
+      this.undelivered.add(blockNumber);
+      return null;
+    }
+    this.ledger.transition(id, blockNumber, blockHash, !removed);
     this.ledger.remember(rec);
     if (p === "live") this.counters[removed ? "liveRemovals" : "liveRecords"] += 1;
     else this.counters[removed ? "backfillRemovals" : "backfillRecords"] += 1;
     return rec;
   }
 
-  private publish(subject: string, payload: unknown): void {
+  private publish(subject: string, payload: unknown): boolean {
+    let ok = true;
     try {
       this.deps.bus.publish(subject, encodeJson(payload));
     } catch (e) {
+      ok = false;
       this.counters.publishErrors += 1;
       this.log("error", "publish failed", { subject, error: e instanceof Error ? e.message : String(e) });
     }
@@ -404,6 +414,7 @@ export class Collector {
       this.counters.rateAlerts += 1;
       this.log("warn", "publish rate above rateAlertPerSec", { rateAlertPerSec: this.cfg.rateAlertPerSec });
     }
+    return ok;
   }
 
   private bufferSwap(log: RawLog, receivedAtMs: number): void {
@@ -429,7 +440,9 @@ export class Collector {
 
   private advanceVerified(): void {
     if (this.headBlock === null || this.verifiedBlock === null) return;
-    const target = this.headBlock - this.cfg.confirmBlocks;
+    let target = this.headBlock - this.cfg.confirmBlocks;
+    // Never seal or checkpoint past a block with an undelivered publication.
+    if (this.undelivered.size > 0) target = Math.min(target, Math.min(...this.undelivered) - 1);
     let v: number = this.verifiedBlock;
     while (v < target) {
       v += 1;
@@ -441,6 +454,28 @@ export class Collector {
     for (const b of [...this.headHashes.keys()]) if (b < floor) this.headHashes.delete(b);
     this.tracker.evictIdle(this.headBlock);
     this.maybeCheckpoint();
+    if (this.undelivered.size > 0) void this.retryUndelivered();
+  }
+
+  /** Bounded re-read of blocks with undelivered publications onto `.backfill` (`publish_retry`), at most once per new head. */
+  async retryUndelivered(): Promise<void> {
+    if (this.retrying || !this.reconciled || this.undelivered.size === 0) return;
+    if (this.headBlock === null || this.headBlock <= this.retryHead) return;
+    this.retryHead = this.headBlock;
+    this.retrying = true;
+    const from = Math.min(...this.undelivered);
+    const to = Math.min(Math.max(...this.undelivered), from + this.cfg.maxRecoverBlocks - 1);
+    const errorsBefore = this.counters.publishErrors;
+    try {
+      await this.backfill(from, to, "publish_retry", "reconcile");
+      if (this.counters.publishErrors === errorsBefore) for (let b = from; b <= to; b++) this.undelivered.delete(b);
+    } catch (e) {
+      this.counters.recoverErrors += 1;
+      this.log("error", "publish retry failed", { from, to, error: e instanceof Error ? e.message : String(e) });
+    } finally {
+      this.retrying = false;
+    }
+    if (this.reconciled) this.advanceVerified();
   }
 
   private sealFromLedger(b: number): void {
@@ -562,7 +597,7 @@ export class Collector {
         published.set(known.blockNumber, slot);
       }
       if (mode === "reconcile") {
-        const safeEnd = Math.min(end, to - this.cfg.confirmBlocks);
+        const safeEnd = Math.min(end, Math.max(to, this.headBlock ?? to) - this.cfg.confirmBlocks);
         for (let b = start; b <= safeEnd; b++) {
           for (const a of this.ledger.active(b)) if (!canonical.has(a.id)) this.publishRemoval(a.id, recovery);
         }
@@ -579,7 +614,7 @@ export class Collector {
   private publishRemoval(id: string, recovery: Recovery): void {
     const prev = this.ledger.record(id);
     if (prev === null) return;
-    if (this.ledger.transition(id, prev.blockNumber, prev.blockHash, false) === "duplicate") return;
+    if (this.ledger.state(id) === false) return;
     const rec: LogRecord = {
       ...prev,
       path: "backfill",
@@ -590,7 +625,11 @@ export class Collector {
       seq: ++this.seq,
       receivedAtMs: this.clock.nowMs(),
     };
-    this.publish(logSubject(rec.kind, "backfill", true), rec);
+    if (!this.publish(logSubject(rec.kind, "backfill", true), rec)) {
+      this.undelivered.add(prev.blockNumber);
+      return;
+    }
+    this.ledger.transition(id, prev.blockNumber, prev.blockHash, false);
     this.ledger.remember(rec);
     this.counters.backfillRemovals += 1;
   }
@@ -672,7 +711,9 @@ export class Collector {
       trackedSinceBlock: this.trackedSinceBlock,
       trackedPools: this.tracker.size,
       coverage: {
-        complete: dropped === 0 && this.tracker.swapsForDropped === 0 && this.pendingSwapsDropped === 0 && this.backfillTruncatedBlocks === 0,
+        complete:
+          dropped === 0 && this.tracker.swapsForDropped === 0 && this.pendingSwapsDropped === 0 && this.backfillTruncatedBlocks === 0 && this.undelivered.size === 0,
+        undeliveredBlocks: [...this.undelivered].sort((a, b) => a - b).slice(0, 20),
         droppedPools: dropped,
         recentDropped: this.tracker.recentDropped,
         swapsForDroppedPools: this.tracker.swapsForDropped,
@@ -685,6 +726,7 @@ export class Collector {
         state,
         lastHeartbeatMs: this.heartbeat?.atMs ?? null,
         contiguousBlock: this.heartbeat?.hb.contiguousBlock ?? null,
+        startBoundary: this.heartbeat?.hb.startBoundary ?? null,
         gaps: this.heartbeat?.hb.gapCount ?? 0,
       },
     };
