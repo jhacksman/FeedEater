@@ -5,10 +5,10 @@ import { filterDigest, hookSuites, isLiveLogSubject } from "./subjects.js";
 import type { CollectorStatus, DecodedInitialize, LogRecord, PersisterHeartbeat, RawLog } from "./types.js";
 
 /** Observation key: identity plus state, so a removal and a re-add are separate expected events. */
-const key = (id: string, removed: boolean) => `${id}|${removed ? "removed" : "active"}`;
 
-type DirectObs = { tNs: bigint; blockNumber: number; kind: string; poolId: string | null; count: number };
-type BusObs = { tNs: bigint; count: number };
+type Obs = { removed: boolean; tNs: bigint };
+type DirectSeq = { blockNumber: number; kind: string; poolId: string | null; seq: Obs[] };
+type LiveSeq = { seq: Obs[]; duplicates: number };
 
 export type MeasurementReport = {
   filterDigest: string;
@@ -23,6 +23,8 @@ export type MeasurementReport = {
   duplicateLivePublishes: number;
   backfillOnLiveSubjects: number;
   lateLiveAfterBackfill: number;
+  /** Same-state repeats seen on the direct node subscription (not expected transitions). */
+  directRepeats: number;
   extraLive: number;
   addedLatencyMs: { n: number; p50: number | null; p95: number | null; p99: number | null; max: number | null; negative: number };
   persistence: { statusSamples: number; missingSamples: number; lastCollectorStatus: CollectorStatus | null; lastHeartbeat: PersisterHeartbeat | null };
@@ -39,15 +41,24 @@ function quantile(sorted: readonly number[], q: number): number | null {
  * Compares a direct node subscription with the collector's NATS output on one clock
  * (`process.hrtime.bigint()` in a single process). Pure bookkeeping; the runner feeds it.
  */
+/**
+ * Compares a direct node subscription with the collector's NATS output on one clock
+ * (`process.hrtime.bigint()` in a single process). Pure bookkeeping; the runner feeds it.
+ *
+ * Per identity (`blockHash:logIndex`) each side is an ordered list of state transitions
+ * (active/removed); a repeat of the current state is a duplicate. The k-th direct transition is
+ * delivered only if the k-th live transition has the same state.
+ */
 export class Measurement {
-  private readonly direct = new Map<string, DirectObs>();
-  private readonly live = new Map<string, BusObs>();
-  private readonly backfill = new Map<string, BusObs>();
+  private readonly direct = new Map<string, DirectSeq>();
+  private readonly live = new Map<string, LiveSeq>();
+  private readonly backfill = new Map<string, boolean[]>();
   private readonly pools = new Set<string>();
   private readonly hooks: Map<string, string | null>;
   private readonly factories: Map<string, string>;
   private contamination = 0;
   private lateLive = 0;
+  private directRepeats = 0;
   private statusSamples = 0;
   private missingSamples = 0;
   private lastStatus: CollectorStatus | null = null;
@@ -71,10 +82,14 @@ export class Measurement {
     }
     if (c.kind === "swap") poolId = log.topics[1]?.toLowerCase() ?? null;
     const id = `${log.blockHash.toLowerCase()}:${hexToNumber(log.logIndex)}`;
-    const k = key(id, log.removed === true);
-    const prev = this.direct.get(k);
-    if (prev !== undefined) prev.count += 1;
-    else this.direct.set(k, { tNs, blockNumber: hexToNumber(log.blockNumber), kind: c.kind, poolId, count: 1 });
+    const removed = log.removed === true;
+    let d = this.direct.get(id);
+    if (d === undefined) {
+      d = { blockNumber: hexToNumber(log.blockNumber), kind: c.kind, poolId, seq: [] };
+      this.direct.set(id, d);
+    }
+    if (d.seq[d.seq.length - 1]?.removed === removed) this.directRepeats += 1;
+    else d.seq.push({ removed, tNs });
   }
 
   recordBus(subject: string, payload: unknown, tNs: bigint): void {
@@ -92,19 +107,26 @@ export class Measurement {
     }
     if (payload.type !== "log") return;
     const rec = payload as unknown as LogRecord;
-    const k = key(rec.id, rec.removed);
     if (isLiveLogSubject(subject)) {
       if (rec.path !== "live" || rec.realtime !== true || rec.recovery !== null) this.contamination += 1;
-      if (this.backfill.has(k) && !this.live.has(k)) this.lateLive += 1;
-      const prev = this.live.get(k);
-      if (prev !== undefined) prev.count += 1;
-      else this.live.set(k, { tNs, count: 1 });
+      let l = this.live.get(rec.id);
+      if (l === undefined) {
+        l = { seq: [], duplicates: 0 };
+        this.live.set(rec.id, l);
+      }
+      if (l.seq[l.seq.length - 1]?.removed === rec.removed) {
+        l.duplicates += 1;
+        return;
+      }
+      const bf = this.backfill.get(rec.id) ?? [];
+      if (bf.filter((x) => x === rec.removed).length > l.seq.filter((x) => x.removed === rec.removed).length) this.lateLive += 1;
+      l.seq.push({ removed: rec.removed, tNs });
     } else {
       const d: unknown = rec.decoded;
       if (rec.kind === "swap" && isRecord(d) && typeof d.poolId === "string") this.pools.add(d.poolId);
-      const prev = this.backfill.get(k);
-      if (prev !== undefined) prev.count += 1;
-      else this.backfill.set(k, { tNs, count: 1 });
+      const bf = this.backfill.get(rec.id) ?? [];
+      if (bf[bf.length - 1] !== rec.removed) bf.push(rec.removed);
+      this.backfill.set(rec.id, bf);
     }
   }
 
@@ -116,37 +138,45 @@ export class Measurement {
     let recovered = 0;
     let missedEntirely = 0;
     let negative = 0;
-    const expectedKeys = new Set<string>();
-    for (const [k, d] of this.direct) {
+    for (const [id, d] of this.direct) {
       if (!inWindow(d.blockNumber)) continue;
       if (d.kind === "swap" && (d.poolId === null || !this.pools.has(d.poolId))) continue;
-      expected += 1;
-      expectedKeys.add(k);
-      const l = this.live.get(k);
-      if (l !== undefined) {
-        delivered += 1;
-        const ms = Number(l.tNs - d.tNs) / 1e6;
-        if (ms < 0) negative += 1;
-        latencies.push(ms);
-      } else if (this.backfill.has(k)) recovered += 1;
-      else missedEntirely += 1;
+      const l = this.live.get(id)?.seq ?? [];
+      const bf = this.backfill.get(id) ?? [];
+      d.seq.forEach((t, k) => {
+        expected += 1;
+        const got = l[k];
+        if (got !== undefined && got.removed === t.removed) {
+          delivered += 1;
+          const ms = Number(got.tNs - t.tNs) / 1e6;
+          if (ms < 0) negative += 1;
+          latencies.push(ms);
+          return;
+        }
+        const nth = d.seq.slice(0, k + 1).filter((x) => x.removed === t.removed).length;
+        if (bf.filter((x) => x === t.removed).length >= nth) recovered += 1;
+        else missedEntirely += 1;
+      });
     }
     let duplicates = 0;
     let extra = 0;
-    for (const [k, l] of this.live) {
-      const d = this.direct.get(k);
+    for (const [id, l] of this.live) {
+      const d = this.direct.get(id);
       if (d === undefined) {
-        extra += 1;
+        extra += l.seq.length;
+        duplicates += l.duplicates;
         continue;
       }
-      if (inWindow(d.blockNumber)) duplicates += Math.max(0, l.count - d.count);
+      if (!inWindow(d.blockNumber)) continue;
+      duplicates += l.duplicates;
+      extra += Math.max(0, l.seq.length - d.seq.length);
     }
     latencies.sort((a, b) => a - b);
     const p99 = quantile(latencies, 0.99);
     const pct = expected === 0 ? 0 : (100 * delivered) / expected;
     const digestOk = this.lastStatus?.filterDigest === this.digest;
     const dat = {
-      liveDelivery100: expected > 0 && delivered === expected,
+      liveDelivery100: expected > 0 && delivered === expected && extra === 0,
       zeroDuplicateLive: duplicates === 0,
       zeroBackfillContamination: this.contamination === 0 && this.lateLive === 0,
       p99AddedLe10ms: p99 !== null && p99 <= 10,
@@ -164,6 +194,7 @@ export class Measurement {
       duplicateLivePublishes: duplicates,
       backfillOnLiveSubjects: this.contamination,
       lateLiveAfterBackfill: this.lateLive,
+      directRepeats: this.directRepeats,
       extraLive: extra,
       addedLatencyMs: {
         n: latencies.length,

@@ -52,6 +52,7 @@ describe("identity state in storage", () => {
 
   it("orphans stored rows that are not on the sealed block hash", async () => {
     const { p, store } = persister();
+    await p.setBoundary(13);
     p.enqueue(rec(13, 1));
     p.enqueue({ ...rec(13, 2), id: "0xother:2", blockHash: "0xother" });
     p.enqueue(seal(13, [id(13, 1)]));
@@ -86,6 +87,7 @@ describe("acknowledgement contract", () => {
 
   it("retains the queue through a database outage and reports it", async () => {
     const { p, store } = persister();
+    await p.setBoundary(200);
     store.failWrites = true;
     p.enqueue(rec(200, 0));
     p.enqueue(seal(200, [id(200, 0)]));
@@ -114,6 +116,8 @@ describe("collector + persister over a fake core-NATS bus", () => {
     const store = new MemoryStore();
     const first = new Persister({ ...r.settings, persistFlushMs: 10_000 }, store, r.bus, { log: quiet });
     await first.start();
+    r.c.publishStatus();
+    await settle();
     const P1 = poolId(1);
     const chain = [initLog({ block: 101, logIndex: 0, pool: P1 }), swapLog({ block: 102, logIndex: 0, pool: P1 }), swapLog({ block: 104, logIndex: 0, pool: P1 })];
     r.rpc.chain = chain;

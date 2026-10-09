@@ -76,6 +76,12 @@ Collector (realtime recovery, `recovery: "reconnect"`):
 - If the range exceeds `maxBackfillBlocks`, only the newest part is replayed and
   `coverage.backfillTruncatedBlocks` records the hole.
 - A checkpoint written with a different filter digest is refused at start.
+- Identity state is committed only after `nats.publish` returns. A publish that throws leaves the
+  identity uncommitted (a later redelivery is published, not dropped as a duplicate), adds its block
+  to `coverage.undeliveredBlocks` (`complete: false`), and holds seals/`verifiedBlock` below that
+  block. On each new head the collector re-reads at most `maxRecoverBlocks` from the lowest
+  undelivered block onto `.backfill` (`recovery: "publish_retry"`); the blocks clear only if that
+  pass had no publish error. A restart replays from the held `verifiedBlock`.
 
 Persister (persistence recovery, `recovery: "persister"`):
 
@@ -85,6 +91,12 @@ Persister (persistence recovery, `recovery: "persister"`):
 - A block is acknowledged when a seal for it matches the stored active identities (count and
   digest). Stored rows on a different block hash than the seal are marked removed.
   `contiguousBlock` advances only through consecutive acknowledged blocks.
+- Start boundary (fresh store, `persist_state` empty): nothing is acknowledged, and a seal never
+  sets `contiguousBlock`. The boundary `B` is `persistStartBlock` if set, else the first collector
+  status `trackedSinceBlock`. `B - 1` is written to `persist_state` before any acknowledgement, then
+  `ctl.recover` (`start`) is published. Blocks `B..` without a matching seal stay `gapBlocks` and are
+  recovered on `.backfill`; pre-first-seal blocks never become complete silently. An existing
+  `persist_state` is the boundary on restart.
 - On start and every `persistRecoverIntervalMs` while gaps exist, it publishes `ctl.recover` from
   `firstGap - persistRecoverOverlapBlocks`. The collector replays at most `maxRecoverBlocks` per
   request, with `.backfill.seal` per block.
@@ -136,6 +148,12 @@ node modules/base-collector/dist/main.js measure \
 `measure` holds a direct node subscription with the same filters plus a NATS subscription on
 `feedeater.base_collector.>` in one process timed by `process.hrtime.bigint()`. Warmup is not scored;
 the window is scored by block range; teardown keeps collecting late deliveries for window blocks.
+Scoring unit: per identity, each side is an ordered list of state transitions (active/removed);
+`expected` counts direct transitions in the window (A→R→A is 3). The k-th is delivered only if the
+k-th live transition has the same state. A same-state repeat on live is a duplicate; on the direct
+side it is `directRepeats`. Live transitions without a direct counterpart are `extraLive` and fail
+`liveDelivery100`.
+
 Report fields: `expected`, `deliveredLive`, `liveDeliveryPct`, `missedLiveRecoveredOnBackfill`,
 `missedEntirely`, `duplicateLivePublishes`, `backfillOnLiveSubjects`, `lateLiveAfterBackfill`,
 `addedLatencyMs` (p50/p95/p99/max), persistence samples, and `dat011` booleans
