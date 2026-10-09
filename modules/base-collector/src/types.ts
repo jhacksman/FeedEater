@@ -118,7 +118,7 @@ export type CollectorStatus = {
     state: "ok" | "missing" | "unknown";
     lastHeartbeatMs: number | null;
     contiguousBlock: number | null;
-  startBoundary: number | null;
+    startBoundary: number | null;
     gaps: number;
   };
 };

@@ -5,7 +5,7 @@ import { MemoryStore } from "../memoryStore.js";
 import { Persister } from "../persister.js";
 import { RECOVER, STATUS, encodeJson, filterDigest, sealDigest } from "../subjects.js";
 import type { SealRecord } from "../types.js";
-import { FakeBus, cfg, initLog, poolId, quiet, rig, settle } from "./fixtures.js";
+import { FakeBus, cfg, initLog, poolId, quiet, rig, settle, swapLog } from "./fixtures.js";
 
 describe("measurement counts ordered transitions (synthetic timestamps; not a latency result)", () => {
   const s = cfg();
@@ -139,3 +139,51 @@ describe("undelivered publication", () => {
     await r.c.stop();
   });
 });
+
+describe("measurement scope (synthetic timestamps; not a latency result)", () => {
+  const s = cfg();
+  const P = poolId(1);
+  const id = (l: ReturnType<typeof initLog>) => `${l.blockHash}:${Number.parseInt(l.logIndex, 16)}`;
+  const live = (l: ReturnType<typeof initLog>, kind: string) => ({ type: "log", id: id(l), removed: false, path: "live", realtime: true, recovery: null, kind });
+  const status = (over: Record<string, unknown> = {}) => ({
+    type: "status", epoch: 1, connected: true, filterDigest: filterDigest(s), trackedPools: 1, counters: { connects: 1 },
+    coverage: { complete: true, untrackedSwaps: 0 }, persistence: { state: "ok" }, ...over,
+  });
+  const hb = { type: "persister", contiguousBlock: 10, gapBlocks: [] };
+
+  it("an Initialize-only window without a persister passes dat011 but is not a source-validation window", () => {
+    const m = new Measurement(s);
+    const l = initLog({ block: 10, logIndex: 0, pool: P, hooks: "0x0000000000000000000000000000000000000001" });
+    m.recordDirect(l, 0n);
+    m.recordBus(STATUS, status({ trackedPools: 0, coverage: { complete: true, untrackedSwaps: 989 }, persistence: { state: "missing" } }), 0n);
+    m.recordBus("feedeater.base_collector.initialize", live(l, "initialize"), 1_000_000n);
+    const rep = m.report(10, 10);
+    expect(rep.dat011.pass).toBe(true);
+    expect(rep.byKind.initialize).toMatchObject({ expected: 1, delivered: 1, latencyN: 1 });
+    expect(rep.byKind.swap).toMatchObject({ expected: 0, latencyN: 0, p99: null });
+    expect(rep.scope).toMatchObject({
+      targetSwapsExpected: 0, trackedPoolsMeasured: 0, collectorTrackedPools: 0, collectorUntrackedSwaps: 989,
+      persistence: "missing_observed", reconnectObserved: false, sourceValidationWindow: false,
+    });
+    expect(rep.scope.notCovered).toEqual(["no_target_swaps", "no_tracked_pools", "persistence_missing"]);
+  });
+
+  it("counts per type, observes reconnect and persistence, and marks a covered window", () => {
+    const m = new Measurement(s);
+    const i = initLog({ block: 10, logIndex: 0, pool: P });
+    const w = swapLog({ block: 10, logIndex: 1, pool: P });
+    m.recordDirect(i, 0n);
+    m.recordDirect(w, 0n);
+    m.recordBus(STATUS, status(), 0n);
+    m.recordBus("feedeater.base_collector.ctl.persister", hb, 0n);
+    m.recordBus("feedeater.base_collector.initialize", live(i, "initialize"), 1_000_000n);
+    m.recordBus("feedeater.base_collector.swap", live(w, "swap"), 2_000_000n);
+    m.recordBus(STATUS, status(), 3_000_000n);
+    const ok = m.report(10, 10);
+    expect(ok.byKind.swap).toMatchObject({ expected: 1, delivered: 1, latencyN: 1, p99: 2 });
+    expect(ok.scope).toMatchObject({ targetSwapsExpected: 1, trackedPoolsMeasured: 1, persistence: "ok_every_sample", heartbeatSamples: 1, reconnectObserved: false, notCovered: [], sourceValidationWindow: true });
+    m.recordBus(STATUS, status({ counters: { connects: 2 } }), 4_000_000n);
+    expect(m.report(10, 10).scope.reconnectObserved).toBe(true);
+  });
+});
+
