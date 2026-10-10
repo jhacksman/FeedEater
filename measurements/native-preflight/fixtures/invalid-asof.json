@@ -1,22 +1,25 @@
 {
-  "schema": "native-preflight-input/1",
-  "fixture": "current manifest: collector #173 5206f90, native path joint 54ba98a (unwired), audit 419346d; fresh node supplied",
-  "asOfUtc": "2026-10-10T05:36:30Z",
+  "schema": "native-preflight-input/2",
+  "fixture": "SYNTHETIC asOfUtc 2026-99-99T99:99:99Z",
+  "asOfUtc": "2026-99-99T99:99:99Z",
+  "claimScope": [
+    "native_collector_run"
+  ],
   "pins": {
     "collector": {
-      "commit": "5206f9035ad1c057d78990b294941221e936f895",
-      "tree": "d4eb43dcf86d789ad3ef3114ca05ddce80db1def",
-      "manifestSha256": "unknown"
+      "commit": "de594f1dc16f23fec13b6a4c0b8f82e101c21c40",
+      "tree": "bc0f8c7a6ac706d8c0f76aca87aa6c74ac3675eb",
+      "manifestSha256": "3370fc47860d9a4d94788bd81c8e7c22024bb0540fa3e1ace583a4ecd3ded327"
     },
     "nativePath": {
-      "commit": "54ba98a98bce1eb307852861deb394ef196638ae",
-      "tree": "9cbbd815d22191c6ee9c7836fc6929c8cf28ac66",
-      "manifestSha256": "e10b83697a6842524d3e2eba2d1e9e55c44837c2e97b30ac94f2ddde0dd6809f"
+      "commit": "dbc9be9493b721a0a0d15a43a359d418f9e167bc",
+      "tree": "350002efbafd9f21799f7276c2a10f69c74789e2",
+      "manifestSha256": "c1a3ad9397330c4493993ffcb3c23bf1f94105dc954f9727167aba5275668775"
     },
     "reference": {
-      "commit": "5206f9035ad1c057d78990b294941221e936f895",
-      "tree": "d4eb43dcf86d789ad3ef3114ca05ddce80db1def",
-      "manifestSha256": "unknown"
+      "commit": "437285c0d7d45ddcc8320b8f6d8799f94ea3677b",
+      "tree": "0a4920099ba853e4b0aef3f262d43c12dbb6f9cc",
+      "manifestSha256": "531bb95eeb0379dba827ce9f736ce77235abea9f7d12a0287f2b7309a16b4387"
     }
   },
   "filters": {
@@ -74,31 +77,52 @@
     }
   },
   "window": {
-    "collector": null,
-    "reference": null
+    "collector": {
+      "startNs": "1000000000000",
+      "endNs": "4600000000000",
+      "clock": "mono_ns"
+    },
+    "reference": {
+      "startNs": "1000000000000",
+      "endNs": "4600000000000",
+      "clock": "mono_ns"
+    }
   },
   "clock": {
-    "collector": null,
-    "reference": null
+    "collector": {
+      "host_id": "lab-host-1",
+      "boot_id": "0f1e2d3c-4b5a-4968-8778-695a4b3c2d1e",
+      "unit": "ns",
+      "clock_uncert_ms": 0.05
+    },
+    "reference": {
+      "host_id": "lab-host-1",
+      "boot_id": "0f1e2d3c-4b5a-4968-8778-695a4b3c2d1e",
+      "unit": "ns",
+      "clock_uncert_ms": 0.05
+    }
   },
   "provenance": {
-    "source_id": null,
-    "capture_source": "unknown",
-    "endpoint": null,
-    "client_version": null,
-    "decoder_version": null,
-    "registry_version": null,
-    "license_class": "unknown",
-    "partition": null,
-    "rawWriter": null
+    "source_id": "base-node-lab",
+    "capture_source": "live_ws",
+    "endpoint": "ws://127.0.0.1:8546",
+    "client_version": "lab/v0",
+    "decoder_version": "dec/1",
+    "registry_version": "reg/1",
+    "license_class": "own_node",
+    "partition": "base/2026-10-10",
+    "rawWriter": {
+      "location": "/lab/tier0",
+      "pin": "9763f254427e5e4e3cdcf54f961bd9815279add0"
+    }
   },
   "caps": {
-    "reconnect": null,
-    "wsMessages": null,
-    "wsBytes": null,
-    "backfillBlocks": 43200,
-    "enforcedInSource": false,
-    "enforcementPin": null
+    "reconnect": 1,
+    "wsMessages": 1000000,
+    "wsBytes": 1073741824,
+    "backfillBlocks": 1900,
+    "enforcedInSource": true,
+    "enforcementPin": "de594f1dc16f23fec13b6a4c0b8f82e101c21c40"
   },
   "freshness": {
     "source": "operator_supplied",
@@ -118,24 +142,23 @@
       ],
       "ageS": 0.4
     },
-    "recovery": "complete",
-    "note": "Codex observation relayed by Jack 2026-10-10; supplied timestamps only"
+    "recovery": "complete"
   },
   "defects": {
     "M1": {
-      "state": "unresolved"
+      "state": "resolved"
     },
     "M2": {
-      "state": "unresolved"
+      "state": "resolved"
     },
     "provenance": {
-      "state": "unresolved"
+      "state": "resolved"
     },
     "inSourceCaps": {
-      "state": "unresolved"
+      "state": "resolved"
     },
     "jointIntegration": {
-      "state": "unresolved"
+      "state": "resolved"
     }
   }
 }

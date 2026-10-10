@@ -1,0 +1,53 @@
+{
+  "registry": {
+    "collector": [
+      {
+        "commit": "de594f1dc16f23fec13b6a4c0b8f82e101c21c40",
+        "tree": "bc0f8c7a6ac706d8c0f76aca87aa6c74ac3675eb",
+        "manifestSha256": "3370fc47860d9a4d94788bd81c8e7c22024bb0540fa3e1ace583a4ecd3ded327",
+        "resolves": [
+          "M1",
+          "M2",
+          "provenance",
+          "inSourceCaps"
+        ]
+      }
+    ],
+    "nativePath": [
+      {
+        "commit": "dbc9be9493b721a0a0d15a43a359d418f9e167bc",
+        "tree": "350002efbafd9f21799f7276c2a10f69c74789e2",
+        "manifestSha256": "c1a3ad9397330c4493993ffcb3c23bf1f94105dc954f9727167aba5275668775",
+        "resolves": [
+          "jointIntegration"
+        ]
+      }
+    ],
+    "reference": [
+      {
+        "commit": "437285c0d7d45ddcc8320b8f6d8799f94ea3677b",
+        "tree": "0a4920099ba853e4b0aef3f262d43c12dbb6f9cc",
+        "manifestSha256": "531bb95eeb0379dba827ce9f736ce77235abea9f7d12a0287f2b7309a16b4387",
+        "resolves": []
+      }
+    ],
+    "rawWriter": [
+      {
+        "commit": "9763f254427e5e4e3cdcf54f961bd9815279add0",
+        "tree": "4ffd15f584712317a26064eb42ade3da3e513a25",
+        "manifestSha256": "32199debeb121d735ac699d9bb7bc69081f793e5abf0a9548b42aafaa5208a33",
+        "resolves": []
+      }
+    ]
+  },
+  "ownerRecords": {
+    "Q1": {
+      "decision": "synthetic",
+      "ref": "synthetic"
+    },
+    "Q2": {
+      "decision": "synthetic",
+      "ref": "synthetic"
+    }
+  }
+}

@@ -1,0 +1,164 @@
+{
+  "schema": "native-preflight-input/2",
+  "fixture": "SYNTHETIC 1 ns window",
+  "asOfUtc": "2026-10-10T05:36:30Z",
+  "claimScope": [
+    "native_collector_run"
+  ],
+  "pins": {
+    "collector": {
+      "commit": "de594f1dc16f23fec13b6a4c0b8f82e101c21c40",
+      "tree": "bc0f8c7a6ac706d8c0f76aca87aa6c74ac3675eb",
+      "manifestSha256": "3370fc47860d9a4d94788bd81c8e7c22024bb0540fa3e1ace583a4ecd3ded327"
+    },
+    "nativePath": {
+      "commit": "dbc9be9493b721a0a0d15a43a359d418f9e167bc",
+      "tree": "350002efbafd9f21799f7276c2a10f69c74789e2",
+      "manifestSha256": "c1a3ad9397330c4493993ffcb3c23bf1f94105dc954f9727167aba5275668775"
+    },
+    "reference": {
+      "commit": "437285c0d7d45ddcc8320b8f6d8799f94ea3677b",
+      "tree": "0a4920099ba853e4b0aef3f262d43c12dbb6f9cc",
+      "manifestSha256": "531bb95eeb0379dba827ce9f736ce77235abea9f7d12a0287f2b7309a16b4387"
+    }
+  },
+  "filters": {
+    "collector": {
+      "digest": "8b5e28aa1ca300ea4b70d2f338c79a0800196823bc0dcac224a36ab7a36146ca",
+      "filters": [
+        {
+          "address": [
+            "0x498581ff718922c3f8e6a244956af099b2652b2b"
+          ],
+          "topics": [
+            [
+              "0xdd466e674ea557f56295e2d0218a125ea4b4f0f6f3307b95f85e6110838d6438",
+              "0x40e9cecb9f5f1f1c5b9c97dec2917b7ee92e57ba5563708daca94dd84ad7112f"
+            ]
+          ]
+        },
+        {
+          "address": [
+            "0x1176122eb77ad6a2339322cda7c4d7ea9bfa63dc",
+            "0x1de58a6769526a03a504d9d59b8757cd8097dc57",
+            "0xa52ad458ce0282a971ecc71c051a32f28946bb9f",
+            "0xb9e5910043353717af54d8dd34b6ee57ffe49c35",
+            "0xe3ab924c72463c1ac8d1d8352ee640b89eb1ea64",
+            "0xff70918ef17a2d74d683a8297813b177bafad1f4"
+          ]
+        }
+      ]
+    },
+    "reference": {
+      "digest": "8b5e28aa1ca300ea4b70d2f338c79a0800196823bc0dcac224a36ab7a36146ca",
+      "filters": [
+        {
+          "address": [
+            "0x498581ff718922c3f8e6a244956af099b2652b2b"
+          ],
+          "topics": [
+            [
+              "0xdd466e674ea557f56295e2d0218a125ea4b4f0f6f3307b95f85e6110838d6438",
+              "0x40e9cecb9f5f1f1c5b9c97dec2917b7ee92e57ba5563708daca94dd84ad7112f"
+            ]
+          ]
+        },
+        {
+          "address": [
+            "0x1176122eb77ad6a2339322cda7c4d7ea9bfa63dc",
+            "0x1de58a6769526a03a504d9d59b8757cd8097dc57",
+            "0xa52ad458ce0282a971ecc71c051a32f28946bb9f",
+            "0xb9e5910043353717af54d8dd34b6ee57ffe49c35",
+            "0xe3ab924c72463c1ac8d1d8352ee640b89eb1ea64",
+            "0xff70918ef17a2d74d683a8297813b177bafad1f4"
+          ]
+        }
+      ]
+    }
+  },
+  "window": {
+    "collector": {
+      "startNs": "1000000000000",
+      "endNs": "1000000000001",
+      "clock": "mono_ns"
+    },
+    "reference": {
+      "startNs": "1000000000000",
+      "endNs": "1000000000001",
+      "clock": "mono_ns"
+    }
+  },
+  "clock": {
+    "collector": {
+      "host_id": "lab-host-1",
+      "boot_id": "0f1e2d3c-4b5a-4968-8778-695a4b3c2d1e",
+      "unit": "ns",
+      "clock_uncert_ms": 0.05
+    },
+    "reference": {
+      "host_id": "lab-host-1",
+      "boot_id": "0f1e2d3c-4b5a-4968-8778-695a4b3c2d1e",
+      "unit": "ns",
+      "clock_uncert_ms": 0.05
+    }
+  },
+  "provenance": {
+    "source_id": "base-node-lab",
+    "capture_source": "live_ws",
+    "endpoint": "ws://127.0.0.1:8546",
+    "client_version": "lab/v0",
+    "decoder_version": "dec/1",
+    "registry_version": "reg/1",
+    "license_class": "own_node",
+    "partition": "base/2026-10-10",
+    "rawWriter": {
+      "location": "/lab/tier0",
+      "pin": "9763f254427e5e4e3cdcf54f961bd9815279add0"
+    }
+  },
+  "caps": {
+    "reconnect": 1,
+    "wsMessages": 1000000,
+    "wsBytes": 1073741824,
+    "backfillBlocks": 1900,
+    "enforcedInSource": true,
+    "enforcementPin": "de594f1dc16f23fec13b6a4c0b8f82e101c21c40"
+  },
+  "freshness": {
+    "source": "operator_supplied",
+    "maxAgeS": 5,
+    "maxEvidenceAgeS": 300,
+    "http": {
+      "observedAtUtc": "2026-10-10T05:35:41Z",
+      "head": 52410596,
+      "ageS": 2.12
+    },
+    "ws": {
+      "observedAtUtc": "2026-10-10T05:36:21Z",
+      "heads": [
+        52410615,
+        52410616,
+        52410617
+      ],
+      "ageS": 0.4
+    },
+    "recovery": "complete"
+  },
+  "defects": {
+    "M1": {
+      "state": "resolved"
+    },
+    "M2": {
+      "state": "resolved"
+    },
+    "provenance": {
+      "state": "resolved"
+    },
+    "inSourceCaps": {
+      "state": "resolved"
+    },
+    "jointIntegration": {
+      "state": "resolved"
+    }
+  }
+}

@@ -1,22 +1,25 @@
 {
-  "schema": "native-preflight-input/1",
-  "fixture": "SYNTHETIC partial transport recovery, ws head gap",
+  "schema": "native-preflight-input/2",
+  "fixture": "SYNTHETIC recovery partial, ws head gap",
   "asOfUtc": "2026-10-10T05:36:30Z",
+  "claimScope": [
+    "native_collector_run"
+  ],
   "pins": {
     "collector": {
-      "commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-      "tree": "1111111111111111111111111111111111111111",
-      "manifestSha256": "2222222222222222222222222222222222222222222222222222222222222222"
+      "commit": "de594f1dc16f23fec13b6a4c0b8f82e101c21c40",
+      "tree": "bc0f8c7a6ac706d8c0f76aca87aa6c74ac3675eb",
+      "manifestSha256": "3370fc47860d9a4d94788bd81c8e7c22024bb0540fa3e1ace583a4ecd3ded327"
     },
     "nativePath": {
-      "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-      "tree": "3333333333333333333333333333333333333333",
-      "manifestSha256": "4444444444444444444444444444444444444444444444444444444444444444"
+      "commit": "dbc9be9493b721a0a0d15a43a359d418f9e167bc",
+      "tree": "350002efbafd9f21799f7276c2a10f69c74789e2",
+      "manifestSha256": "c1a3ad9397330c4493993ffcb3c23bf1f94105dc954f9727167aba5275668775"
     },
     "reference": {
-      "commit": "cccccccccccccccccccccccccccccccccccccccc",
-      "tree": "5555555555555555555555555555555555555555",
-      "manifestSha256": "6666666666666666666666666666666666666666666666666666666666666666"
+      "commit": "437285c0d7d45ddcc8320b8f6d8799f94ea3677b",
+      "tree": "0a4920099ba853e4b0aef3f262d43c12dbb6f9cc",
+      "manifestSha256": "531bb95eeb0379dba827ce9f736ce77235abea9f7d12a0287f2b7309a16b4387"
     }
   },
   "filters": {
@@ -87,35 +90,30 @@
   },
   "clock": {
     "collector": {
-      "host_id": "synthetic-host",
+      "host_id": "lab-host-1",
       "boot_id": "0f1e2d3c-4b5a-4968-8778-695a4b3c2d1e",
       "unit": "ns",
       "clock_uncert_ms": 0.05
     },
     "reference": {
-      "host_id": "synthetic-host",
+      "host_id": "lab-host-1",
       "boot_id": "0f1e2d3c-4b5a-4968-8778-695a4b3c2d1e",
       "unit": "ns",
       "clock_uncert_ms": 0.05
     }
   },
   "provenance": {
-    "source_id": "base-node-synthetic",
+    "source_id": "base-node-lab",
     "capture_source": "live_ws",
     "endpoint": "ws://127.0.0.1:8546",
-    "client_version": "synthetic/v0",
-    "decoder_version": "synthetic-dec/1",
-    "registry_version": "synthetic-reg/1",
+    "client_version": "lab/v0",
+    "decoder_version": "dec/1",
+    "registry_version": "reg/1",
     "license_class": "own_node",
     "partition": "base/2026-10-10",
     "rawWriter": {
-      "location": "/synthetic/tier0",
-      "pin": "dddddddddddddddddddddddddddddddddddddddd",
-      "ackBinding": [
-        "id",
-        "epoch",
-        "seq"
-      ]
+      "location": "/lab/tier0",
+      "pin": "9763f254427e5e4e3cdcf54f961bd9815279add0"
     }
   },
   "caps": {
@@ -124,7 +122,7 @@
     "wsBytes": 1073741824,
     "backfillBlocks": 1900,
     "enforcedInSource": true,
-    "enforcementPin": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    "enforcementPin": "de594f1dc16f23fec13b6a4c0b8f82e101c21c40"
   },
   "freshness": {
     "source": "operator_supplied",
@@ -143,60 +141,23 @@
       ],
       "ageS": 0.4
     },
-    "recovery": "partial",
-    "note": "Codex observation relayed by Jack 2026-10-10; supplied timestamps only"
+    "recovery": "partial"
   },
   "defects": {
     "M1": {
-      "state": "resolved",
-      "pin": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-      "oracle": [
-        "O1",
-        "O2",
-        "O3"
-      ],
-      "reviewRef": "synthetic-review"
+      "state": "resolved"
     },
     "M2": {
-      "state": "resolved",
-      "pin": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-      "oracle": [
-        "O4",
-        "O5",
-        "O6"
-      ],
-      "reviewRef": "synthetic-review"
+      "state": "resolved"
     },
     "provenance": {
-      "state": "resolved",
-      "pin": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-      "oracle": [
-        "O7",
-        "O8",
-        "O9",
-        "O10",
-        "O11"
-      ],
-      "reviewRef": "synthetic-review"
+      "state": "resolved"
     },
     "inSourceCaps": {
-      "state": "resolved",
-      "pin": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-      "oracle": [
-        "O12",
-        "O13",
-        "O14"
-      ],
-      "reviewRef": "synthetic-review"
+      "state": "resolved"
     },
     "jointIntegration": {
-      "state": "resolved",
-      "pin": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-      "oracle": [
-        "O15",
-        "O16"
-      ],
-      "reviewRef": "synthetic-review"
+      "state": "resolved"
     }
   }
 }

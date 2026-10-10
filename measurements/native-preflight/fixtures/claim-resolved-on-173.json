@@ -1,7 +1,10 @@
 {
-  "schema": "native-preflight-input/1",
-  "fixture": "current manifest with operator claiming M1 resolved at 5206f90",
-  "asOfUtc": "2026-10-10T05:36:30Z",
+  "schema": "native-preflight-input/2",
+  "fixture": "current manifest; operator claims M1 resolved at 5206f90",
+  "asOfUtc": "2026-10-10T05:47:20Z",
+  "claimScope": [
+    "native_collector_run"
+  ],
   "pins": {
     "collector": {
       "commit": "5206f9035ad1c057d78990b294941221e936f895",
@@ -105,9 +108,9 @@
     "maxAgeS": 5,
     "maxEvidenceAgeS": 300,
     "http": {
-      "observedAtUtc": "2026-10-10T05:35:41Z",
-      "head": 52410596,
-      "ageS": 2.12
+      "observedAtUtc": "2026-10-10T05:47:11Z",
+      "head": 52410942,
+      "ageS": 0.72
     },
     "ws": {
       "observedAtUtc": "2026-10-10T05:36:21Z",
@@ -118,17 +121,19 @@
       ],
       "ageS": 0.4
     },
-    "recovery": "complete",
-    "note": "Codex observation relayed by Jack 2026-10-10; supplied timestamps only"
+    "recovery": "complete"
+  },
+  "aromer": {
+    "observedAtUtc": "2026-10-10T05:47:11Z",
+    "pid": 18507,
+    "head": 52318772,
+    "ageS": 184340.7,
+    "processed": 86352,
+    "feedState": "down"
   },
   "defects": {
     "M1": {
-      "state": "resolved",
-      "pin": "5206f9035ad1c057d78990b294941221e936f895",
-      "oracle": [
-        "O1"
-      ],
-      "reviewRef": "claim"
+      "state": "resolved"
     },
     "M2": {
       "state": "unresolved"
