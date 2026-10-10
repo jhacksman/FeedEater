@@ -9,7 +9,9 @@
     "audit_rev1": "d7719e533f170222bbe3a8548090e8c9e579d42b",
     "audit_rev2": "419346d7f774118b66cb786397ea015709280345",
     "spec": "aromer 68da3589baa8dbc8cdee538facd342a4969b1a96 docs/spec/v1/SPEC-v1.md l.1075-1093, l.1116-1127",
-    "clock_defect_evidence": "aromer 6da930b67675475433a8a6706df8fd9d3beda0c3 docs/realignment/O1-INPUT-CHECKPOINT-2026-10-10.md:62-68"
+    "clock_defect_evidence": "aromer 6da930b67675475433a8a6706df8fd9d3beda0c3 docs/realignment/O1-INPUT-CHECKPOINT-2026-10-10.md:62-68",
+    "audit_rev3": "b9dd1228e97ff39340f002442ce3460ef41ee9d0",
+    "spec_extra": "aromer 68da358 SPEC-v1.md l.1062 DAT-IDN-012, l.1998 I-1, l.2635 LAT-006"
   },
   "options": [
     "retain_one_bounded_candidate",
@@ -59,6 +61,27 @@
         "O6"
       ]
     },
+    "S3a": {
+      "name": "DAT-PRV-001 Tier-0 as-received writer",
+      "status": "missing; no owning scope",
+      "prerequisite_of": [
+        "S3"
+      ],
+      "files_at_pin": [
+        "src/collector.ts:291",
+        "src/collector.ts:363-384",
+        "src/persister.ts:126-167"
+      ],
+      "accept": {
+        "a": "re-decoding Tier-0 reproduces a deleted Tier-1 partition byte for byte",
+        "b": "writer stalled 2 s on a fixed 10,000-event fixture: decision p99 within max(1 ms, 10%) of control"
+      },
+      "depends_on": [],
+      "oracle": [
+        "O17",
+        "O18"
+      ]
+    },
     "S3": {
       "name": "DAT-PRV-002 provenance",
       "files": [
@@ -92,7 +115,11 @@
         "t_ingest"
       ],
       "rule": "never predicted or placeholder; unresolved until writer ack keyed by id/epoch/seq",
-      "depends_on": [],
+      "depends_on": [
+        "S3a",
+        "owner:writer_ack_conflict",
+        "owner:natural_key"
+      ],
       "oracle": [
         "O7",
         "O8",
@@ -176,7 +203,7 @@
       "id": "O7",
       "scope": "S3",
       "given": "fixture run",
-      "expect": "100% records carry source_id, capture_source enum, endpoint, client_version, decoder_version, registry_version, license_class (unknown allowed), partition, t_recv_wall_ns, t_recv_mono_ns, boot_id, host_id, t_publish"
+      "expect": "100% records carry source_id, capture_source enum, endpoint, client_version, decoder_version, registry_version, license_class (unknown allowed), partition, t_recv_wall_ns, t_recv_mono_ns, boot_id, host_id, t_publish, t_event + ts_source, clock_offset_est_ms, clock_uncert_ms (each a value or explicit unknown; never defaulted)"
     },
     {
       "id": "O8",
@@ -188,7 +215,8 @@
       "id": "O9",
       "scope": "S3",
       "given": "writer stalled 2 s",
-      "expect": "publish not delayed; raw_ref/t_ingest unresolved"
+      "expect": "publish not delayed; raw_ref/t_ingest unresolved",
+      "sufficiency": "necessary, not sufficient; O18 required"
     },
     {
       "id": "O10",
@@ -231,6 +259,18 @@
       "scope": "S4",
       "given": "guarded run",
       "expect": "same hop on both arms or neither; overhead reported separately from DAT-SRC-011"
+    },
+    {
+      "id": "O17",
+      "scope": "S3a",
+      "given": "Tier-1 partition deleted",
+      "expect": "re-decoding Tier-0 reproduces it byte for byte"
+    },
+    {
+      "id": "O18",
+      "scope": "S3a",
+      "given": "writer stalled 2 s on a fixed 10,000-event fixture",
+      "expect": "decision p99 within max(1 ms, 10%) of control"
     }
   ],
   "evidence_classes": {
@@ -240,12 +280,12 @@
     "native_thor_dat_src_011": "none exists"
   },
   "missing_native_inputs": [
-    "fresh node head",
     "declared window",
     "reference subscriber host binding",
     "client_version capture",
     "license class declaration",
-    "Tier-0 writer location"
+    "Tier-0 writer (S3a) and location",
+    "owner decisions Q1, Q2"
   ],
   "not_in_scope": [
     "implementation",
@@ -255,5 +295,58 @@
     "social",
     "holdout",
     "T7"
-  ]
+  ],
+  "revision": 2,
+  "supersedes": "1c519811df3e2a624b45b9e4e95facd77a840a1f",
+  "unresolved_spec_questions": [
+    {
+      "id": "Q1",
+      "topic": "writer ack vs DAT-PRV-002",
+      "detail": "raw_ref and t_ingest unavailable at publish (DAT-PRV-001/003) vs every record carries them, 0 missing (DAT-PRV-002 l.1078-1089)",
+      "state": "unresolved_owner",
+      "not": [
+        "solved",
+        "waived"
+      ]
+    },
+    {
+      "id": "Q2",
+      "topic": "natural key",
+      "detail": "LAT-006 (chainId, blockHash, txHash, logIndex) / dedup (blockHash, logIndex, removed) vs DAT-IDN-012 / I-1 (chain_id, block_hash, log_index); #173 txHash carried not key-enforced, chainId absent",
+      "state": "unresolved_owner"
+    }
+  ],
+  "authorization": {
+    "read_only_development_measurements": "already authorized; no new approval imposed",
+    "owner_reserved": [
+      "frozen S1/S2 repair",
+      "spec resolution (Q1, Q2)",
+      "D8 admission"
+    ]
+  },
+  "node_timestamps_supplied": {
+    "source": "Codex observation relayed by Jack; not inferred",
+    "http": {
+      "at": "05:35:41Z",
+      "head": 52410596,
+      "age_s": 2.12
+    },
+    "ws": {
+      "at": "05:36:17-21Z",
+      "heads": [
+        52410615,
+        52410616,
+        52410617
+      ],
+      "age_s": [
+        0.37,
+        0.4
+      ]
+    },
+    "aromer": {
+      "last_processing": "05:36:08",
+      "head": 52318772,
+      "stale": "~51h"
+    }
+  }
 }
