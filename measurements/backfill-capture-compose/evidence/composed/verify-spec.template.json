@@ -1,0 +1,14 @@
+{
+  "schema": "backfill-receipt-verify-input/1",
+  "manifest": {
+    "fileSha256": "3a5431c2e55a0a1f1b99d6c22b219febe47f2b0f5a10800abf8f80011484a527",
+    "manifestSha256": "3eab7f47965ce96afdf9791ed37176b136f8de67b4ed655eee0cc14ef313c0c4"
+  },
+  "plan": {
+    "fileSha256": "794ec1613ac607c70e9a8a161c6dd237da9b83e95c31809b81ad2990ac797108",
+    "planSha256": "20d2bedef2b0dfee938bcd37d5b5f34a9229ee958de0dfa255677b9ef4156459"
+  },
+  "receipts": {
+    "fileSha256": "UNRESOLVED_AFTER_CAPTURE_RECEIPTS_JSON_SHA256"
+  }
+}

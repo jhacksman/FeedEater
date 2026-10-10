@@ -1,0 +1,145 @@
+{
+  "schema": "backfill-capture-compose-handoff/1",
+  "components": {
+    "compile": {
+      "file": "filter-manifest/compile.mjs",
+      "sha256": "a01e632ea490479b517ca676d8664e15920e633e977dd2d6c844f3019d55c903",
+      "commit": "42185f2170fb68e5d55b5e8507f480229f58b4df"
+    },
+    "keccak": {
+      "file": "filter-manifest/keccak.mjs",
+      "sha256": "f2cd3d33fe6ec210ff085f5de7b7e24b7a228775ad3e7fc015712614530df142",
+      "commit": "42185f2170fb68e5d55b5e8507f480229f58b4df"
+    },
+    "plan": {
+      "file": "backfill-plan/plan.mjs",
+      "sha256": "c527e1808fcd4efa00a34a0c1dd957bffa8d56adadb584d056babe8084edcf7a",
+      "commit": "a345d48a2f003348d3fe21910518ec1e6e54db35"
+    },
+    "capture": {
+      "file": "backfill-receipt-capture/capture.mjs",
+      "sha256": "d2c1395331150c50bdee6a0bec6c7a1fb94f90499b8923b0dcb152a15ac93e9a",
+      "commit": "56f8f3bcc072f86d13b55f34f6f3632bd142f6ba"
+    },
+    "check": {
+      "file": "full-coverage-filter-contract/check.mjs",
+      "sha256": "d1d450d3f48846e897b46cd8540a25131310fa1de1b2108b43c784591c75e416",
+      "commit": "d568aee4779d648f669753a009e564ed2be4d456"
+    },
+    "verify": {
+      "file": "backfill-receipts/verify.mjs",
+      "sha256": "0eb02c033103a13053b5797614dedf8724c686f24d42bdf3f476fc1f303fda56",
+      "commit": "83aec5d72f6712711b5f22ef29777858c5b797e0"
+    }
+  },
+  "files": {
+    "filter-spec.json": {
+      "sha256": "b946173f4e1b21fb98df301f714c069d50376a8a1c4a86f7f6a40337af7baa19",
+      "bytes": 1184
+    },
+    "manifest.json": {
+      "sha256": "3a5431c2e55a0a1f1b99d6c22b219febe47f2b0f5a10800abf8f80011484a527",
+      "bytes": 5067
+    },
+    "plan-spec.json": {
+      "sha256": "02373fdcf1070a4cd884519f0a749eda1b3ed94ef6fd50a427088d31154cd751",
+      "bytes": 1216
+    },
+    "plan.json": {
+      "sha256": "794ec1613ac607c70e9a8a161c6dd237da9b83e95c31809b81ad2990ac797108",
+      "bytes": 6707
+    },
+    "capture-spec.json": {
+      "sha256": "fbbff88dccac77ca3b168e339f96db3530fd7643311e812a48da3467d301eaab",
+      "bytes": 578
+    },
+    "contract.json": {
+      "sha256": "b1ffc2b7c4889d2262a0da6d5f7ccac0363fe16c5516c582a2ab8cc8f6124533",
+      "bytes": 2749
+    },
+    "verify-spec.template.json": {
+      "sha256": "cee6ff09a8ae0f3b222f453ae8d16d1daf81f844cf20329357391bc6dc3c2008",
+      "bytes": 521
+    }
+  },
+  "manifest": {
+    "fileSha256": "3a5431c2e55a0a1f1b99d6c22b219febe47f2b0f5a10800abf8f80011484a527",
+    "manifestSha256": "3eab7f47965ce96afdf9791ed37176b136f8de67b4ed655eee0cc14ef313c0c4"
+  },
+  "plan": {
+    "fileSha256": "794ec1613ac607c70e9a8a161c6dd237da9b83e95c31809b81ad2990ac797108",
+    "planSha256": "20d2bedef2b0dfee938bcd37d5b5f34a9229ee958de0dfa255677b9ef4156459",
+    "status": "PLANNED",
+    "truncated": false,
+    "callCount": 4,
+    "calls": [
+      {
+        "index": 0,
+        "filtersetId": "poolmanager.initialize_swap",
+        "fromBlock": 1000,
+        "toBlock": 1000
+      },
+      {
+        "index": 1,
+        "filtersetId": "o1.factories.raw_all_topics",
+        "fromBlock": 1000,
+        "toBlock": 1000
+      },
+      {
+        "index": 2,
+        "filtersetId": "poolmanager.initialize_swap",
+        "fromBlock": 1001,
+        "toBlock": 1100
+      },
+      {
+        "index": 3,
+        "filtersetId": "o1.factories.raw_all_topics",
+        "fromBlock": 1001,
+        "toBlock": 1100
+      }
+    ]
+  },
+  "contract": {
+    "verdict": "CONTRACT_CONSISTENT",
+    "reportSha256": "b4653fbc00a93f041857887fecbcf0d486a35371f69d08ff56318aafb0871825"
+  },
+  "captureLimits": {
+    "maxCalls": 5,
+    "paceMs": 1250,
+    "timeoutMs": 8000,
+    "maxResponseBytes": 1048576,
+    "maxTotalBytes": 4194304
+  },
+  "commands": {
+    "cwd": "this output directory; COMPONENTS, ROOT_ENDPOINT and ROOT_CAPTURE_OUT are root-supplied shell variables",
+    "rebuildManifest": "node \"$COMPONENTS/filter-manifest/compile.mjs\" --spec filter-spec.json --sources \"$COMPONENTS/filter-manifest/sources/aromer-5669951\" | cmp - manifest.json",
+    "rebuildPlan": "node \"$COMPONENTS/backfill-plan/plan.mjs\" --spec plan-spec.json --manifest manifest.json | cmp - plan.json",
+    "checkContract": "node \"$COMPONENTS/full-coverage-filter-contract/check.mjs\" --contract contract.json --manifest manifest.json --plan plan.json",
+    "capture": "node \"$COMPONENTS/backfill-receipt-capture/capture.mjs\" --spec capture-spec.json --manifest manifest.json --plan plan.json --endpoint \"$ROOT_ENDPOINT\" --out \"$ROOT_CAPTURE_OUT\"",
+    "verifySpec": "copy verify-spec.template.json to verify-spec.json and set receipts.fileSha256 = sha256 of $ROOT_CAPTURE_OUT/receipts.json",
+    "verify": "node \"$COMPONENTS/backfill-receipts/verify.mjs\" --spec verify-spec.json --manifest manifest.json --plan plan.json --receipts \"$ROOT_CAPTURE_OUT/receipts.json\""
+  },
+  "rootInputsStillRequired": [
+    "COMPONENTS",
+    "ROOT_ENDPOINT",
+    "ROOT_CAPTURE_OUT (new directory)",
+    "verify-spec.json receipts.fileSha256 (after capture)"
+  ],
+  "transportExecuted": false,
+  "publicationProvenance": {
+    "backfill": true,
+    "live": false
+  },
+  "resumeLive": {
+    "permitted": false
+  },
+  "claims": {
+    "sourceAdmission": "NOT_ESTABLISHED",
+    "completeness": "NOT_MEASURED",
+    "delivery": "NOT_MEASURED",
+    "latency": "NOT_MEASURED",
+    "oneClock": "NOT_ESTABLISHED",
+    "q1": "UNADOPTED",
+    "q2": "UNADOPTED"
+  }
+}

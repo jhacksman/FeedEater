@@ -1,0 +1,218 @@
+{
+ "pass": 53,
+ "fail": 0,
+ "cases": [
+  {
+   "name": "compose: exit 0 COMPOSED, exactly 8 files persisted, transportExecuted false",
+   "pass": true
+  },
+  {
+   "name": "compose: every file sha/bytes in handoff.json and stdout equals the bytes on disk",
+   "pass": true
+  },
+  {
+   "name": "compose: manifest.json == 42185f2 evidence manifest bytes (3a5431c2)",
+   "pass": true
+  },
+  {
+   "name": "compose: plan-spec.json, plan.json, capture-spec.json == capture C1 56f8f3b fixtures planspec.4calls (02373fdc), plan.4calls (794ec161), spec.synthetic (fbbff88d)",
+   "pass": true
+  },
+  {
+   "name": "compose: handoff pins all 6 component files (commit + sha), plan PLANNED 4 calls, contract CONTRACT_CONSISTENT, backfill:true/live:false, resume not permitted, admission NOT_ESTABLISHED",
+   "pass": true
+  },
+  {
+   "name": "compose: rerun (cwd=/) emits byte-identical files",
+   "pass": true
+  },
+  {
+   "name": "compose: no machine path or endpoint in any emitted file",
+   "pass": true
+  },
+  {
+   "name": "commands: rebuildManifest reproduces manifest.json (cmp exit 0)",
+   "pass": true
+  },
+  {
+   "name": "commands: rebuildPlan reproduces plan.json (cmp exit 0)",
+   "pass": true
+  },
+  {
+   "name": "commands: checkContract (d568aee check.mjs) -> exit 0 CONTRACT_CONSISTENT, 22/22 PASS, reportSha256 == handoff",
+   "pass": true
+  },
+  {
+   "name": "commands: verify with the unfilled template is refused (exit 2), receipts sha left UNRESOLVED",
+   "pass": true
+  },
+  {
+   "name": "handoff: capture C1 run by its documented command on the emitted bytes -> exit 0 CAPTURED_ALL_PLANNED, exactly 4 POSTs to the fake",
+   "pass": true
+  },
+  {
+   "name": "handoff: each POST body == the emitted plan's params[0] verbatim with id index+1",
+   "pass": true
+  },
+  {
+   "name": "handoff: 83aec5d verify by its documented command on the fake receipts -> ALL_CALLS_RECEIPTED, 4 VERIFIED_EMPTY, backfill:true/live:false, resume not permitted",
+   "pass": true
+  },
+  {
+   "name": "refuse contract.subjects.live null -> root_inputs_unresolved, exit 2, no output",
+   "pass": true
+  },
+  {
+   "name": "refuse head.blockHash UNRESOLVED_ROOT_HEAD_HASH -> root_inputs_unresolved, exit 2, no output",
+   "pass": true
+  },
+  {
+   "name": "refuse six unresolved root fields at once (C, H, clockId, native factories, window.toUtc, maxTotalBytes) -> root_inputs_unresolved, exit 2, no output",
+   "pass": true
+  },
+  {
+   "name": "refuse missing contract.subjects -> spec_missing_field, exit 2, no output",
+   "pass": true
+  },
+  {
+   "name": "refuse missing captureLimits -> spec_missing_field, exit 2, no output",
+   "pass": true
+  },
+  {
+   "name": "refuse caller-supplied planInputs.manifest (pins are derived from the compile only) -> spec_unknown_field, exit 2, no output",
+   "pass": true
+  },
+  {
+   "name": "refuse unknown top-level field endpoint -> spec_unknown_field, exit 2, no output",
+   "pass": true
+  },
+  {
+   "name": "refuse duplicate key -> spec_refused, exit 2, no output",
+   "pass": true
+  },
+  {
+   "name": "refuse wrong schema -> spec_schema_mismatch, exit 2, no output",
+   "pass": true
+  },
+  {
+   "name": "refuse compile: PoolManager Swap topic changed -> compile_refused, exit 2, no output",
+   "pass": true
+  },
+  {
+   "name": "refuse compile: five factories -> compile_refused, exit 2, no output",
+   "pass": true
+  },
+  {
+   "name": "refuse plan: checkpoint.manifestSha256 not the compiled manifest -> plan_refused, exit 2, no output",
+   "pass": true
+  },
+  {
+   "name": "refuse plan: head before checkpoint (pinned plan.mjs plans UNKNOWN_NEEDS_RECONCILIATION, not a refusal) -> capture_preflight_refused, exit 2, no output",
+   "pass": true
+  },
+  {
+   "name": "refuse capture preflight: 8-call plan (H=1250, L=64) over maxCalls 5 -> capture_preflight_refused, exit 2, no output",
+   "pass": true
+  },
+  {
+   "name": "refuse capture preflight: removedLogsSeen -> UNKNOWN_NEEDS_RECONCILIATION -> capture_preflight_refused, exit 2, no output",
+   "pass": true
+  },
+  {
+   "name": "refuse capture preflight: plan maxCalls 3 truncates 4 calls -> capture_preflight_refused, exit 2, no output",
+   "pass": true
+  },
+  {
+   "name": "refuse capture preflight: paceMs 1249 -> capture_preflight_refused, exit 2, no output",
+   "pass": true
+  },
+  {
+   "name": "refuse capture preflight: maxCalls 6 -> capture_preflight_refused, exit 2, no output",
+   "pass": true
+  },
+  {
+   "name": "refuse capture preflight: maxTotalBytes above plan maxBytes -> capture_preflight_refused, exit 2, no output",
+   "pass": true
+  },
+  {
+   "name": "refuse contract: window toBlock 1099 -> contract_not_consistent, exit 2, no output",
+   "pass": true
+  },
+  {
+   "name": "refuse contract: narrow Launched-only direct.factories -> contract_not_consistent, exit 2, no output",
+   "pass": true
+  },
+  {
+   "name": "refuse contract: native PoolManager Swap only -> contract_not_consistent, exit 2, no output",
+   "pass": true
+  },
+  {
+   "name": "refuse contract: backfill subject == live subject -> contract_not_consistent, exit 2, no output",
+   "pass": true
+  },
+  {
+   "name": "refuse contract: observation fromUtc differs from manifest window -> contract_not_consistent, exit 2, no output",
+   "pass": true
+  },
+  {
+   "name": "refuse contract: comparison caps differ -> contract_not_consistent, exit 2, no output",
+   "pass": true
+  },
+  {
+   "name": "refuse modified plan.mjs component -> component_hash_mismatch, exit 2, no output",
+   "pass": true
+  },
+  {
+   "name": "refuse missing verify.mjs component -> component_missing, exit 2, no output",
+   "pass": true
+  },
+  {
+   "name": "refuse symlinked check.mjs component -> component_is_symlink, exit 2, no output",
+   "pass": true
+  },
+  {
+   "name": "refuse existing --out -> capture_preflight_refused out_dir_exists, exit 2, directory left empty",
+   "pass": true
+  },
+  {
+   "name": "refuse --out under a symlinked parent -> capture_preflight_refused, exit 2, no output",
+   "pass": true
+  },
+  {
+   "name": "refuse --out with a missing parent -> capture_preflight_refused, exit 2, no output",
+   "pass": true
+  },
+  {
+   "name": "refuse missing --components -> cli_missing_argument",
+   "pass": true
+  },
+  {
+   "name": "refuse duplicate --spec -> cli_duplicate_argument",
+   "pass": true
+  },
+  {
+   "name": "refuse unknown --endpoint -> cli_unknown_argument",
+   "pass": true
+  },
+  {
+   "name": "write: every writeSync capped at 8 B -> COMPOSED, all files byte-identical to the normal run",
+   "pass": true
+  },
+  {
+   "name": "write: EIO on contract.json -> exit 5 WRITE_FAILED, stage write, 5 earlier files persisted exact, no handoff.json",
+   "pass": true
+  },
+  {
+   "name": "static: compose.mjs has no network, child process, env, clock, scan, delete or capture-transport call",
+   "pass": true
+  },
+  {
+   "name": "static: the only capture export used is preflight; the only plan export besides plan() is strictParse",
+   "pass": true
+  },
+  {
+   "name": "static: fixture unchanged",
+   "pass": true
+  }
+ ]
+}
