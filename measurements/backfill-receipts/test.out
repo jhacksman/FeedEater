@@ -1,0 +1,71 @@
+PASS fixture manifest = 42185f2 evidence/manifest.synthetic.json; fixture plan = a345d48 evidence/plan.synthetic.json (byte-exact)
+PASS a345d48 plan.mjs extracted for plan variants matches its pinned sha256
+PASS a345d48 plan.mjs regenerates the fixture plan byte-identically
+PASS gen.mjs regenerates the checked-in fixtures/receipts byte-identically
+PASS complete receipts (8/8): exit 0 ALL_CALLS_RECEIPTED
+PASS complete: provenance backfill:true live:false; resumeLive.permitted false; admission NOT_ESTABLISHED; completeness NOT_ESTABLISHED; Q1/Q2 UNADOPTED
+PASS optional reth blockTimestamp preserved verbatim where present, ABSENT where absent
+PASS PoolManager logs Initialize/Swap; factory logs with unknown topic0 accepted (raw all topics, no fixed pools)
+PASS reportSha256 recomputes; canonical stdout; rerun and cwd=/ with absolute paths byte-identical
+PASS one missing receipt (call 3): exit 0 UNKNOWN
+PASS all receipts missing: exit 0 UNKNOWN
+PASS RPC error on call 2: exit 0 UNKNOWN
+PASS over budget: plan maxBytes = total response bytes - 1: exit 0 UNKNOWN
+PASS valid empty result where plan expects logs is still VERIFIED_EMPTY (no expected-volume claim): exit 0 ALL_CALLS_RECEIPTED
+PASS truncated response bytes (last 7 bytes cut): exit 0 UNKNOWN
+PASS malformed response bytes: exit 0 UNKNOWN
+PASS duplicate key in response: exit 0 UNKNOWN
+PASS result and error both present: exit 0 UNKNOWN
+PASS response sha mismatch (receipt sha of other bytes): exit 0 UNKNOWN
+PASS request sha mismatch: exit 0 UNKNOWN
+PASS request range differs from plan (toBlock+1): exit 0 UNKNOWN
+PASS PoolManager request without topics: exit 0 UNKNOWN
+PASS factory request missing one factory address: exit 0 UNKNOWN
+PASS request method eth_getFilterLogs: exit 0 UNKNOWN
+PASS response id differs: exit 0 UNKNOWN
+PASS response id type differs ("4" vs 4): exit 0 UNKNOWN
+PASS response id missing: exit 0 UNKNOWN
+PASS log block outside request range: exit 0 UNKNOWN
+PASS log address not in filter: exit 0 UNKNOWN
+PASS PoolManager log with ModifyLiquidity topic0: exit 0 UNKNOWN
+PASS malformed log: uppercase blockHash: exit 0 UNKNOWN
+PASS malformed log: leading-zero quantity: exit 0 UNKNOWN
+PASS malformed log: unknown field: exit 0 UNKNOWN
+PASS malformed log: missing removed: exit 0 UNKNOWN
+PASS malformed log: odd data: exit 0 UNKNOWN
+PASS malformed log: 5 topics: exit 0 UNKNOWN
+PASS malformed log: blockTimestamp number: exit 0 UNKNOWN
+PASS same identity (blockHash, logIndex) with conflicting data in calls 2 and 3: exit 0 UNKNOWN
+PASS same identity identical content repeated in one response is not a conflict: exit 0 ALL_CALLS_RECEIPTED
+PASS removed then re-added (removed:true and removed:false, same identity): exit 0 UNKNOWN
+PASS removed:true alone: exit 0 UNKNOWN
+PASS same blockNumber, two blockHashes (calls 2 and 3): exit 0 UNKNOWN
+PASS plan TRUNCATED_CALL_BUDGET with all 5 planned calls receipted: exit 0 UNKNOWN
+PASS plan UNKNOWN_NEEDS_RECONCILIATION (no calls): exit 0 UNKNOWN
+PASS no implicit file scan: valid call-7 files present but not in the index stay MISSING: exit 0 UNKNOWN
+PASS refuse duplicate key in receipts index: exit 2 json_duplicate_key
+PASS refuse receipt for unplanned call 8: exit 2 receipt_for_unplanned_call
+PASS refuse two receipts for call 0: exit 2 receipt_duplicate_call
+PASS refuse receipt file with path separator: exit 2 receipt_file_name_invalid
+PASS refuse receipt file '..': exit 2 receipt_file_name_invalid
+PASS refuse receipt file absent: exit 2 receipt_file_missing
+PASS refuse receipt file is a symlink: exit 2 receipt_file_is_symlink
+PASS refuse receipts index for another plan: exit 2 receipts_plan_mismatch
+PASS refuse receipts index unknown field: exit 2 spec_unknown_field
+PASS refuse receipts index sha not pinned: exit 2 receipts_file_hash_mismatch
+PASS refuse non-canonical plan bytes: exit 2 plan_noncanonical
+PASS refuse plan self-hash broken: exit 2 plan_self_hash_mismatch
+PASS refuse plan call request not bound to manifest filter/range (re-hashed): exit 2 plan_call_unbound
+PASS refuse plan built from another manifest (re-hashed): exit 2 plan_manifest_mismatch
+PASS refuse spec pins another planSha256: exit 2 plan_identity_mismatch
+PASS refuse spec pins another plan file sha: exit 2 plan_file_hash_mismatch
+PASS refuse spec pins another manifest: exit 2 filter_identity_mismatch
+PASS refuse spec unknown field: exit 2 spec_unknown_field
+PASS refuse spec duplicate key: exit 2 json_duplicate_key
+PASS refuse no arguments: exit 2 usage
+PASS refuse missing --receipts: exit 2 usage
+PASS refuse duplicate --plan: exit 2 usage_duplicate_argument
+PASS refuse unknown --dir: exit 2 usage
+PASS static: verify.mjs has no network/process/clock/write/env/directory-scan APIs
+PASS fixtures unchanged by the run
+70 PASS, 0 FAIL

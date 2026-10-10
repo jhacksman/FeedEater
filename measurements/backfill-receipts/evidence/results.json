@@ -1,0 +1,1830 @@
+{
+  "note": "synthetic acceptance cases only; not canonicality, completeness, delivery, latency or source-admission evidence",
+  "pass": 70,
+  "fail": 0,
+  "results": [
+    {
+      "case": "fixture manifest = 42185f2 evidence/manifest.synthetic.json; fixture plan = a345d48 evidence/plan.synthetic.json (byte-exact)",
+      "ok": true,
+      "expected": "byte-exact",
+      "actual": {
+        "manifest": "3a5431c2e55a0a1f1b99d6c22b219febe47f2b0f5a10800abf8f80011484a527",
+        "plan": "3299b8fbcdd1156efd690d779758c5c8818d2ca36df4f18162e9a9fc771ef716"
+      }
+    },
+    {
+      "case": "a345d48 plan.mjs extracted for plan variants matches its pinned sha256",
+      "ok": true,
+      "expected": "c527e180…",
+      "actual": "c527e1808fcd4efa00a34a0c1dd957bffa8d56adadb584d056babe8084edcf7a"
+    },
+    {
+      "case": "a345d48 plan.mjs regenerates the fixture plan byte-identically",
+      "ok": true,
+      "expected": "3299b8fbcdd1156efd690d779758c5c8818d2ca36df4f18162e9a9fc771ef716",
+      "actual": "3299b8fbcdd1156efd690d779758c5c8818d2ca36df4f18162e9a9fc771ef716"
+    },
+    {
+      "case": "gen.mjs regenerates the checked-in fixtures/receipts byte-identically",
+      "ok": true,
+      "expected": "identical",
+      "actual": 17
+    },
+    {
+      "case": "complete receipts (8/8): exit 0 ALL_CALLS_RECEIPTED",
+      "ok": true,
+      "expected": {
+        "verdict": "ALL_CALLS_RECEIPTED",
+        "statuses": [
+          "VERIFIED_LOGS",
+          "VERIFIED_EMPTY",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS"
+        ]
+      },
+      "actual": {
+        "rc": 0,
+        "verdict": "ALL_CALLS_RECEIPTED",
+        "statuses": [
+          "VERIFIED_LOGS",
+          "VERIFIED_EMPTY",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS"
+        ],
+        "reasons": []
+      }
+    },
+    {
+      "case": "complete: provenance backfill:true live:false; resumeLive.permitted false; admission NOT_ESTABLISHED; completeness NOT_ESTABLISHED; Q1/Q2 UNADOPTED",
+      "ok": true,
+      "expected": "as stated",
+      "actual": {
+        "p": {
+          "backfill": true,
+          "live": false
+        },
+        "r": {
+          "permitted": false,
+          "reason": "a receipt verification never grants live resumption; caller hashes and RPC content are unverified against any chain"
+        },
+        "c": {
+          "binding": "UNKNOWN",
+          "canonicality": "UNVERIFIED",
+          "completeness": "NOT_ESTABLISHED",
+          "latency": "NOT_MEASURED",
+          "sourceAdmission": "NOT_ESTABLISHED"
+        }
+      }
+    },
+    {
+      "case": "optional reth blockTimestamp preserved verbatim where present, ABSENT where absent",
+      "ok": true,
+      "expected": {
+        "present": "0x386d4ad2",
+        "absent": "ABSENT"
+      },
+      "actual": [
+        "0x386d4ad2",
+        "ABSENT"
+      ]
+    },
+    {
+      "case": "PoolManager logs Initialize/Swap; factory logs with unknown topic0 accepted (raw all topics, no fixed pools)",
+      "ok": true,
+      "expected": "as stated",
+      "actual": {
+        "pm": [
+          "0x40e9cecb9f5f1f1c5b9c97dec2917b7ee92e57ba5563708daca94dd84ad7112f",
+          "0xdd466e674ea557f56295e2d0218a125ea4b4f0f6f3307b95f85e6110838d6438"
+        ],
+        "fac": {
+          "address": "0xb9e5910043353717af54d8dd34b6ee57ffe49c35",
+          "blockHash": "0xa59ec0950d33a29d153c6ed4d99a82fba80548bd12d2eaae2716817f557a7d5a",
+          "blockNumber": "0x3e9",
+          "blockTimestamp": "ABSENT",
+          "contentSha256": "961b401336c10a9d9e87c77dbf464d66f973199f0624ad4588b67e886542a51b",
+          "logIndex": "0x5",
+          "removed": false,
+          "topic0": "0xd506b5ccd872404acb1901568b1c6c73c04ee474b9ac74f509ae216634e88b40",
+          "transactionHash": "0x20b6e89c0f46835c419b4da645be31076d7721fdb4a4c1e174ce702cf9bfff5f",
+          "transactionIndex": "0x5"
+        }
+      }
+    },
+    {
+      "case": "reportSha256 recomputes; canonical stdout; rerun and cwd=/ with absolute paths byte-identical",
+      "ok": true,
+      "expected": "identical",
+      "actual": "4bf54fd147e464872b87e38b5c73d2b9e08a5b401052336de67927a9dd7b9915"
+    },
+    {
+      "case": "one missing receipt (call 3): exit 0 UNKNOWN",
+      "ok": true,
+      "expected": {
+        "verdict": "UNKNOWN",
+        "statuses": [
+          "VERIFIED_LOGS",
+          "VERIFIED_EMPTY",
+          "VERIFIED_LOGS",
+          "MISSING",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS"
+        ]
+      },
+      "actual": {
+        "rc": 0,
+        "verdict": "UNKNOWN",
+        "statuses": [
+          "VERIFIED_LOGS",
+          "VERIFIED_EMPTY",
+          "VERIFIED_LOGS",
+          "MISSING",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS"
+        ],
+        "reasons": [
+          "missing_calls"
+        ]
+      }
+    },
+    {
+      "case": "all receipts missing: exit 0 UNKNOWN",
+      "ok": true,
+      "expected": {
+        "verdict": "UNKNOWN",
+        "statuses": [
+          "MISSING",
+          "MISSING",
+          "MISSING",
+          "MISSING",
+          "MISSING",
+          "MISSING",
+          "MISSING",
+          "MISSING"
+        ]
+      },
+      "actual": {
+        "rc": 0,
+        "verdict": "UNKNOWN",
+        "statuses": [
+          "MISSING",
+          "MISSING",
+          "MISSING",
+          "MISSING",
+          "MISSING",
+          "MISSING",
+          "MISSING",
+          "MISSING"
+        ],
+        "reasons": [
+          "missing_calls"
+        ]
+      }
+    },
+    {
+      "case": "RPC error on call 2: exit 0 UNKNOWN",
+      "ok": true,
+      "expected": {
+        "verdict": "UNKNOWN",
+        "statuses": [
+          "VERIFIED_LOGS",
+          "VERIFIED_EMPTY",
+          "RPC_ERROR",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS"
+        ]
+      },
+      "actual": {
+        "rc": 0,
+        "verdict": "UNKNOWN",
+        "statuses": [
+          "VERIFIED_LOGS",
+          "VERIFIED_EMPTY",
+          "RPC_ERROR",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS"
+        ],
+        "reasons": [
+          "calls_not_verified"
+        ],
+        "detail": {
+          "code": -32005,
+          "message": "query returned more than 10000 results"
+        }
+      }
+    },
+    {
+      "case": "over budget: plan maxBytes = total response bytes - 1: exit 0 UNKNOWN",
+      "ok": true,
+      "expected": {
+        "verdict": "UNKNOWN",
+        "statuses": [
+          "VERIFIED_LOGS",
+          "VERIFIED_EMPTY",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "OVER_BUDGET"
+        ]
+      },
+      "actual": {
+        "rc": 0,
+        "verdict": "UNKNOWN",
+        "statuses": [
+          "VERIFIED_LOGS",
+          "VERIFIED_EMPTY",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "OVER_BUDGET"
+        ],
+        "reasons": [
+          "calls_not_verified"
+        ],
+        "detail": {
+          "cumulativeResponseBytes": 6253,
+          "maxBytes": 6252
+        }
+      }
+    },
+    {
+      "case": "valid empty result where plan expects logs is still VERIFIED_EMPTY (no expected-volume claim): exit 0 ALL_CALLS_RECEIPTED",
+      "ok": true,
+      "expected": {
+        "verdict": "ALL_CALLS_RECEIPTED",
+        "statuses": [
+          "VERIFIED_EMPTY",
+          "VERIFIED_EMPTY",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS"
+        ]
+      },
+      "actual": {
+        "rc": 0,
+        "verdict": "ALL_CALLS_RECEIPTED",
+        "statuses": [
+          "VERIFIED_EMPTY",
+          "VERIFIED_EMPTY",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS"
+        ],
+        "reasons": []
+      }
+    },
+    {
+      "case": "truncated response bytes (last 7 bytes cut): exit 0 UNKNOWN",
+      "ok": true,
+      "expected": {
+        "verdict": "UNKNOWN",
+        "statuses": [
+          "VERIFIED_LOGS",
+          "VERIFIED_EMPTY",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "TRUNCATED_RESPONSE",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS"
+        ]
+      },
+      "actual": {
+        "rc": 0,
+        "verdict": "UNKNOWN",
+        "statuses": [
+          "VERIFIED_LOGS",
+          "VERIFIED_EMPTY",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "TRUNCATED_RESPONSE",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS"
+        ],
+        "reasons": [
+          "calls_not_verified"
+        ],
+        "detail": {
+          "at": 1121,
+          "m": "value",
+          "where": "response"
+        }
+      }
+    },
+    {
+      "case": "malformed response bytes: exit 0 UNKNOWN",
+      "ok": true,
+      "expected": {
+        "verdict": "UNKNOWN",
+        "statuses": [
+          "VERIFIED_LOGS",
+          "VERIFIED_EMPTY",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "MALFORMED_RESPONSE",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS"
+        ]
+      },
+      "actual": {
+        "rc": 0,
+        "verdict": "UNKNOWN",
+        "statuses": [
+          "VERIFIED_LOGS",
+          "VERIFIED_EMPTY",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "MALFORMED_RESPONSE",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS"
+        ],
+        "reasons": [
+          "calls_not_verified"
+        ],
+        "detail": {
+          "at": 1,
+          "m": "key",
+          "where": "response"
+        }
+      }
+    },
+    {
+      "case": "duplicate key in response: exit 0 UNKNOWN",
+      "ok": true,
+      "expected": {
+        "verdict": "UNKNOWN",
+        "statuses": [
+          "VERIFIED_LOGS",
+          "VERIFIED_EMPTY",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "MALFORMED_RESPONSE",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS"
+        ]
+      },
+      "actual": {
+        "rc": 0,
+        "verdict": "UNKNOWN",
+        "statuses": [
+          "VERIFIED_LOGS",
+          "VERIFIED_EMPTY",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "MALFORMED_RESPONSE",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS"
+        ],
+        "reasons": [
+          "calls_not_verified"
+        ],
+        "detail": {
+          "key": "id",
+          "where": "response"
+        }
+      }
+    },
+    {
+      "case": "result and error both present: exit 0 UNKNOWN",
+      "ok": true,
+      "expected": {
+        "verdict": "UNKNOWN",
+        "statuses": [
+          "VERIFIED_LOGS",
+          "VERIFIED_EMPTY",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "MALFORMED_RESPONSE",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS"
+        ]
+      },
+      "actual": {
+        "rc": 0,
+        "verdict": "UNKNOWN",
+        "statuses": [
+          "VERIFIED_LOGS",
+          "VERIFIED_EMPTY",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "MALFORMED_RESPONSE",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS"
+        ],
+        "reasons": [
+          "calls_not_verified"
+        ],
+        "detail": "result_xor_error"
+      }
+    },
+    {
+      "case": "response sha mismatch (receipt sha of other bytes): exit 0 UNKNOWN",
+      "ok": true,
+      "expected": {
+        "verdict": "UNKNOWN",
+        "statuses": [
+          "VERIFIED_LOGS",
+          "VERIFIED_EMPTY",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "HASH_MISMATCH",
+          "VERIFIED_LOGS"
+        ]
+      },
+      "actual": {
+        "rc": 0,
+        "verdict": "UNKNOWN",
+        "statuses": [
+          "VERIFIED_LOGS",
+          "VERIFIED_EMPTY",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "HASH_MISMATCH",
+          "VERIFIED_LOGS"
+        ],
+        "reasons": [
+          "calls_not_verified"
+        ],
+        "detail": "response"
+      }
+    },
+    {
+      "case": "request sha mismatch: exit 0 UNKNOWN",
+      "ok": true,
+      "expected": {
+        "verdict": "UNKNOWN",
+        "statuses": [
+          "VERIFIED_LOGS",
+          "VERIFIED_EMPTY",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "HASH_MISMATCH",
+          "VERIFIED_LOGS"
+        ]
+      },
+      "actual": {
+        "rc": 0,
+        "verdict": "UNKNOWN",
+        "statuses": [
+          "VERIFIED_LOGS",
+          "VERIFIED_EMPTY",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "HASH_MISMATCH",
+          "VERIFIED_LOGS"
+        ],
+        "reasons": [
+          "calls_not_verified"
+        ],
+        "detail": "request"
+      }
+    },
+    {
+      "case": "request range differs from plan (toBlock+1): exit 0 UNKNOWN",
+      "ok": true,
+      "expected": {
+        "verdict": "UNKNOWN",
+        "statuses": [
+          "VERIFIED_LOGS",
+          "VERIFIED_EMPTY",
+          "FILTER_MISMATCH",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS"
+        ]
+      },
+      "actual": {
+        "rc": 0,
+        "verdict": "UNKNOWN",
+        "statuses": [
+          "VERIFIED_LOGS",
+          "VERIFIED_EMPTY",
+          "FILTER_MISMATCH",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS"
+        ],
+        "reasons": [
+          "calls_not_verified"
+        ],
+        "detail": "request_not_planned_request"
+      }
+    },
+    {
+      "case": "PoolManager request without topics: exit 0 UNKNOWN",
+      "ok": true,
+      "expected": {
+        "verdict": "UNKNOWN",
+        "statuses": [
+          "FILTER_MISMATCH",
+          "VERIFIED_EMPTY",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS"
+        ]
+      },
+      "actual": {
+        "rc": 0,
+        "verdict": "UNKNOWN",
+        "statuses": [
+          "FILTER_MISMATCH",
+          "VERIFIED_EMPTY",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS"
+        ],
+        "reasons": [
+          "calls_not_verified"
+        ],
+        "detail": "request_not_planned_request"
+      }
+    },
+    {
+      "case": "factory request missing one factory address: exit 0 UNKNOWN",
+      "ok": true,
+      "expected": {
+        "verdict": "UNKNOWN",
+        "statuses": [
+          "VERIFIED_LOGS",
+          "FILTER_MISMATCH",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS"
+        ]
+      },
+      "actual": {
+        "rc": 0,
+        "verdict": "UNKNOWN",
+        "statuses": [
+          "VERIFIED_LOGS",
+          "FILTER_MISMATCH",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS"
+        ],
+        "reasons": [
+          "calls_not_verified"
+        ],
+        "detail": "request_not_planned_request"
+      }
+    },
+    {
+      "case": "request method eth_getFilterLogs: exit 0 UNKNOWN",
+      "ok": true,
+      "expected": {
+        "verdict": "UNKNOWN",
+        "statuses": [
+          "VERIFIED_LOGS",
+          "FILTER_MISMATCH",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS"
+        ]
+      },
+      "actual": {
+        "rc": 0,
+        "verdict": "UNKNOWN",
+        "statuses": [
+          "VERIFIED_LOGS",
+          "FILTER_MISMATCH",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS"
+        ],
+        "reasons": [
+          "calls_not_verified"
+        ],
+        "detail": "request_not_planned_request"
+      }
+    },
+    {
+      "case": "response id differs: exit 0 UNKNOWN",
+      "ok": true,
+      "expected": {
+        "verdict": "UNKNOWN",
+        "statuses": [
+          "VERIFIED_LOGS",
+          "VERIFIED_EMPTY",
+          "VERIFIED_LOGS",
+          "ID_MISMATCH",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS"
+        ]
+      },
+      "actual": {
+        "rc": 0,
+        "verdict": "UNKNOWN",
+        "statuses": [
+          "VERIFIED_LOGS",
+          "VERIFIED_EMPTY",
+          "VERIFIED_LOGS",
+          "ID_MISMATCH",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS"
+        ],
+        "reasons": [
+          "calls_not_verified"
+        ],
+        "detail": {
+          "request": 4,
+          "response": 104
+        }
+      }
+    },
+    {
+      "case": "response id type differs (\"4\" vs 4): exit 0 UNKNOWN",
+      "ok": true,
+      "expected": {
+        "verdict": "UNKNOWN",
+        "statuses": [
+          "VERIFIED_LOGS",
+          "VERIFIED_EMPTY",
+          "VERIFIED_LOGS",
+          "ID_MISMATCH",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS"
+        ]
+      },
+      "actual": {
+        "rc": 0,
+        "verdict": "UNKNOWN",
+        "statuses": [
+          "VERIFIED_LOGS",
+          "VERIFIED_EMPTY",
+          "VERIFIED_LOGS",
+          "ID_MISMATCH",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS"
+        ],
+        "reasons": [
+          "calls_not_verified"
+        ],
+        "detail": {
+          "request": 4,
+          "response": "4"
+        }
+      }
+    },
+    {
+      "case": "response id missing: exit 0 UNKNOWN",
+      "ok": true,
+      "expected": {
+        "verdict": "UNKNOWN",
+        "statuses": [
+          "VERIFIED_LOGS",
+          "VERIFIED_EMPTY",
+          "VERIFIED_LOGS",
+          "ID_MISMATCH",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS"
+        ]
+      },
+      "actual": {
+        "rc": 0,
+        "verdict": "UNKNOWN",
+        "statuses": [
+          "VERIFIED_LOGS",
+          "VERIFIED_EMPTY",
+          "VERIFIED_LOGS",
+          "ID_MISMATCH",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS"
+        ],
+        "reasons": [
+          "calls_not_verified"
+        ],
+        "detail": {
+          "request": 4,
+          "response": null
+        }
+      }
+    },
+    {
+      "case": "log block outside request range: exit 0 UNKNOWN",
+      "ok": true,
+      "expected": {
+        "verdict": "UNKNOWN",
+        "statuses": [
+          "VERIFIED_LOGS",
+          "VERIFIED_EMPTY",
+          "VERIFIED_LOGS",
+          "FILTER_MISMATCH",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS"
+        ]
+      },
+      "actual": {
+        "rc": 0,
+        "verdict": "UNKNOWN",
+        "statuses": [
+          "VERIFIED_LOGS",
+          "VERIFIED_EMPTY",
+          "VERIFIED_LOGS",
+          "FILTER_MISMATCH",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS"
+        ],
+        "reasons": [
+          "calls_not_verified"
+        ],
+        "detail": {
+          "m": "log_block_outside_request",
+          "resultIndex": 0
+        }
+      }
+    },
+    {
+      "case": "log address not in filter: exit 0 UNKNOWN",
+      "ok": true,
+      "expected": {
+        "verdict": "UNKNOWN",
+        "statuses": [
+          "VERIFIED_LOGS",
+          "VERIFIED_EMPTY",
+          "VERIFIED_LOGS",
+          "FILTER_MISMATCH",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS"
+        ]
+      },
+      "actual": {
+        "rc": 0,
+        "verdict": "UNKNOWN",
+        "statuses": [
+          "VERIFIED_LOGS",
+          "VERIFIED_EMPTY",
+          "VERIFIED_LOGS",
+          "FILTER_MISMATCH",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS"
+        ],
+        "reasons": [
+          "calls_not_verified"
+        ],
+        "detail": {
+          "m": "log_address_not_in_filter",
+          "resultIndex": 0
+        }
+      }
+    },
+    {
+      "case": "PoolManager log with ModifyLiquidity topic0: exit 0 UNKNOWN",
+      "ok": true,
+      "expected": {
+        "verdict": "UNKNOWN",
+        "statuses": [
+          "VERIFIED_LOGS",
+          "VERIFIED_EMPTY",
+          "FILTER_MISMATCH",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS"
+        ]
+      },
+      "actual": {
+        "rc": 0,
+        "verdict": "UNKNOWN",
+        "statuses": [
+          "VERIFIED_LOGS",
+          "VERIFIED_EMPTY",
+          "FILTER_MISMATCH",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS"
+        ],
+        "reasons": [
+          "calls_not_verified"
+        ],
+        "detail": {
+          "m": "log_topic0_not_in_filter",
+          "resultIndex": 0
+        }
+      }
+    },
+    {
+      "case": "malformed log: uppercase blockHash: exit 0 UNKNOWN",
+      "ok": true,
+      "expected": {
+        "verdict": "UNKNOWN",
+        "statuses": [
+          "VERIFIED_LOGS",
+          "VERIFIED_EMPTY",
+          "VERIFIED_LOGS",
+          "MALFORMED_LOG",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS"
+        ]
+      },
+      "actual": {
+        "rc": 0,
+        "verdict": "UNKNOWN",
+        "statuses": [
+          "VERIFIED_LOGS",
+          "VERIFIED_EMPTY",
+          "VERIFIED_LOGS",
+          "MALFORMED_LOG",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS"
+        ],
+        "reasons": [
+          "calls_not_verified"
+        ],
+        "detail": {
+          "m": "blockHash",
+          "resultIndex": 0
+        }
+      }
+    },
+    {
+      "case": "malformed log: leading-zero quantity: exit 0 UNKNOWN",
+      "ok": true,
+      "expected": {
+        "verdict": "UNKNOWN",
+        "statuses": [
+          "VERIFIED_LOGS",
+          "VERIFIED_EMPTY",
+          "VERIFIED_LOGS",
+          "MALFORMED_LOG",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS"
+        ]
+      },
+      "actual": {
+        "rc": 0,
+        "verdict": "UNKNOWN",
+        "statuses": [
+          "VERIFIED_LOGS",
+          "VERIFIED_EMPTY",
+          "VERIFIED_LOGS",
+          "MALFORMED_LOG",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS"
+        ],
+        "reasons": [
+          "calls_not_verified"
+        ],
+        "detail": {
+          "m": "logIndex",
+          "resultIndex": 0
+        }
+      }
+    },
+    {
+      "case": "malformed log: unknown field: exit 0 UNKNOWN",
+      "ok": true,
+      "expected": {
+        "verdict": "UNKNOWN",
+        "statuses": [
+          "VERIFIED_LOGS",
+          "VERIFIED_EMPTY",
+          "VERIFIED_LOGS",
+          "MALFORMED_LOG",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS"
+        ]
+      },
+      "actual": {
+        "rc": 0,
+        "verdict": "UNKNOWN",
+        "statuses": [
+          "VERIFIED_LOGS",
+          "VERIFIED_EMPTY",
+          "VERIFIED_LOGS",
+          "MALFORMED_LOG",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS"
+        ],
+        "reasons": [
+          "calls_not_verified"
+        ],
+        "detail": {
+          "m": "unknown:chainId",
+          "resultIndex": 0
+        }
+      }
+    },
+    {
+      "case": "malformed log: missing removed: exit 0 UNKNOWN",
+      "ok": true,
+      "expected": {
+        "verdict": "UNKNOWN",
+        "statuses": [
+          "VERIFIED_LOGS",
+          "VERIFIED_EMPTY",
+          "VERIFIED_LOGS",
+          "MALFORMED_LOG",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS"
+        ]
+      },
+      "actual": {
+        "rc": 0,
+        "verdict": "UNKNOWN",
+        "statuses": [
+          "VERIFIED_LOGS",
+          "VERIFIED_EMPTY",
+          "VERIFIED_LOGS",
+          "MALFORMED_LOG",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS"
+        ],
+        "reasons": [
+          "calls_not_verified"
+        ],
+        "detail": {
+          "m": "missing:removed",
+          "resultIndex": 0
+        }
+      }
+    },
+    {
+      "case": "malformed log: odd data: exit 0 UNKNOWN",
+      "ok": true,
+      "expected": {
+        "verdict": "UNKNOWN",
+        "statuses": [
+          "VERIFIED_LOGS",
+          "VERIFIED_EMPTY",
+          "VERIFIED_LOGS",
+          "MALFORMED_LOG",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS"
+        ]
+      },
+      "actual": {
+        "rc": 0,
+        "verdict": "UNKNOWN",
+        "statuses": [
+          "VERIFIED_LOGS",
+          "VERIFIED_EMPTY",
+          "VERIFIED_LOGS",
+          "MALFORMED_LOG",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS"
+        ],
+        "reasons": [
+          "calls_not_verified"
+        ],
+        "detail": {
+          "m": "data",
+          "resultIndex": 0
+        }
+      }
+    },
+    {
+      "case": "malformed log: 5 topics: exit 0 UNKNOWN",
+      "ok": true,
+      "expected": {
+        "verdict": "UNKNOWN",
+        "statuses": [
+          "VERIFIED_LOGS",
+          "VERIFIED_EMPTY",
+          "VERIFIED_LOGS",
+          "MALFORMED_LOG",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS"
+        ]
+      },
+      "actual": {
+        "rc": 0,
+        "verdict": "UNKNOWN",
+        "statuses": [
+          "VERIFIED_LOGS",
+          "VERIFIED_EMPTY",
+          "VERIFIED_LOGS",
+          "MALFORMED_LOG",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS"
+        ],
+        "reasons": [
+          "calls_not_verified"
+        ],
+        "detail": {
+          "m": "topics",
+          "resultIndex": 0
+        }
+      }
+    },
+    {
+      "case": "malformed log: blockTimestamp number: exit 0 UNKNOWN",
+      "ok": true,
+      "expected": {
+        "verdict": "UNKNOWN",
+        "statuses": [
+          "VERIFIED_LOGS",
+          "VERIFIED_EMPTY",
+          "VERIFIED_LOGS",
+          "MALFORMED_LOG",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS"
+        ]
+      },
+      "actual": {
+        "rc": 0,
+        "verdict": "UNKNOWN",
+        "statuses": [
+          "VERIFIED_LOGS",
+          "VERIFIED_EMPTY",
+          "VERIFIED_LOGS",
+          "MALFORMED_LOG",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS"
+        ],
+        "reasons": [
+          "calls_not_verified"
+        ],
+        "detail": {
+          "m": "blockTimestamp",
+          "resultIndex": 0
+        }
+      }
+    },
+    {
+      "case": "same identity (blockHash, logIndex) with conflicting data in calls 2 and 3: exit 0 UNKNOWN",
+      "ok": true,
+      "expected": {
+        "verdict": "UNKNOWN",
+        "statuses": [
+          "VERIFIED_LOGS",
+          "VERIFIED_EMPTY",
+          "IDENTITY_CONTENT_CONFLICT",
+          "IDENTITY_CONTENT_CONFLICT",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS"
+        ]
+      },
+      "actual": {
+        "rc": 0,
+        "verdict": "UNKNOWN",
+        "statuses": [
+          "VERIFIED_LOGS",
+          "VERIFIED_EMPTY",
+          "IDENTITY_CONTENT_CONFLICT",
+          "IDENTITY_CONTENT_CONFLICT",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS"
+        ],
+        "reasons": [
+          "calls_not_verified"
+        ],
+        "detail": {
+          "ambiguities": [
+            {
+              "key": "0xa59ec0950d33a29d153c6ed4d99a82fba80548bd12d2eaae2716817f557a7d5a/0x0",
+              "what": "IDENTITY_CONTENT_CONFLICT"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "case": "same identity identical content repeated in one response is not a conflict: exit 0 ALL_CALLS_RECEIPTED",
+      "ok": true,
+      "expected": {
+        "verdict": "ALL_CALLS_RECEIPTED",
+        "statuses": [
+          "VERIFIED_LOGS",
+          "VERIFIED_EMPTY",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS"
+        ]
+      },
+      "actual": {
+        "rc": 0,
+        "verdict": "ALL_CALLS_RECEIPTED",
+        "statuses": [
+          "VERIFIED_LOGS",
+          "VERIFIED_EMPTY",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS"
+        ],
+        "reasons": []
+      }
+    },
+    {
+      "case": "removed then re-added (removed:true and removed:false, same identity): exit 0 UNKNOWN",
+      "ok": true,
+      "expected": {
+        "verdict": "UNKNOWN",
+        "statuses": [
+          "VERIFIED_LOGS",
+          "VERIFIED_EMPTY",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "REMOVED_READD_OBSERVED",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS"
+        ]
+      },
+      "actual": {
+        "rc": 0,
+        "verdict": "UNKNOWN",
+        "statuses": [
+          "VERIFIED_LOGS",
+          "VERIFIED_EMPTY",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "REMOVED_READD_OBSERVED",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS"
+        ],
+        "reasons": [
+          "calls_not_verified"
+        ],
+        "detail": {
+          "ambiguities": [
+            {
+              "key": "0x767a7e2604d44264b8cc2ef5da847e49273e7a86a22cfbea9d7cbc1b64f038d9/0x5",
+              "what": "REMOVED_READD_OBSERVED"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "case": "removed:true alone: exit 0 UNKNOWN",
+      "ok": true,
+      "expected": {
+        "verdict": "UNKNOWN",
+        "statuses": [
+          "VERIFIED_LOGS",
+          "VERIFIED_EMPTY",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "REMOVED_READD_OBSERVED",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS"
+        ]
+      },
+      "actual": {
+        "rc": 0,
+        "verdict": "UNKNOWN",
+        "statuses": [
+          "VERIFIED_LOGS",
+          "VERIFIED_EMPTY",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "REMOVED_READD_OBSERVED",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS"
+        ],
+        "reasons": [
+          "calls_not_verified"
+        ],
+        "detail": {
+          "ambiguities": [
+            {
+              "key": "0x767a7e2604d44264b8cc2ef5da847e49273e7a86a22cfbea9d7cbc1b64f038d9/0x5",
+              "what": "REMOVED_READD_OBSERVED"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "case": "same blockNumber, two blockHashes (calls 2 and 3): exit 0 UNKNOWN",
+      "ok": true,
+      "expected": {
+        "verdict": "UNKNOWN",
+        "statuses": [
+          "VERIFIED_LOGS",
+          "VERIFIED_EMPTY",
+          "BLOCK_HASH_CONFLICT",
+          "BLOCK_HASH_CONFLICT",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS"
+        ]
+      },
+      "actual": {
+        "rc": 0,
+        "verdict": "UNKNOWN",
+        "statuses": [
+          "VERIFIED_LOGS",
+          "VERIFIED_EMPTY",
+          "BLOCK_HASH_CONFLICT",
+          "BLOCK_HASH_CONFLICT",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS"
+        ],
+        "reasons": [
+          "calls_not_verified"
+        ],
+        "detail": {
+          "ambiguities": [
+            {
+              "key": "0x3e9",
+              "what": "BLOCK_HASH_CONFLICT"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "case": "plan TRUNCATED_CALL_BUDGET with all 5 planned calls receipted: exit 0 UNKNOWN",
+      "ok": true,
+      "expected": {
+        "verdict": "UNKNOWN",
+        "statuses": [
+          "VERIFIED_LOGS",
+          "VERIFIED_EMPTY",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS"
+        ]
+      },
+      "actual": {
+        "rc": 0,
+        "verdict": "UNKNOWN",
+        "statuses": [
+          "VERIFIED_LOGS",
+          "VERIFIED_EMPTY",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS"
+        ],
+        "reasons": [
+          "plan_status_TRUNCATED_CALL_BUDGET",
+          "plan_truncated"
+        ]
+      }
+    },
+    {
+      "case": "plan UNKNOWN_NEEDS_RECONCILIATION (no calls): exit 0 UNKNOWN",
+      "ok": true,
+      "expected": {
+        "verdict": "UNKNOWN",
+        "statuses": []
+      },
+      "actual": {
+        "rc": 0,
+        "verdict": "UNKNOWN",
+        "statuses": [],
+        "reasons": [
+          "plan_status_UNKNOWN_NEEDS_RECONCILIATION"
+        ]
+      }
+    },
+    {
+      "case": "no implicit file scan: valid call-7 files present but not in the index stay MISSING: exit 0 UNKNOWN",
+      "ok": true,
+      "expected": {
+        "verdict": "UNKNOWN",
+        "statuses": [
+          "VERIFIED_LOGS",
+          "VERIFIED_EMPTY",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "MISSING"
+        ]
+      },
+      "actual": {
+        "rc": 0,
+        "verdict": "UNKNOWN",
+        "statuses": [
+          "VERIFIED_LOGS",
+          "VERIFIED_EMPTY",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "VERIFIED_LOGS",
+          "MISSING"
+        ],
+        "reasons": [
+          "missing_calls"
+        ]
+      }
+    },
+    {
+      "case": "refuse duplicate key in receipts index: exit 2 json_duplicate_key",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "json_duplicate_key"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "json_duplicate_key",
+        "detail": {
+          "key": "planSha256",
+          "where": "receipts"
+        },
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse receipt for unplanned call 8: exit 2 receipt_for_unplanned_call",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "receipt_for_unplanned_call"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "receipt_for_unplanned_call",
+        "detail": {
+          "callIndex": 8,
+          "receipt": 7
+        },
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse two receipts for call 0: exit 2 receipt_duplicate_call",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "receipt_duplicate_call"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "receipt_duplicate_call",
+        "detail": {
+          "callIndex": 0
+        },
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse receipt file with path separator: exit 2 receipt_file_name_invalid",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "receipt_file_name_invalid"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "receipt_file_name_invalid",
+        "detail": {
+          "receipt": 0,
+          "which": "response"
+        },
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse receipt file '..': exit 2 receipt_file_name_invalid",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "receipt_file_name_invalid"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "receipt_file_name_invalid",
+        "detail": {
+          "receipt": 0,
+          "which": "request"
+        },
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse receipt file absent: exit 2 receipt_file_missing",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "receipt_file_missing"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "receipt_file_missing",
+        "detail": {
+          "path": "/home/ubuntu/repos/FeedEater/measurements/backfill-receipts/work/r46/absent.json"
+        },
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse receipt file is a symlink: exit 2 receipt_file_is_symlink",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "receipt_file_is_symlink"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "receipt_file_is_symlink",
+        "detail": {
+          "path": "/home/ubuntu/repos/FeedEater/measurements/backfill-receipts/work/r47/call-0.response.json"
+        },
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse receipts index for another plan: exit 2 receipts_plan_mismatch",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "receipts_plan_mismatch"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "receipts_plan_mismatch",
+        "detail": {
+          "expected": "7e9483a10146850098d41ea70f201011e9e6df3dd223a6c226bd1efd86560eba"
+        },
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse receipts index unknown field: exit 2 spec_unknown_field",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "spec_unknown_field"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "spec_unknown_field",
+        "detail": {
+          "extra": [
+            "complete"
+          ],
+          "where": "receipts"
+        },
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse receipts index sha not pinned: exit 2 receipts_file_hash_mismatch",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "receipts_file_hash_mismatch"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "receipts_file_hash_mismatch",
+        "detail": {
+          "actual": "2e4012bf8feb8adf3bf24425f70c4ef42ef5eebcca7060878bd59d2ebf31a139",
+          "expected": "0000000000000000000000000000000000000000000000000000000000000000"
+        },
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse non-canonical plan bytes: exit 2 plan_noncanonical",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "plan_noncanonical"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "plan_noncanonical",
+        "detail": {},
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse plan self-hash broken: exit 2 plan_self_hash_mismatch",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "plan_self_hash_mismatch"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "plan_self_hash_mismatch",
+        "detail": {},
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse plan call request not bound to manifest filter/range (re-hashed): exit 2 plan_call_unbound",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "plan_call_unbound"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "plan_call_unbound",
+        "detail": {
+          "index": 2
+        },
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse plan built from another manifest (re-hashed): exit 2 plan_manifest_mismatch",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "plan_manifest_mismatch"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "plan_manifest_mismatch",
+        "detail": {
+          "manifest": "3eab7f47965ce96afdf9791ed37176b136f8de67b4ed655eee0cc14ef313c0c4",
+          "plan": "0000000000000000000000000000000000000000000000000000000000000000"
+        },
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse spec pins another planSha256: exit 2 plan_identity_mismatch",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "plan_identity_mismatch"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "plan_identity_mismatch",
+        "detail": {
+          "expected": "7e9483a10146850098d41ea70f201011e9e6df3dd223a6c226bd1efd86560eba"
+        },
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse spec pins another plan file sha: exit 2 plan_file_hash_mismatch",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "plan_file_hash_mismatch"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "plan_file_hash_mismatch",
+        "detail": {
+          "actual": "3299b8fbcdd1156efd690d779758c5c8818d2ca36df4f18162e9a9fc771ef716",
+          "expected": "0000000000000000000000000000000000000000000000000000000000000000"
+        },
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse spec pins another manifest: exit 2 filter_identity_mismatch",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "filter_identity_mismatch"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "filter_identity_mismatch",
+        "detail": {
+          "expected": "3eab7f47965ce96afdf9791ed37176b136f8de67b4ed655eee0cc14ef313c0c4",
+          "where": "spec.manifest.manifestSha256"
+        },
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse spec unknown field: exit 2 spec_unknown_field",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "spec_unknown_field"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "spec_unknown_field",
+        "detail": {
+          "extra": [
+            "resumeLive"
+          ],
+          "where": "spec"
+        },
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse spec duplicate key: exit 2 json_duplicate_key",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "json_duplicate_key"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "json_duplicate_key",
+        "detail": {
+          "key": "schema",
+          "where": "spec"
+        },
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse no arguments: exit 2 usage",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "usage"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "usage",
+        "detail": {
+          "usage": "node verify.mjs --spec <spec.json> --manifest <filter-manifest.json> --plan <backfill-plan.json> --receipts <receipts.json>"
+        },
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse missing --receipts: exit 2 usage",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "usage"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "usage",
+        "detail": {
+          "usage": "node verify.mjs --spec <spec.json> --manifest <filter-manifest.json> --plan <backfill-plan.json> --receipts <receipts.json>"
+        },
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse duplicate --plan: exit 2 usage_duplicate_argument",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "usage_duplicate_argument"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "usage_duplicate_argument",
+        "detail": {
+          "arg": "--plan"
+        },
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse unknown --dir: exit 2 usage",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "usage"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "usage",
+        "detail": {
+          "usage": "node verify.mjs --spec <spec.json> --manifest <filter-manifest.json> --plan <backfill-plan.json> --receipts <receipts.json>"
+        },
+        "stderr": ""
+      }
+    },
+    {
+      "case": "static: verify.mjs has no network/process/clock/write/env/directory-scan APIs",
+      "ok": true,
+      "expected": [],
+      "actual": []
+    },
+    {
+      "case": "fixtures unchanged by the run",
+      "ok": true,
+      "expected": "same",
+      "actual": "compared"
+    }
+  ]
+}
