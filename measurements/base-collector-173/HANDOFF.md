@@ -327,3 +327,12 @@ Remaining limits:
 - `ps lstart` has 1 s resolution, so a PID reused within the same second is indistinguishable.
 - The guard forces its exit 2 s after SIGTERM (`inflightAtExit` records an unfinished request).
 - Checked on Linux only.
+
+## WS counting/stop proxy (preparation, 2026-10-10, parent c899530)
+
+`ws-guard.mjs` is a standalone loopback WS proxy with required caps on messages, bytes, frame size,
+duration, concurrent connections and total connections (the reconnect budget). Every cap or error
+STOPs and the summary is reconciled. It has no automatic upstream reconnect and puts no payload in
+its diagnostics. Offline only: `verify-ws-guard.sh` passes 37 checks (`ws-guard-verify.out`). It is
+not wired into run-native or the collector, and its own hop overhead has not been measured; that
+overhead must be reported separately from any DAT-SRC-011 result. See `WS-GUARD.md`.
