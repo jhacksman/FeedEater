@@ -353,3 +353,14 @@ Limits that still apply:
 - Unregistered grandchildren are not covered.
 - `ps lstart` has 1 s resolution.
 - A SIGKILL to guard-run itself cannot be handled.
+
+## Composition drill (evidence only, 2026-10-10, parent 4df26b2)
+
+`compose-drill.sh` assembles the HTTP guard and final controller from 4df26b2, and the WS proxy from
+f694290, byte-exactly from git objects (`compose-assemble.sh`, pinned heads/trees/MANIFESTs, refuses
+dirty or mismatched inputs). It then runs one finite drill on fake loopback.
+
+- The components' own contracts hold: 41 checks pass.
+- They do not compose into a joint stop: 8 GAP lines, with expected/actual in `COMPOSE-DRILL.md`
+  and `compose-drill.out`.
+- No repair was made, and no readiness is claimed.
