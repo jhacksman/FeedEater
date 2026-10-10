@@ -1,0 +1,53 @@
+{
+  "contract": "fe173-ws-two-arm-v1",
+  "date": "2026-10-10",
+  "status": "preparation document; not DAT-SRC-011 admission; no latency claim",
+  "pinnedHeads": { "collectorSource": "5206f9035ad1c057d78990b294941221e936f895", "prep": "b1edbfd752d9243621f53fc4d3ecdd6f4085fa5d" },
+  "filters": [
+    { "address": ["0x498581ff718922c3f8e6a244956af099b2652b2b"], "topics": [["0xdd466e674ea557f56295e2d0218a125ea4b4f0f6f3307b95f85e6110838d6438", "0x40e9cecb9f5f1f1c5b9c97dec2917b7ee92e57ba5563708daca94dd84ad7112f"]] },
+    { "address": ["0x1176122eb77ad6a2339322cda7c4d7ea9bfa63dc", "0x1de58a6769526a03a504d9d59b8757cd8097dc57", "0xa52ad458ce0282a971ecc71c051a32f28946bb9f", "0xb9e5910043353717af54d8dd34b6ee57ffe49c35", "0xe3ab924c72463c1ac8d1d8352ee640b89eb1ea64", "0xff70918ef17a2d74d683a8297813b177bafad1f4"] }
+  ],
+  "filterDigest": "8b5e28aa1ca300ea4b70d2f338c79a0800196823bc0dcac224a36ab7a36146ca",
+  "filterSource": "modules/base-collector/src/subjects.ts:34 buildFilters (collector, measure, capture-direct all call it)",
+  "suites": [
+    { "name": "base-mainnet-block-v1", "factory": "0xe3ab924c72463c1ac8d1d8352ee640b89eb1ea64", "hook": "0xa068cf4c52abdd3479145c4b3cbd8e3d71542a44", "firstBlock": 48364845 },
+    { "name": "base-mainnet-timestamp-v2", "factory": "0xa52ad458ce0282a971ecc71c051a32f28946bb9f", "hook": "0x985c14baa2a18316ffda0aefb3a632fadfca2acc", "firstBlock": 48451098 },
+    { "name": "base-mainnet-rwa-timestamp-v3", "factory": "0x1de58a6769526a03a504d9d59b8757cd8097dc57", "hook": "0xbca7774615c74b7991a111f1c7b2d0efea61aacc", "firstBlock": 49121014 },
+    { "name": "base-mainnet-rwa-timestamp-v4", "factory": "0xff70918ef17a2d74d683a8297813b177bafad1f4", "hook": "0x3b2b979df21036cee51b8debb13100e2cb8deacc", "firstBlock": 50137081 },
+    { "name": "base-mainnet-launchpad-v4-minimal", "factory": "0x1176122eb77ad6a2339322cda7c4d7ea9bfa63dc", "hook": "0x1f91c998e7c2f4b690d75bdbf6502bdcd6e02acc", "firstBlock": 50579785 },
+    { "name": "base-mainnet-launchpad-v4-minimal-pre-atomic", "factory": "0xb9e5910043353717af54d8dd34b6ee57ffe49c35", "hook": "0xdda9bc41e324ef379e774ae1f7b062d23ea8aacc", "firstBlock": 50505676 }
+  ],
+  "arms": {
+    "native": { "process": "collect (collector.ts)", "connections": "1 at a time, reconnects", "subscriptions": ["logs filter 1", "logs filter 2", "newHeads"], "source": "collector.ts:206-245" },
+    "direct_measure": { "process": "measure (main.ts runMeasure)", "connections": 1, "reconnect": false, "subscriptions": ["logs filter 1", "logs filter 2", "newHeads"], "source": "main.ts:135-165" },
+    "direct_capture": { "process": "capture-direct.mjs", "connections": 1, "reconnect": false, "subscriptions": ["logs filter 1", "logs filter 2"], "source": "capture-direct.mjs:17-31" },
+    "preflight": { "process": "preflight.mjs", "connections": 1, "reconnect": false, "subscriptions": ["newHeads"], "deadlineS": 20, "source": "preflight.mjs:26,51-76" }
+  },
+  "clock": {
+    "source": "process.hrtime.bigint() in the measure process; captures bracket it",
+    "marks": ["warmup_start", "window_start", "window_end", "teardown_end"],
+    "barriers": { "observationStart": "window_start; fromBlock = measure direct head at window_start + 1", "observationEnd": "window_end; toBlock = measure direct head at window_end" },
+    "classification": { "startup": "warmup_start..window_start and blocks < fromBlock: not scored", "window": "events with fromBlock <= block <= toBlock", "tail": "window_end..teardown_end: late deliveries for window blocks still counted; samples not in window scope", "after": "blocks > toBlock: not scored" },
+    "limits": ["one host, one boot", "host self-reported by hostname", "measure.json records no host"]
+  },
+  "budgets": [
+    { "limit": "ws_message_count", "value": null, "state": "absent", "observable": { "direct_capture": "direct.jsonl lines, live", "direct_measure": "in memory until exit", "native": "not logged; NATS capture shows published events only" } },
+    { "limit": "ws_message_bytes", "value": 104857600, "unit": "bytes per message", "state": "library default only (ws 8.19.0 maxPayload); not configured in source", "total": "absent" },
+    { "limit": "duration_measure", "value": "W+X+T s (120+1800+120)", "state": "enforced", "source": "main.ts:173-182 sleeps; run-native.sh:100 fe_wait_pid W+X+T+180 -> exit 8" },
+    { "limit": "duration_collector_and_capture", "state": "enforced externally only", "source": "run-native.sh owned stop at end; guard-run.sh DEADLINE_S + GRACE_S (b1edbfd)" },
+    { "limit": "duration_preflight_heads", "value": 20, "unit": "s", "state": "enforced", "source": "preflight.mjs:26" },
+    { "limit": "reconnects_native", "value": null, "state": "absent in source (unbounded; backoff 500 ms * 2^n capped 30000 ms, reset at collector.ts:236 before reconcile)", "source": "collector.ts:247-260", "planned": { "r1": 0, "r2": 0, "r3": 1, "enforcer": "Codex external watcher on collect.log 'websocket disconnected'; not implemented" } },
+    { "limit": "reconnects_direct", "value": 0, "state": "no reconnect code; closure before stop rejected post hoc", "source": "check-report.mjs:97 (measure), check-report.mjs:221 (capture)" },
+    { "limit": "filter_ack", "state": "rejected post hoc if a capture ACK is missing by window_start", "source": "check-report.mjs:223-225" },
+    { "limit": "reconnect_backfill_blocks", "value": 1900, "state": "enforced per reconnect (truncate + warn, coverage incomplete; not a stop)", "source": "collector.ts:550-554; pinned by plan-inputs.mjs:20,57", "total": "absent across reconnects" },
+    { "limit": "recover_blocks_per_request", "value": 500, "state": "enforced", "source": "collector.ts:664; plan-inputs.mjs:24,58", "requests": "absent (persister every 30000 ms while gaps remain)" },
+    { "limit": "http_requests", "value": { "r1": 20, "r2": 40, "r3": 30 }, "state": "enforced when run under guard-run.sh (rpc-guard cap, b1edbfd); WS not covered" },
+    { "limit": "pending_swaps_before_reconcile", "value": 20000, "state": "enforced (overflow dropped and counted, coverage failure)", "source": "collector.ts:420-426" },
+    { "limit": "stale_live_blocks", "value": 4096, "state": "enforced (moved to .backfill as stale)", "source": "collector.ts:351-356, settings.ts:43" },
+    { "limit": "publish_rate", "value": 2000, "unit": "per s", "state": "alert only, not a cap", "source": "collector.ts:408-416" }
+  ],
+  "stopRules": {
+    "enforced": ["run-native exit 5/3/6/7/8/9", "guard-run exit 10/11/12/13/14 (b1edbfd)", "check-report REJECT post hoc"],
+    "plannedNotImplemented": ["stop on any unplanned collector 'websocket disconnected' or 'connect/reconcile failed'", "stop on 'reconnect backfill truncated'", "stop when direct.jsonl lines or bytes exceed a Codex-declared cap", "stop on capture ws_error/direct_ws_closed before stop"]
+  }
+}
