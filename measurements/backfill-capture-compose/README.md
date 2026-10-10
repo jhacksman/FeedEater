@@ -61,7 +61,9 @@ The only derived values are the manifest/plan pins and the lane `filterSha256`s,
   - `capture` (capture C1; root runs it, never compose);
   - `verify` (83aec5d, after root writes `verify-spec.json` from the template with the sha of the captured `receipts.json`).
 
-**Exit codes:** 0 `COMPOSED`; 2 refused (`{refused, detail}`, no output created); 4 internal; 5 `WRITE_FAILED` (`persisted[]`, `writeFailure{file, stage, bytesWritten, code}`, with no `handoff.json`).
+**Exit codes:** 0 `COMPOSED`; 2 refused (`{refused, detail}`, no output created); 4 internal; 5 `WRITE_FAILED` (`persisted[]`, `writeFailure{file, stage, bytesWritten, code}`, `handoffPersisted:false`). A `WRITE_FAILED` directory is incomplete even if a `handoff.json` exists: a failure on the final handoff write (e.g. EIO) can leave a zero-byte or partial `handoff.json` beside the 7 completed files.
+
+**Acceptance:** the existence of `handoff.json` is not sufficient. Prepared output is established only by all of: exit 0 with stdout `status:"COMPOSED"` and `handoffPersisted:true`; `handoff.json` parsing completely; and all 8 files matching their byte counts and shas (the 7 in `handoff.json.files` plus the `handoff.json` sha in stdout `files`). Anything else is incomplete and must not be used for capture.
 
 ## Still root-only after compose
 
@@ -77,4 +79,4 @@ The real development-B values are also still root's to supply: C/H numbers, hash
 - *Hash-then-import gap:* components are sha-checked and then imported by path, so a file swapped between the check and the import isn't detected. Importing `capture.mjs` loads `node:http`/`https`, but compose calls only `preflight`.
 - *Capture readiness:* `preflight` checks the `--out` path's freshness at compose time. The later capture `--out` is a separate root-chosen directory, checked by capture itself.
 - *Synthetic fixture only:* the 42185f2 filter spec, the C1 4-call plan inputs (window [1000, 1100]), the C1 limits and the d568aee contract values.
-- *Write failures:* a failure after `mkdir` leaves a partial directory with no `handoff.json`.
+- *Write failures:* a failure after `mkdir` leaves a partial, incomplete directory. If the failure is on the final `handoff.json` write, a zero-byte or partial `handoff.json` may remain. There is no cleanup or retry. Use the acceptance rule above, never file existence.
