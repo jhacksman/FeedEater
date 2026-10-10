@@ -7,52 +7,566 @@
     "aromer_352": "6da930b67675475433a8a6706df8fd9d3beda0c3",
     "dat_src_011": "aromer 6da930b docs/spec/v1/SPEC-v1.md l.969",
     "ws_contract": "c899530c43e15d1fc6d334ddba12f59dd6c0eac1",
-    "joint_guard_under_review": "54ba98a98bce1eb307852861deb394ef196638ae"
+    "joint_guard_under_review": "54ba98a98bce1eb307852861deb394ef196638ae (A7 whole PASS, Codex macOS 139/139; fake-only, unwired)",
+    "checkpoint_clock_defect": "aromer 6da930b docs/realignment/O1-INPUT-CHECKPOINT-2026-10-10.md:62-68",
+    "dat_prv_002": "aromer 6da930b docs/spec/v1/SPEC-v1.md l.1078-1089; DAT-TIM-001 l.1116-1123"
   },
-  "status_values": ["implemented", "tested", "missing", "unknown"],
+  "status_values": [
+    "implemented",
+    "tested",
+    "missing",
+    "unknown",
+    "partial",
+    "known_defect",
+    "out_of_collector_scope"
+  ],
   "rows": [
-    {"id":"F1","status":["implemented","tested"],"src":["src/constants.ts:4"],"test":["collector.test.ts:76"]},
-    {"id":"F2","status":["implemented","tested"],"src":["src/constants.ts:7"],"test":["decode-measure.test.ts:14","decode-measure.test.ts:19"]},
-    {"id":"F3","status":["implemented","tested"],"src":["src/constants.ts:9"],"test":["decode-measure.test.ts:14","decode-measure.test.ts:19"]},
-    {"id":"F4","status":["implemented","tested"],"src":["src/subjects.ts:34-36"],"test":["collector.test.ts:76"]},
-    {"id":"F5","status":["implemented","tested"],"src":["src/constants.ts:23-60"],"test":["collector.test.ts:87"]},
-    {"id":"F6","status":["implemented"],"src":["src/subjects.ts:37"],"test":["collector.test.ts:87"],"note":"address-only; superset of #352 T1 topics:[Launched]"},
-    {"id":"F7","status":["implemented","tested"],"src":["src/subjects.ts:41-44","src/tracker.ts:54-57"],"test":["collector.test.ts:76","collector.test.ts:87"]},
-    {"id":"F8","status":["missing"],"src":[],"test":[],"note":"no Launched/PoolRegistered decode or layout check; raw .factory publish"},
-    {"id":"F9","status":["implemented","tested"],"src":["src/subjects.ts:48"],"test":["collector.test.ts:137","decode-measure.test.ts:52","corrections.test.ts:235"]},
-    {"id":"P1","status":["implemented","tested"],"src":["src/collector.ts:297-302","src/collector.ts:322","src/collector.ts:387","src/collector.ts:401"],"test":["collector.test.ts:27"]},
-    {"id":"P2","status":["implemented","tested"],"src":["src/collector.ts:386-392"],"test":["corrections.test.ts:105","corrections.test.ts:119"]},
-    {"id":"D1","status":["implemented","tested"],"src":["src/collector.ts:357","src/ledger.ts:8-9"],"test":["collector.test.ts:44"]},
-    {"id":"D2","status":["missing"],"src":["src/collector.ts:376"],"test":[],"note":"txHash recorded, not in identity; no unresolved-conflict state"},
-    {"id":"D3","status":["implemented","tested"],"src":["src/collector.ts:332","src/collector.ts:358","src/ledger.ts:33-45"],"test":["collector.test.ts:52","collector.test.ts:68","corrections.test.ts:21","corrections.test.ts:32"]},
-    {"id":"D4","status":["implemented","tested"],"src":["src/persister.ts:16-22"],"test":["persister.test.ts:28","persister.test.ts:40","persister.test.ts:47","persister.test.ts:53"]},
-    {"id":"A1","status":["implemented","tested"],"src":["src/persister.ts:87","src/persister.ts:122","src/persister.ts:126-144","settings.ts:57"],"test":["persister.test.ts:66","persister.test.ts:88"]},
-    {"id":"A2","status":["implemented","tested"],"src":["settings.ts:59","src/persister.ts:119"],"test":["persister.test.ts:101"]},
-    {"id":"B1","status":["implemented","tested"],"src":["src/subjects.ts:8","src/subjects.ts:17-19"],"test":["collector.test.ts:149","collector.test.ts:201","collector.test.ts:220"]},
-    {"id":"B2","status":["implemented","tested"],"src":["src/collector.ts:352-353","settings.ts:43"],"test":["collector.test.ts:149"]},
-    {"id":"B3","status":["implemented","tested"],"src":["src/collector.ts:550-561"],"test":["collector.test.ts:149","collector.test.ts:173","collector.test.ts:181"]},
-    {"id":"B4","status":["implemented","tested"],"src":["src/subjects.ts:12","src/persister.ts:236-242","src/collector.ts:592-607"],"test":["collector.test.ts:220","persister.test.ts:111","corrections.test.ts:73"]},
-    {"id":"B5","status":["implemented","missing"],"src":["src/collector.ts:401","settings.ts:43"],"test":["persister.test.ts:111"],"note":"core NATS + retained-window recovery; no durable stream"},
-    {"id":"C1","status":["implemented"],"src":["src/collector.ts:550-554","settings.ts:39"],"test":[]},
-    {"id":"C2","status":["implemented"],"src":["settings.ts:41"],"test":[]},
-    {"id":"C3","status":["implemented"],"src":["src/collector.ts:421-422","settings.ts:47"],"test":[]},
-    {"id":"C4","status":["implemented","tested"],"src":["src/tracker.ts:54-57","settings.ts:44"],"test":["collector.test.ts:100","collector.test.ts:111"]},
-    {"id":"C5","status":["implemented","tested"],"src":["src/collector.ts:715-721"],"test":["corrections.test.ts:119"]},
-    {"id":"C6","status":["missing"],"src":["src/collector.ts:236","src/collector.ts:257-260"],"test":[],"note":"reconnect unbounded"},
-    {"id":"C7","status":["missing"],"src":[],"test":[],"note":"no WS message/byte/cumulative-backfill cap in source"}
+    {
+      "id": "F1",
+      "status": [
+        "implemented",
+        "tested"
+      ],
+      "src": [
+        "src/constants.ts:4"
+      ],
+      "test": [
+        "collector.test.ts:76"
+      ]
+    },
+    {
+      "id": "F2",
+      "status": [
+        "implemented",
+        "tested"
+      ],
+      "src": [
+        "src/constants.ts:7"
+      ],
+      "test": [
+        "decode-measure.test.ts:14",
+        "decode-measure.test.ts:19"
+      ]
+    },
+    {
+      "id": "F3",
+      "status": [
+        "implemented",
+        "tested"
+      ],
+      "src": [
+        "src/constants.ts:9"
+      ],
+      "test": [
+        "decode-measure.test.ts:14",
+        "decode-measure.test.ts:19"
+      ]
+    },
+    {
+      "id": "F4",
+      "status": [
+        "implemented",
+        "tested"
+      ],
+      "src": [
+        "src/subjects.ts:34-36"
+      ],
+      "test": [
+        "collector.test.ts:76"
+      ]
+    },
+    {
+      "id": "F5",
+      "status": [
+        "implemented",
+        "tested"
+      ],
+      "src": [
+        "src/constants.ts:23-60"
+      ],
+      "test": [
+        "collector.test.ts:87"
+      ]
+    },
+    {
+      "id": "F6",
+      "status": [
+        "implemented",
+        "tested"
+      ],
+      "src": [
+        "src/subjects.ts:37"
+      ],
+      "test": [
+        "collector.test.ts:87"
+      ],
+      "note": "required collector coverage fact: all factory logs, superset of #352 T1 topics:[Launched]"
+    },
+    {
+      "id": "F7",
+      "status": [
+        "implemented",
+        "tested"
+      ],
+      "src": [
+        "src/subjects.ts:41-44",
+        "src/tracker.ts:54-57"
+      ],
+      "test": [
+        "collector.test.ts:76",
+        "collector.test.ts:87"
+      ]
+    },
+    {
+      "id": "F8",
+      "status": [
+        "implemented",
+        "tested",
+        "out_of_collector_scope"
+      ],
+      "src": [
+        "src/subjects.ts:7",
+        "src/collector.ts:379-381"
+      ],
+      "test": [
+        "collector.test.ts:87"
+      ],
+      "note": "raw-first boundary: raw factory publish is the collector requirement; Launched/PoolRegistered decode is a decoder-admission requirement"
+    },
+    {
+      "id": "F9",
+      "status": [
+        "implemented",
+        "tested"
+      ],
+      "src": [
+        "src/subjects.ts:48"
+      ],
+      "test": [
+        "collector.test.ts:137",
+        "decode-measure.test.ts:52",
+        "corrections.test.ts:235"
+      ]
+    },
+    {
+      "id": "P1",
+      "status": [
+        "implemented",
+        "tested"
+      ],
+      "src": [
+        "src/collector.ts:297-302",
+        "src/collector.ts:322",
+        "src/collector.ts:387",
+        "src/collector.ts:401"
+      ],
+      "test": [
+        "collector.test.ts:27"
+      ]
+    },
+    {
+      "id": "P2",
+      "status": [
+        "implemented",
+        "tested"
+      ],
+      "src": [
+        "src/collector.ts:386-392"
+      ],
+      "test": [
+        "corrections.test.ts:105",
+        "corrections.test.ts:119"
+      ]
+    },
+    {
+      "id": "D1",
+      "status": [
+        "implemented",
+        "tested"
+      ],
+      "src": [
+        "src/collector.ts:357",
+        "src/ledger.ts:8-9"
+      ],
+      "test": [
+        "collector.test.ts:44"
+      ]
+    },
+    {
+      "id": "D2",
+      "status": [
+        "out_of_collector_scope"
+      ],
+      "src": [
+        "src/collector.ts:76",
+        "src/collector.ts:376",
+        "src/types.ts:64"
+      ],
+      "test": [],
+      "note": "#352 triple/conflict rule = census validation; live identity requirement is D1 blockHash:logIndex; txHash carried"
+    },
+    {
+      "id": "D3",
+      "status": [
+        "implemented",
+        "tested"
+      ],
+      "src": [
+        "src/collector.ts:332",
+        "src/collector.ts:358",
+        "src/ledger.ts:33-45"
+      ],
+      "test": [
+        "collector.test.ts:52",
+        "collector.test.ts:68",
+        "corrections.test.ts:21",
+        "corrections.test.ts:32"
+      ]
+    },
+    {
+      "id": "D4",
+      "status": [
+        "implemented",
+        "tested"
+      ],
+      "src": [
+        "src/persister.ts:16-22"
+      ],
+      "test": [
+        "persister.test.ts:28",
+        "persister.test.ts:40",
+        "persister.test.ts:47",
+        "persister.test.ts:53"
+      ]
+    },
+    {
+      "id": "A1",
+      "status": [
+        "implemented",
+        "tested"
+      ],
+      "src": [
+        "src/persister.ts:87",
+        "src/persister.ts:122",
+        "src/persister.ts:126-144",
+        "settings.ts:57"
+      ],
+      "test": [
+        "persister.test.ts:66",
+        "persister.test.ts:88"
+      ]
+    },
+    {
+      "id": "A2",
+      "status": [
+        "implemented",
+        "tested"
+      ],
+      "src": [
+        "settings.ts:59",
+        "src/persister.ts:119"
+      ],
+      "test": [
+        "persister.test.ts:101"
+      ]
+    },
+    {
+      "id": "B1",
+      "status": [
+        "implemented",
+        "tested"
+      ],
+      "src": [
+        "src/subjects.ts:8",
+        "src/subjects.ts:17-19"
+      ],
+      "test": [
+        "collector.test.ts:149",
+        "collector.test.ts:201",
+        "collector.test.ts:220"
+      ]
+    },
+    {
+      "id": "B2",
+      "status": [
+        "implemented",
+        "tested"
+      ],
+      "src": [
+        "src/collector.ts:352-353",
+        "settings.ts:43"
+      ],
+      "test": [
+        "collector.test.ts:149"
+      ]
+    },
+    {
+      "id": "B3",
+      "status": [
+        "implemented",
+        "tested"
+      ],
+      "src": [
+        "src/collector.ts:550-561"
+      ],
+      "test": [
+        "collector.test.ts:149",
+        "collector.test.ts:173",
+        "collector.test.ts:181"
+      ]
+    },
+    {
+      "id": "B4",
+      "status": [
+        "implemented",
+        "tested"
+      ],
+      "src": [
+        "src/subjects.ts:12",
+        "src/persister.ts:236-242",
+        "src/collector.ts:592-607"
+      ],
+      "test": [
+        "collector.test.ts:220",
+        "persister.test.ts:111",
+        "corrections.test.ts:73"
+      ]
+    },
+    {
+      "id": "B5",
+      "status": [
+        "implemented",
+        "missing"
+      ],
+      "src": [
+        "src/collector.ts:401",
+        "settings.ts:43"
+      ],
+      "test": [
+        "persister.test.ts:111"
+      ],
+      "note": "core NATS + retained-window recovery; no durable stream"
+    },
+    {
+      "id": "C1",
+      "status": [
+        "implemented"
+      ],
+      "src": [
+        "src/collector.ts:550-554",
+        "settings.ts:39"
+      ],
+      "test": []
+    },
+    {
+      "id": "C2",
+      "status": [
+        "implemented"
+      ],
+      "src": [
+        "settings.ts:41"
+      ],
+      "test": []
+    },
+    {
+      "id": "C3",
+      "status": [
+        "implemented"
+      ],
+      "src": [
+        "src/collector.ts:421-422",
+        "settings.ts:47"
+      ],
+      "test": []
+    },
+    {
+      "id": "C4",
+      "status": [
+        "implemented",
+        "tested"
+      ],
+      "src": [
+        "src/tracker.ts:54-57",
+        "settings.ts:44"
+      ],
+      "test": [
+        "collector.test.ts:100",
+        "collector.test.ts:111"
+      ]
+    },
+    {
+      "id": "C5",
+      "status": [
+        "implemented",
+        "tested"
+      ],
+      "src": [
+        "src/collector.ts:715-721"
+      ],
+      "test": [
+        "corrections.test.ts:119"
+      ]
+    },
+    {
+      "id": "C6",
+      "status": [
+        "missing"
+      ],
+      "src": [
+        "src/collector.ts:236",
+        "src/collector.ts:257-260"
+      ],
+      "test": [],
+      "note": "reconnect unbounded"
+    },
+    {
+      "id": "C7",
+      "status": [
+        "missing"
+      ],
+      "src": [],
+      "test": [],
+      "note": "no WS message/byte/cumulative-backfill cap in source; 54ba98a external, fake-only, unwired"
+    },
+    {
+      "id": "M1",
+      "status": [
+        "known_defect"
+      ],
+      "src": [
+        "src/measure.ts:236-238",
+        "src/measure.ts:262-269"
+      ],
+      "test": [],
+      "evidence": "aromer 6da930b O1-INPUT-CHECKPOINT-2026-10-10.md:62-68 (Codex reproduction)",
+      "note": "no status-silence bound; 1,790 s silence passes"
+    },
+    {
+      "id": "M2",
+      "status": [
+        "known_defect"
+      ],
+      "src": [
+        "src/measure.ts:135",
+        "src/main.ts:130"
+      ],
+      "test": [],
+      "evidence": "same",
+      "note": "status without persistence throws; swallowed"
+    },
+    {
+      "id": "V1",
+      "field": "source_id",
+      "status": [
+        "missing"
+      ],
+      "src": [],
+      "test": []
+    },
+    {
+      "id": "V2",
+      "field": "capture_source",
+      "status": [
+        "partial"
+      ],
+      "src": [
+        "src/types.ts:56-58"
+      ],
+      "test": []
+    },
+    {
+      "id": "V3",
+      "field": "endpoint, client_version",
+      "status": [
+        "missing"
+      ],
+      "src": [],
+      "test": []
+    },
+    {
+      "id": "V4",
+      "field": "decoder_version, registry_version",
+      "status": [
+        "missing"
+      ],
+      "src": [
+        "src/subjects.ts:48"
+      ],
+      "test": [],
+      "note": "filter digest on checkpoint/status only"
+    },
+    {
+      "id": "V5",
+      "field": "raw_ref",
+      "status": [
+        "missing"
+      ],
+      "src": [
+        "src/types.ts:67-69"
+      ],
+      "test": []
+    },
+    {
+      "id": "V6",
+      "field": "license classes",
+      "status": [
+        "missing"
+      ],
+      "src": [],
+      "test": []
+    },
+    {
+      "id": "V7",
+      "field": "DAT-TIM-001 clocks",
+      "status": [
+        "partial"
+      ],
+      "src": [
+        "src/types.ts:72",
+        "src/measure.ts:21"
+      ],
+      "test": []
+    },
+    {
+      "id": "V8",
+      "field": "partition",
+      "status": [
+        "missing"
+      ],
+      "src": [],
+      "test": []
+    }
   ],
   "dat_src_011": {
-    "a_60min_side_by_side": "not_performed",
+    "a_60min_side_by_side": "blocked_by_M1_M2; run alone cannot establish admission",
     "a_100pct_live": "unknown",
-    "a_zero_duplicate_live_per_natural_key": "partial (D1 vs D2)",
+    "a_zero_duplicate_live_per_natural_key": "implemented_tested (D1 blockHash:logIndex); native unknown",
     "a_p99_le_10ms": "unmeasured",
     "a_backfill_only_on_backfill_subjects": "implemented_tested",
-    "b_dat_prv_002_fields": "unknown"
+    "b_dat_prv_002_fields": "missing V1,V3-V6,V8; partial V2,V7"
   },
   "acceptance": [
-    {"id":"X1","check":"every src/test ref resolves at feedeater_173 via git show","offline":true},
-    {"id":"X2","check":"F5 six factory+hook pairs equal aromer_352 json factories rows 1-6 (set equality)","offline":true},
-    {"id":"X3","check":"F8/D2/C6/C7 stay missing until a new source head is declared; no status upgrade without a pinned test","offline":true},
-    {"id":"X4","check":"DAT-SRC-011 (a) entries change only from a native 60-min run artifact","offline":false}
-  ]
+    {
+      "id": "X1",
+      "check": "every src/test ref resolves at feedeater_173 via git show",
+      "offline": true
+    },
+    {
+      "id": "X2",
+      "check": "F5 six factory+hook pairs equal aromer_352 json factories rows 1-6 (set equality)",
+      "offline": true
+    },
+    {
+      "id": "X3",
+      "check": "C6/C7/M1/M2/V1-V8 stay as recorded until a new source head is declared; no status upgrade without a pinned test",
+      "offline": true
+    },
+    {
+      "id": "X4",
+      "check": "DAT-SRC-011 (a) entries change only from a native run artifact on a harness without M1/M2",
+      "offline": false
+    }
+  ],
+  "revision": 2,
+  "supersedes": "d7719e533f170222bbe3a8548090e8c9e579d42b"
 }
