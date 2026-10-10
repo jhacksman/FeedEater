@@ -1,0 +1,259 @@
+{
+  "contract": "collector173-owner-decision/1",
+  "inert": true,
+  "approval_requested": false,
+  "date": "2026-10-10",
+  "pins": {
+    "feedeater_173": "5206f9035ad1c057d78990b294941221e936f895",
+    "joint_guard": "54ba98a98bce1eb307852861deb394ef196638ae",
+    "audit_rev1": "d7719e533f170222bbe3a8548090e8c9e579d42b",
+    "audit_rev2": "419346d7f774118b66cb786397ea015709280345",
+    "spec": "aromer 68da3589baa8dbc8cdee538facd342a4969b1a96 docs/spec/v1/SPEC-v1.md l.1075-1093, l.1116-1127",
+    "clock_defect_evidence": "aromer 6da930b67675475433a8a6706df8fd9d3beda0c3 docs/realignment/O1-INPUT-CHECKPOINT-2026-10-10.md:62-68"
+  },
+  "options": [
+    "retain_one_bounded_candidate",
+    "park",
+    "reassign"
+  ],
+  "max_correction_rounds_if_retained": 2,
+  "scopes": {
+    "S1": {
+      "name": "M1 status-silence/time window",
+      "files": [
+        "src/measure.ts"
+      ],
+      "functions": [
+        "Measurement.recordBus:130",
+        "Measurement.report:175"
+      ],
+      "lines": [
+        "236-238",
+        "262-269"
+      ],
+      "depends_on": [],
+      "oracle": [
+        "O1",
+        "O2",
+        "O3"
+      ]
+    },
+    "S2": {
+      "name": "M2 malformed status fail-closed",
+      "files": [
+        "src/measure.ts",
+        "src/main.ts"
+      ],
+      "functions": [
+        "Measurement.recordBus:130",
+        "main bus callback:126-132"
+      ],
+      "lines": [
+        "135",
+        "130"
+      ],
+      "depends_on": [],
+      "oracle": [
+        "O4",
+        "O5",
+        "O6"
+      ]
+    },
+    "S3": {
+      "name": "DAT-PRV-002 provenance",
+      "files": [
+        "src/types.ts",
+        "src/collector.ts"
+      ],
+      "functions": [
+        "Collector.handleMessage:288",
+        "Collector.ingest:322",
+        "Collector.publish:398"
+      ],
+      "lines": [
+        "types.ts:51-73",
+        "collector.ts:363-384",
+        "collector.ts:401"
+      ],
+      "missing": [
+        "V1",
+        "V3",
+        "V4",
+        "V5",
+        "V6",
+        "V8"
+      ],
+      "partial": [
+        "V2",
+        "V7"
+      ],
+      "post_publish_only": [
+        "raw_ref",
+        "t_ingest"
+      ],
+      "rule": "never predicted or placeholder; unresolved until writer ack keyed by id/epoch/seq",
+      "depends_on": [],
+      "oracle": [
+        "O7",
+        "O8",
+        "O9",
+        "O10",
+        "O11"
+      ]
+    },
+    "S4": {
+      "name": "C6/C7 caps + joint integration",
+      "files": [
+        "src/collector.ts",
+        "measurements/base-collector-173/joint-guard.mjs@54ba98a",
+        "measurements/base-collector-173/joint-run.sh@54ba98a"
+      ],
+      "functions": [
+        "Collector.onOpen:225",
+        "Collector.onDisconnect:247",
+        "Collector.reconcile:537",
+        "decide:195",
+        "stopAll:199",
+        "hHandle:236",
+        "pump:281",
+        "forward:288",
+        "wsAdmit:404",
+        "wsSend:411"
+      ],
+      "depends_on": [
+        "S1",
+        "S2"
+      ],
+      "oracle": [
+        "O12",
+        "O13",
+        "O14",
+        "O15",
+        "O16"
+      ]
+    }
+  },
+  "oracle": [
+    {
+      "id": "O1",
+      "scope": "S1",
+      "given": "30-min window; statuses at 0 s and 10 s; heartbeat 10 s; matched Initialize/Swap 1 s",
+      "expect": "refuse: status_silence, dat011=false",
+      "observed_at_5206f90": "pass (defect)"
+    },
+    {
+      "id": "O2",
+      "scope": "S1",
+      "given": "first status 120 s after window_start or last 120 s before window_end, bound 30 s",
+      "expect": "refuse"
+    },
+    {
+      "id": "O3",
+      "scope": "S1",
+      "given": "all gaps <= bound, all ok, heartbeat present",
+      "expect": "covered (control)"
+    },
+    {
+      "id": "O4",
+      "scope": "S2",
+      "given": "status payload without persistence",
+      "expect": "malformed_status counted; persistence=unresolved_observed; not validated",
+      "observed_at_5206f90": "TypeError swallowed at main.ts:130"
+    },
+    {
+      "id": "O5",
+      "scope": "S2",
+      "given": "non-JSON bus payload",
+      "expect": "counted parse failure; not silently dropped"
+    },
+    {
+      "id": "O6",
+      "scope": "S2",
+      "given": "unresolved then ok",
+      "expect": "stays unresolved_observed"
+    },
+    {
+      "id": "O7",
+      "scope": "S3",
+      "given": "fixture run",
+      "expect": "100% records carry source_id, capture_source enum, endpoint, client_version, decoder_version, registry_version, license_class (unknown allowed), partition, t_recv_wall_ns, t_recv_mono_ns, boot_id, host_id, t_publish"
+    },
+    {
+      "id": "O8",
+      "scope": "S3",
+      "given": "writer ack arrives",
+      "expect": "raw_ref and t_ingest absent/unresolved before ack, equal to acked values after"
+    },
+    {
+      "id": "O9",
+      "scope": "S3",
+      "given": "writer stalled 2 s",
+      "expect": "publish not delayed; raw_ref/t_ingest unresolved"
+    },
+    {
+      "id": "O10",
+      "scope": "S3",
+      "given": "TZ=UTC, America/Los_Angeles, Asia/Tokyo",
+      "expect": "identical int64-ns outputs"
+    },
+    {
+      "id": "O11",
+      "scope": "S3",
+      "given": "static check + runtime trace",
+      "expect": "0 awaited I/O between receive and publish"
+    },
+    {
+      "id": "O12",
+      "scope": "S4",
+      "given": "reconnect N+1 over declared cap",
+      "expect": "STOP, no further connect"
+    },
+    {
+      "id": "O13",
+      "scope": "S4",
+      "given": "WS message or byte cap reached",
+      "expect": "STOP"
+    },
+    {
+      "id": "O14",
+      "scope": "S4",
+      "given": "cumulative backfill blocks over cap",
+      "expect": "STOP (not truncate-and-continue)"
+    },
+    {
+      "id": "O15",
+      "scope": "S4",
+      "given": "first HTTP/WS/external stop",
+      "expect": "0 post-latch HTTP and WS admission/forward decisions"
+    },
+    {
+      "id": "O16",
+      "scope": "S4",
+      "given": "guarded run",
+      "expect": "same hop on both arms or neither; overhead reported separately from DAT-SRC-011"
+    }
+  ],
+  "evidence_classes": {
+    "fake_joint_mac_139": "decision ordering on fake loopback only",
+    "harness_added_latency": "measure-process bus receipt minus direct receipt, same host; not collector t_publish-t_recv",
+    "complete_reference_window": "requires S1",
+    "native_thor_dat_src_011": "none exists"
+  },
+  "missing_native_inputs": [
+    "fresh node head",
+    "declared window",
+    "reference subscriber host binding",
+    "client_version capture",
+    "license class declaration",
+    "Tier-0 writer location"
+  ],
+  "not_in_scope": [
+    "implementation",
+    "deployment",
+    "restart",
+    "node access",
+    "social",
+    "holdout",
+    "T7"
+  ]
+}
