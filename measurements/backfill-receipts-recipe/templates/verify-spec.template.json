@@ -1,0 +1,6 @@
+{
+  "schema": "backfill-receipt-verify-input/1",
+  "manifest": { "fileSha256": "UNRESOLVED_MANIFEST_FILE_SHA256", "manifestSha256": "UNRESOLVED_MANIFEST_SHA256" },
+  "plan": { "fileSha256": "UNRESOLVED_PLAN_FILE_SHA256", "planSha256": "UNRESOLVED_PLAN_SHA256" },
+  "receipts": { "fileSha256": "UNRESOLVED_RECEIPTS_INDEX_FILE_SHA256" }
+}

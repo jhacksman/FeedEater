@@ -1,0 +1,21 @@
+{
+  "schema": "backfill-plan-input/1",
+  "manifest": { "fileSha256": "UNRESOLVED_MANIFEST_FILE_SHA256", "manifestSha256": "UNRESOLVED_MANIFEST_SHA256" },
+  "source": { "chainId": 8453, "sourceId": "UNRESOLVED_ROOT_SOURCE_ID" },
+  "checkpoint": {
+    "source": { "chainId": 8453, "sourceId": "UNRESOLVED_ROOT_SOURCE_ID" },
+    "manifestSha256": "UNRESOLVED_MANIFEST_SHA256",
+    "blockNumber": "UNRESOLVED_ROOT_DEV_B_CHECKPOINT_BLOCK",
+    "blockHash": "UNRESOLVED_ROOT_DEV_B_CHECKPOINT_HASH",
+    "recordedAtUtc": "UNRESOLVED_ROOT_CHECKPOINT_RECORDED_UTC"
+  },
+  "head": {
+    "source": { "chainId": 8453, "sourceId": "UNRESOLVED_ROOT_SOURCE_ID" },
+    "blockNumber": "UNRESOLVED_ROOT_DEV_B_HEAD_BLOCK",
+    "blockHash": "UNRESOLVED_ROOT_DEV_B_HEAD_HASH",
+    "observedAtUtc": "UNRESOLVED_ROOT_HEAD_OBSERVED_UTC"
+  },
+  "evidence": { "checkpointBlockHashAtHead": "UNRESOLVED_ROOT_HASH_EVIDENCE_OR_null", "removedLogsSeen": "UNRESOLVED_ROOT_true_false_OR_null" },
+  "lookbackBlocks": "UNRESOLVED_ROOT_LOOKBACK_BLOCKS",
+  "caps": { "maxGapBlocks": "UNRESOLVED_ROOT_MAX_GAP_BLOCKS", "maxChunkBlocks": "UNRESOLVED_ROOT_MAX_CHUNK_BLOCKS", "maxCalls": "UNRESOLVED_ROOT_MAX_CALLS_LE_10000", "maxBytes": "UNRESOLVED_ROOT_MAX_BYTES" }
+}

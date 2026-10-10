@@ -1,0 +1,11 @@
+{
+  "schema": "backfill-receipts/1",
+  "planSha256": "UNRESOLVED_PLAN_SHA256",
+  "receipts": [
+    {
+      "callIndex": "UNRESOLVED_PLAN_CALL_INDEX",
+      "request": { "file": "call-UNRESOLVED_PLAN_CALL_INDEX.request.json", "sha256": "UNRESOLVED_SHA256_OF_REQUEST_BYTES_AS_SENT" },
+      "response": { "file": "call-UNRESOLVED_PLAN_CALL_INDEX.response.json", "sha256": "UNRESOLVED_SHA256_OF_RESPONSE_BYTES_AS_RECEIVED" }
+    }
+  ]
+}

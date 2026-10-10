@@ -1,0 +1,17 @@
+PASS pin filterManifest: 42185f2170fb68e5d55b5e8507f480229f58b4df measurements/filter-manifest/compile.mjs sha256 a01e632e
+PASS pin backfillPlan: a345d48a2f003348d3fe21910518ec1e6e54db35 measurements/backfill-plan/plan.mjs sha256 c527e180
+PASS pin verifier: 83aec5d72f6712711b5f22ef29777858c5b797e0 measurements/backfill-receipts/verify.mjs sha256 0eb02c03
+PASS 1a filter-manifest compile of its synthetic spec == its evidence/manifest.synthetic.json bytes (3a5431c2)
+PASS 1b backfill-plan of its synthetic spec over that manifest == its evidence/plan.synthetic.json bytes (3299b8fb, planSha256 7e9483a1)
+PASS 1c verifier on its complete synthetic receipts: ALL_CALLS_RECEIPTED, live:false, resumeLive not permitted
+PASS 2a filter-spec template refused while window/caps UNRESOLVED (exit 2)
+PASS 2b plan-spec template refused while UNRESOLVED (exit 2)
+PASS 2c verify-spec template refused while UNRESOLVED (exit 2)
+PASS 3a example original bytes match SHA256SUMS.json before the run
+PASS 3b narrow request = the six factory addresses with topics [Launched]; planned factory filter has the same six and NO topics key
+PASS 3c verdict UNKNOWN (calls_not_verified); every factory lane call FILTER_MISMATCH request_not_planned_request
+PASS 3d PoolManager Initialize/Swap lane (byte-identical 83aec5d receipts) still VERIFIED_LOGS; lanes are judged separately
+PASS 3e the Launched log in narrow call 3 is not credited (call has no logs in the report)
+PASS 3f report bytes == committed expected.report.json; no resume, admission NOT_ESTABLISHED, live:false
+PASS 3g example original bytes unchanged after the run
+16 PASS, 0 FAIL
