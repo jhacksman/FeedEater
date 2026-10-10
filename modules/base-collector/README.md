@@ -187,16 +187,19 @@ Beside the latency, every report carries:
   `unknown_observed` | `not_observed`), `statusSamples`, `persistenceStates`, `heartbeatSamples`,
   `disconnectObserved`, `reconnectObserved` (epoch change or `connects` increase against the previous
   sample, or `connected: false`), `filterDigestMismatchObserved`, and `notCovered`.
-- Scope uses the same block cut as the event rows: only status samples with `headBlock` in
-  `[fromBlock, toBlock]` count; warmup/teardown samples are excluded. Heartbeats count from the
-  earliest in-window event/status (or after the last pre-window status) until the first status past
-  `toBlock`. `ok_every_sample` requires every in-window status to be explicitly `ok` and at least one
-  in-window heartbeat; `unknown` is never upgraded by heartbeat presence. Any in-window incomplete
-  coverage, disconnect, reconnect or filter-digest mismatch stays in `notCovered`
+- Scope samples are selected by the declared observation window on the harness clock
+  (`process.hrtime.bigint()`, the `window_start`..`window_end` marks passed to `report`), not by
+  block: every collector status and persister heartbeat received inside it counts whatever its
+  `headBlock`; warmup and teardown samples never count. Event rows are still scored by block range
+  `[fromBlock, toBlock]` (late teardown deliveries for window blocks are kept for latency).
+  `ok_every_sample` requires every in-window status to be explicitly `ok` and at least one in-window
+  heartbeat; `unknown` is never upgraded by heartbeat presence. Any in-window incomplete coverage,
+  disconnect, reconnect or filter-digest mismatch stays in `notCovered`
   (`collector_coverage_incomplete`, `collector_disconnected`, `collector_reconnected`,
   `filter_digest_mismatch`) even if a later status is good; `filterDigestVerified` (and `dat011.pass`)
   needs every in-window status to carry the harness digest. Other entries: `persistence_unknown`,
-  `collector_status_not_observed`.
+  `collector_status_not_observed`. `window.startNs/endNs` and `observations` (raw `atNs` and
+  `inWindow` of every status and heartbeat) are in the report next to `marks`.
 - `scope.sourceValidationWindow` is true only when `notCovered` is empty. It is false for
   `no_target_swaps`, `no_tracked_pools`, `persistence_missing` / `persistence_not_observed`,
   `collector_coverage_incomplete` or `filter_digest_unverified`. A `dat011.pass` window

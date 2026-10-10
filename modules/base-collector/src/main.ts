@@ -103,8 +103,9 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /**
  * One process, one clock: a direct node subscription with the collector's exact filters plus a
- * NATS subscription on every collector subject. Phases: warmup (not scored), window (scored by
- * block range), teardown (late deliveries for window blocks still collected).
+ * NATS subscription on every collector subject. Phases: warmup (not scored), window (events scored by
+ * block range, status/heartbeat samples by the window_start..window_end clock marks), teardown (late
+ * deliveries for window blocks still collected; teardown samples never count toward window scope).
  */
 async function runMeasure(cfg: BaseCollectorSettings, args: string[]): Promise<void> {
   const warmupS = Number(flag(args, "warmup-s", "60"));
@@ -163,17 +164,19 @@ async function runMeasure(cfg: BaseCollectorSettings, args: string[]): Promise<v
   ws.send(JSON.stringify({ jsonrpc: "2.0", id: id++, method: "eth_subscribe", params: ["newHeads"] }));
   ws.on("close", () => marks.push({ phase: "direct_ws_closed", atNs: process.hrtime.bigint().toString(), headBlock: head }));
 
-  const mark = (phase: string) => {
-    marks.push({ phase, atNs: process.hrtime.bigint().toString(), headBlock: head });
+  const mark = (phase: string): bigint => {
+    const atNs = process.hrtime.bigint();
+    marks.push({ phase, atNs: atNs.toString(), headBlock: head });
     stderrLogger("info", `measure ${phase}`, { headBlock: head });
+    return atNs;
   };
   mark("warmup_start");
   await sleep(warmupS * 1000);
-  mark("window_start");
+  const startNs = mark("window_start");
   const fromBlock = (head ?? 0) + 1;
   await sleep(windowS * 1000);
   const toBlock = head ?? fromBlock;
-  mark("window_end");
+  const endNs = mark("window_end");
   await sleep(teardownS * 1000);
   mark("teardown_end");
   ws.terminate();
@@ -181,10 +184,10 @@ async function runMeasure(cfg: BaseCollectorSettings, args: string[]): Promise<v
 
   const report = {
     tool: "base-collector measure",
-    clock: "process.hrtime.bigint (single process)",
+    clock: "process.hrtime.bigint (single process; ns from an arbitrary per-process origin; marks are the phase boundaries)",
     settings: { warmupS, windowS, teardownS, poolsFromCheckpoint: poolsFrom, hooks: [...hookSuites(cfg).keys()] },
     marks,
-    ...m.report(fromBlock, toBlock),
+    ...m.report(fromBlock, toBlock, { startNs, endNs }),
   };
   await fs.writeFile(out, `${JSON.stringify(report, null, 2)}\n`);
   process.stdout.write(`${JSON.stringify({ out, window: report.window, liveDeliveryPct: report.liveDeliveryPct, duplicateLivePublishes: report.duplicateLivePublishes, backfillOnLiveSubjects: report.backfillOnLiveSubjects, addedLatencyMs: report.addedLatencyMs, byKind: report.byKind, scope: report.scope, dat011: report.dat011 })}\n`);

@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import { Measurement } from "../measure.js";
+
+/** Declared observation window covering every synthetic sample. */
+const W = { startNs: 0n, endNs: 1n << 62n };
 import { MemoryStore } from "../memoryStore.js";
 import { Persister } from "../persister.js";
 import { RECOVER, STATUS, encodeJson, filterDigest, sealDigest } from "../subjects.js";
@@ -21,7 +24,7 @@ describe("measurement counts ordered transitions (synthetic timestamps; not a la
     m.recordBus(STATUS, status, 0n);
     m.recordBus("feedeater.base_collector.initialize", bus(false), 500_000n);
     m.recordBus("feedeater.base_collector.removed.initialize", bus(true), 1_500_000n);
-    const rep = m.report(10, 10);
+    const rep = m.report(10, 10, W);
     expect(rep).toMatchObject({ expected: 3, deliveredLive: 2, missedLive: 1, missedEntirely: 1, duplicateLivePublishes: 0 });
     expect(rep.dat011).toMatchObject({ liveDelivery100: false, pass: false });
   });
@@ -34,11 +37,11 @@ describe("measurement counts ordered transitions (synthetic timestamps; not a la
     m.recordBus("feedeater.base_collector.initialize", bus(false), 500_000n);
     m.recordBus("feedeater.base_collector.removed.initialize", bus(true), 1_500_000n);
     m.recordBus("feedeater.base_collector.initialize", bus(false), 2_500_000n);
-    const ok = m.report(10, 10);
+    const ok = m.report(10, 10, W);
     expect(ok).toMatchObject({ expected: 3, deliveredLive: 3, duplicateLivePublishes: 0, directRepeats: 1 });
     expect(ok.dat011.pass).toBe(true);
     m.recordBus("feedeater.base_collector.initialize", bus(false), 3_500_000n);
-    const dup = m.report(10, 10);
+    const dup = m.report(10, 10, W);
     expect(dup).toMatchObject({ deliveredLive: 3, duplicateLivePublishes: 1 });
     expect(dup.dat011.pass).toBe(false);
   });
@@ -157,7 +160,7 @@ describe("measurement scope (synthetic timestamps; not a latency result)", () =>
     m.recordDirect(l, 0n);
     m.recordBus(STATUS, status({ trackedPools: 0, coverage: { complete: true, untrackedSwaps: 989 }, persistence: { state: "missing" } }), 0n);
     m.recordBus("feedeater.base_collector.initialize", live(l, "initialize"), 1_000_000n);
-    const rep = m.report(10, 10);
+    const rep = m.report(10, 10, W);
     expect(rep.dat011.pass).toBe(true);
     expect(rep.byKind.initialize).toMatchObject({ expected: 1, delivered: 1, latencyN: 1 });
     expect(rep.byKind.swap).toMatchObject({ expected: 0, latencyN: 0, p99: null });
@@ -179,11 +182,11 @@ describe("measurement scope (synthetic timestamps; not a latency result)", () =>
     m.recordBus("feedeater.base_collector.initialize", live(i, "initialize"), 1_000_000n);
     m.recordBus("feedeater.base_collector.swap", live(w, "swap"), 2_000_000n);
     m.recordBus(STATUS, status(), 3_000_000n);
-    const ok = m.report(10, 10);
+    const ok = m.report(10, 10, W);
     expect(ok.byKind.swap).toMatchObject({ expected: 1, delivered: 1, latencyN: 1, p99: 2 });
     expect(ok.scope).toMatchObject({ targetSwapsExpected: 1, trackedPoolsMeasured: 1, persistence: "ok_every_sample", heartbeatSamples: 1, reconnectObserved: false, notCovered: [], sourceValidationWindow: true });
     m.recordBus(STATUS, status({ counters: { connects: 2 } }), 4_000_000n);
-    expect(m.report(10, 10).scope.reconnectObserved).toBe(true);
+    expect(m.report(10, 10, W).scope.reconnectObserved).toBe(true);
   });
 });
 
@@ -204,7 +207,7 @@ describe("measurement scope uses only in-window samples and keeps any bad observ
     m.recordBus("feedeater.base_collector.swap", live(w, "swap"), ms(11));
     for (const t of heartbeatsAt) m.recordBus("feedeater.base_collector.ctl.persister", hb, ms(t));
     for (const [t, over] of statuses.sort((a, b) => a[0] - b[0])) m.recordBus(STATUS, { ...good, ...over }, ms(t));
-    return m.report(10, 10);
+    return m.report(10, 10, { startNs: ms(5), endNs: ms(35) });
   };
 
   it("control: all in-window statuses ok with a heartbeat is a covered window", () => {
@@ -262,6 +265,71 @@ describe("measurement scope uses only in-window samples and keeps any bad observ
     const rep = run([[1, { headBlock: 9 }]]);
     expect(rep.scope.notCovered).toEqual(["persistence_not_observed", "collector_status_not_observed", "filter_digest_unverified"]);
     expect(rep.dat011.pass).toBe(false);
+  });
+});
+
+describe("scope samples are selected by the declared clock window, not by headBlock (Codex d8140eb repros)", () => {
+  const s = cfg();
+  const P = poolId(1);
+  const ms = (n: number) => BigInt(n) * 1_000_000n;
+  // Declared window 500..2500 ms, teardown through 4500 ms, scored blocks 10..10.
+  const WIN = { startNs: ms(500), endNs: ms(2500) };
+  const good = { type: "status", epoch: 1, headBlock: 10, connected: true, filterDigest: filterDigest(s), trackedPools: 1, counters: { connects: 1 }, coverage: { complete: true, untrackedSwaps: 0 }, persistence: { state: "ok" } };
+  const hb = { type: "persister", contiguousBlock: 10, gapBlocks: [] };
+  const run = (statuses: Array<[number, Record<string, unknown>]>, heartbeatsAt: number[]) => {
+    const m = new Measurement(s);
+    const i = initLog({ block: 10, logIndex: 0, pool: P });
+    const w = swapLog({ block: 10, logIndex: 1, pool: P });
+    const live = (l: ReturnType<typeof initLog>, kind: string) => ({ type: "log", id: `${l.blockHash}:${Number.parseInt(l.logIndex, 16)}`, removed: false, path: "live", realtime: true, recovery: null, kind });
+    const ev: Array<[number, () => void]> = [
+      [1000, () => m.recordDirect(i, ms(1000))],
+      [1000, () => m.recordBus("feedeater.base_collector.initialize", live(i, "initialize"), ms(1000))],
+      [1001, () => m.recordDirect(w, ms(1001))],
+      [1001, () => m.recordBus("feedeater.base_collector.swap", live(w, "swap"), ms(1001))],
+      ...heartbeatsAt.map((t): [number, () => void] => [t, () => m.recordBus("feedeater.base_collector.ctl.persister", hb, ms(t))]),
+      ...statuses.map(([t, over]): [number, () => void] => [t, () => m.recordBus(STATUS, { ...good, ...over }, ms(t))]),
+    ];
+    for (const [, f] of ev.sort((a, b) => a[0] - b[0])) f();
+    return m.report(10, 10, WIN);
+  };
+
+  it("(1) only heartbeat is in teardown (3000 ms): not validated", () => {
+    const rep = run([[1500, {}], [4000, { headBlock: 11 }]], [3000]);
+    expect(rep.scope).toMatchObject({ persistence: "not_observed", heartbeatSamples: 0, statusSamples: 1, sourceValidationWindow: false });
+    expect(rep.scope.notCovered).toEqual(["persistence_not_observed"]);
+    expect(rep.observations.heartbeats).toEqual([{ atNs: ms(3000).toString(), inWindow: false }]);
+  });
+
+  it("(2) in-window unknown status with headBlock 9 (1200 ms) counts: not validated", () => {
+    const rep = run([[1200, { headBlock: 9, persistence: { state: "unknown" } }], [1500, {}], [4000, { headBlock: 11 }]], [2000]);
+    expect(rep.scope).toMatchObject({ persistence: "unknown_observed", persistenceStates: { ok: 1, missing: 0, unknown: 1 }, statusSamples: 2, heartbeatSamples: 1, sourceValidationWindow: false });
+    expect(rep.scope.notCovered).toEqual(["persistence_unknown"]);
+  });
+
+  it("in-window incomplete coverage / disconnect / digest mismatch at any headBlock count", () => {
+    const at = (over: Record<string, unknown>) => run([[1200, { headBlock: 9, ...over }], [1500, {}]], [2000]).scope.notCovered;
+    expect(at({ coverage: { complete: false, untrackedSwaps: 0 } })).toEqual(["collector_coverage_incomplete"]);
+    expect(at({ connected: false })).toEqual(["collector_disconnected", "collector_reconnected"]);
+    expect(at({ filterDigest: "0xother" })).toEqual(["filter_digest_mismatch"]);
+  });
+
+  it("warmup (<500 ms) and teardown (>2500 ms) samples never enter scope, good or bad", () => {
+    const bad = { persistence: { state: "missing" }, connected: false, coverage: { complete: false }, filterDigest: "0xother" };
+    const rep = run([[100, { headBlock: 10, ...bad }], [1500, {}], [3000, { headBlock: 10, ...bad }]], [200, 2000, 4000]);
+    expect(rep.scope).toMatchObject({ statusSamples: 1, heartbeatSamples: 1, notCovered: [], sourceValidationWindow: true });
+    expect(rep.observations.statuses.map((x) => x.inWindow)).toEqual([false, true, false]);
+  });
+
+  it("teardown-only status and heartbeat cannot cover an empty window", () => {
+    const rep = run([[3000, {}]], [3500]);
+    expect(rep.scope.notCovered).toEqual(["persistence_not_observed", "collector_status_not_observed", "filter_digest_unverified"]);
+    expect(rep.dat011.pass).toBe(false);
+  });
+
+  it("control: (2) with the 1200 ms status ok is a covered window; report carries clock bounds", () => {
+    const rep = run([[1200, { headBlock: 9 }], [1500, {}], [4000, { headBlock: 11 }]], [2000]);
+    expect(rep.scope).toMatchObject({ persistence: "ok_every_sample", notCovered: [], sourceValidationWindow: true });
+    expect(rep.window).toEqual({ fromBlock: 10, toBlock: 10, startNs: ms(500).toString(), endNs: ms(2500).toString() });
   });
 });
 

@@ -11,10 +11,18 @@ type Obs = { removed: boolean; tNs: bigint };
 type DirectSeq = { blockNumber: number; kind: string; poolId: string | null; seq: Obs[] };
 type LiveSeq = { seq: Obs[]; duplicates: number };
 
+export type ObservationWindow = { startNs: bigint; endNs: bigint };
+
 export type MeasurementReport = {
   filterDigest: string;
   filterDigestVerified: boolean;
-  window: { fromBlock: number; toBlock: number };
+  /** Event rows are scored by block range; status/heartbeat samples by the declared clock window. */
+  window: { fromBlock: number; toBlock: number; startNs: string; endNs: string };
+  /** Raw receipt times (`process.hrtime.bigint()` ns, arbitrary per-process origin) of every sample. */
+  observations: {
+    statuses: Array<{ atNs: string; inWindow: boolean; headBlock: number | null; persistence: string | null; connected: boolean | null; coverageComplete: boolean | null; filterDigestMatch: boolean }>;
+    heartbeats: Array<{ atNs: string; inWindow: boolean }>;
+  };
   expected: number;
   deliveredLive: number;
   liveDeliveryPct: number;
@@ -160,7 +168,12 @@ export class Measurement {
     }
   }
 
-  report(fromBlock: number, toBlock: number): MeasurementReport {
+  /**
+   * `obs` is the declared observation window on the same clock as every `tNs` passed in
+   * (main: the `window_start`/`window_end` marks). Warmup/teardown samples are outside it.
+   */
+  report(fromBlock: number, toBlock: number, obs: ObservationWindow): MeasurementReport {
+    const inClock = (t: bigint) => t >= obs.startNs && t <= obs.endNs;
     const inWindow = (b: number) => b >= fromBlock && b <= toBlock;
     const latencies: number[] = [];
     let expected = 0;
@@ -220,26 +233,9 @@ export class Measurement {
     }
     const p99 = quantile(latencies, 0.99);
     const pct = expected === 0 ? 0 : (100 * delivered) / expected;
-    // Window cut, same block range as the event rows: status samples whose headBlock is in
-    // [fromBlock, toBlock]. Warmup/teardown samples are excluded.
-    const win = this.statusLog.map((x, i) => ({ ...x, i })).filter((x) => typeof x.st.headBlock === "number" && inWindow(x.st.headBlock));
-    let tMin: bigint | null = null;
-    const span = (t: bigint) => {
-      if (tMin === null || t < tMin) tMin = t;
-    };
-    for (const d of this.direct.values()) if (inWindow(d.blockNumber)) for (const o of d.seq) span(o.tNs);
-    for (const x of win) span(x.tNs);
-    // Heartbeats count from the earliest in-window event/status (or after the last pre-window status)
-    // until the first status sample past toBlock.
-    let lo: bigint | null = tMin;
-    let hi: bigint | null = null;
-    for (const x of this.statusLog) {
-      const h = x.st.headBlock;
-      if (typeof h !== "number") continue;
-      if (h < fromBlock && (lo === null || x.tNs > lo)) lo = x.tNs;
-      if (h > toBlock && (hi === null || x.tNs < hi)) hi = x.tNs;
-    }
-    const heartbeats = win.length === 0 ? 0 : this.heartbeatLog.filter((t) => lo !== null && t >= lo && (hi === null || t < hi)).length;
+    // Every status/heartbeat received inside the declared clock window counts, whatever its headBlock.
+    const win = this.statusLog.map((x, i) => ({ ...x, i })).filter((x) => inClock(x.tNs));
+    const heartbeats = this.heartbeatLog.filter(inClock).length;
     const states = { ok: 0, missing: 0, unknown: 0 };
     for (const x of win) {
       const ps = x.st.persistence?.state;
@@ -286,7 +282,19 @@ export class Measurement {
     return {
       filterDigest: this.digest,
       filterDigestVerified: digestOk,
-      window: { fromBlock, toBlock },
+      window: { fromBlock, toBlock, startNs: obs.startNs.toString(), endNs: obs.endNs.toString() },
+      observations: {
+        statuses: this.statusLog.map(({ tNs, st }) => ({
+          atNs: tNs.toString(),
+          inWindow: inClock(tNs),
+          headBlock: typeof st.headBlock === "number" ? st.headBlock : null,
+          persistence: st.persistence?.state ?? null,
+          connected: typeof st.connected === "boolean" ? st.connected : null,
+          coverageComplete: typeof st.coverage?.complete === "boolean" ? st.coverage.complete : null,
+          filterDigestMatch: st.filterDigest === this.digest,
+        })),
+        heartbeats: this.heartbeatLog.map((t) => ({ atNs: t.toString(), inWindow: inClock(t) })),
+      },
       expected,
       deliveredLive: delivered,
       liveDeliveryPct: pct,

@@ -4,6 +4,9 @@ import { describe, expect, it } from "vitest";
 import { TOPIC_INITIALIZE, TOPIC_SWAP } from "../constants.js";
 import { decodeInitialize, decodeSwap } from "../decode.js";
 import { Measurement } from "../measure.js";
+
+/** Declared observation window covering every synthetic sample. */
+const W = { startNs: 0n, endNs: 1n << 62n };
 import { filterDigest } from "../subjects.js";
 import { cfg, initLog, o1Hook, poolId, swapLog } from "./fixtures.js";
 
@@ -40,10 +43,10 @@ describe("measurement bookkeeping (synthetic timestamps; not a latency result)",
     m.recordBus("feedeater.base_collector.swap", live(logs[1]!), 4_000_000n);
     m.recordBus("feedeater.base_collector.backfill.swap", live(logs[2]!, { path: "backfill", realtime: false, recovery: "reconnect" }), 9_000_000n);
     m.recordBus("feedeater.base_collector.swap", live(logs[2]!, { path: "backfill", realtime: false, recovery: "reconnect" }), 9_500_000n);
-    const rep = m.report(10, 11);
+    const rep = m.report(10, 11, W);
     expect(rep).toMatchObject({ expected: 3, deliveredLive: 3, duplicateLivePublishes: 1, backfillOnLiveSubjects: 1, lateLiveAfterBackfill: 1, filterDigestVerified: true });
     expect(rep.dat011.pass).toBe(false);
-    expect(m.report(10, 12)).toMatchObject({ expected: 4, missedLive: 1, missedEntirely: 1 });
+    expect(m.report(10, 12, W)).toMatchObject({ expected: 4, missedLive: 1, missedEntirely: 1 });
   });
 
   it("does not pass without the collector's filter digest", () => {
@@ -51,7 +54,7 @@ describe("measurement bookkeeping (synthetic timestamps; not a latency result)",
     const l = initLog({ block: 10, logIndex: 0, pool: poolId(1) });
     m.recordDirect(l, 0n);
     m.recordBus("feedeater.base_collector.initialize", live(l, { kind: "initialize" }), 1n);
-    const rep = m.report(10, 10);
+    const rep = m.report(10, 10, W);
     expect(rep.dat011).toMatchObject({ liveDelivery100: true, p99AddedLe10ms: true, pass: false });
   });
 });
