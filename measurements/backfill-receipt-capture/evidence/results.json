@@ -1,0 +1,198 @@
+{
+ "schema": "backfill-receipt-capture-test/1",
+ "node": "v24",
+ "cases": [
+  {
+   "name": "pins: a345d48 plan.mjs and 83aec5d verify.mjs extracted with expected sha256",
+   "ok": true
+  },
+  {
+   "name": "fixture plan.4calls.json == pinned a345d48 plan.mjs output (PLANNED, 4 calls)",
+   "ok": true
+  },
+  {
+   "name": "fixture manifest == 83aec5d fixtures/manifest.synthetic.json bytes",
+   "ok": true
+  },
+  {
+   "name": "complete: exit 0, CAPTURED_ALL_PLANNED, 4 attempted/4 receipted, verifierRun false, live false, resume not permitted",
+   "ok": true
+  },
+  {
+   "name": "complete: server saw exactly 4 POSTs, application/json, max one in flight",
+   "ok": true
+  },
+  {
+   "name": "complete: each request = planned params[0] verbatim, id = index+1, eth_getLogs; request file bytes == bytes the server received",
+   "ok": true
+  },
+  {
+   "name": "complete: response files are the exact server bytes (whitespace/CRLF preserved) and sidecar shas match",
+   "ok": true
+  },
+  {
+   "name": "complete: pace >= 1250 ms between requests",
+   "ok": true
+  },
+  {
+   "name": "complete: stdout is a summary only (no payload, no endpoint); attempts.json endpointSha256 only, retries 0",
+   "ok": true
+  },
+  {
+   "name": "complete: receipts.json/attempts.json shas in summary match files; output dir holds only the 10 expected files",
+   "ok": true
+  },
+  {
+   "name": "complete: 83aec5d verifier (run by the test, not the CLI) -> ALL_CALLS_RECEIPTED",
+   "ok": true
+  },
+  {
+   "name": "rpc error: exit 3 STOPPED at call 1 rpc_error; server saw 2 requests; notAttempted [2,3]",
+   "ok": true
+  },
+  {
+   "name": "rpc error: error bytes kept verbatim as call-1.response.json and receipted; no call-2/3 files",
+   "ok": true
+  },
+  {
+   "name": "rpc error: verifier -> UNKNOWN, call 1 RPC_ERROR, missingCalls [2,3] (no fabricated empty)",
+   "ok": true
+  },
+  {
+   "name": "http 500: exit 3 STOPPED http_status at call 0, server saw 1, receipted 0, exact partial bytes kept as .unreceipted",
+   "ok": true
+  },
+  {
+   "name": "timeout (whole-call deadline): exit 3 STOPPED timeout at call 0, server saw 1, receipted 0, exact partial bytes kept as .unreceipted",
+   "ok": true
+  },
+  {
+   "name": "per-response oversize: exit 3 STOPPED response_oversize at call 0, server saw 1, receipted 0, exact partial bytes kept as .unreceipted",
+   "ok": true
+  },
+  {
+   "name": "total byte cap on call 1: exit 3 STOPPED total_bytes_cap at call 1, server saw 2, receipted 1, exact partial bytes kept as .unreceipted",
+   "ok": true
+  },
+  {
+   "name": "connection reset mid-body: exit 3 STOPPED transport_error at call 0, server saw 1, receipted 0, exact partial bytes kept as .unreceipted",
+   "ok": true
+  },
+  {
+   "name": "200 non-JSON body: exit 3 STOPPED response_unparsed at call 0, server saw 1, receipted 1, exact partial bytes none",
+   "ok": true
+  },
+  {
+   "name": "connection refused: exit 3 transport_error at call 0, no response file, receipts index empty",
+   "ok": true
+  },
+  {
+   "name": "refuse 8-call plan > maxCalls 5: exit 2 call_budget_exceeds_limit, no request sent, no output created",
+   "ok": true
+  },
+  {
+   "name": "refuse plan truncated by call budget: exit 2 plan_not_capturable, no request sent, no output created",
+   "ok": true
+  },
+  {
+   "name": "refuse plan UNKNOWN_NEEDS_RECONCILIATION: exit 2 plan_not_capturable, no request sent, no output created",
+   "ok": true
+  },
+  {
+   "name": "refuse maxCalls 6: exit 2 limit_invalid, no request sent, no output created",
+   "ok": true
+  },
+  {
+   "name": "refuse maxCalls 3 < callCount 4: exit 2 call_budget_exceeds_limit, no request sent, no output created",
+   "ok": true
+  },
+  {
+   "name": "refuse paceMs 1249: exit 2 limit_invalid, no request sent, no output created",
+   "ok": true
+  },
+  {
+   "name": "refuse timeoutMs 8001: exit 2 limit_invalid, no request sent, no output created",
+   "ok": true
+  },
+  {
+   "name": "refuse maxResponseBytes 1048577: exit 2 limit_invalid, no request sent, no output created",
+   "ok": true
+  },
+  {
+   "name": "refuse maxTotalBytes 0: exit 2 limit_invalid, no request sent, no output created",
+   "ok": true
+  },
+  {
+   "name": "refuse maxTotalBytes above plan maxBytes: exit 2 total_bytes_exceeds_plan_maxBytes, no request sent, no output created",
+   "ok": true
+  },
+  {
+   "name": "refuse limits.maxTotalBytes missing: exit 2 spec_missing_field, no request sent, no output created",
+   "ok": true
+  },
+  {
+   "name": "refuse planSha256 pin mismatch: exit 2, no request sent, no output created",
+   "ok": true
+  },
+  {
+   "name": "refuse plan file sha pin mismatch: exit 2, no request sent, no output created",
+   "ok": true
+  },
+  {
+   "name": "refuse manifest pin mismatch: exit 2, no request sent, no output created",
+   "ok": true
+  },
+  {
+   "name": "refuse unknown spec field: exit 2 spec_unknown_field, no request sent, no output created",
+   "ok": true
+  },
+  {
+   "name": "refuse duplicate spec key: exit 2 json_duplicate_key, no request sent, no output created",
+   "ok": true
+  },
+  {
+   "name": "refuse --out exists: exit 2 out_dir_exists, no request sent, no output created",
+   "ok": true
+  },
+  {
+   "name": "refuse --out parent is a symlink: exit 2 out_parent_symlink, no request sent, no output created",
+   "ok": true
+  },
+  {
+   "name": "refuse --out parent missing: exit 2 out_parent_missing, no request sent, no output created",
+   "ok": true
+  },
+  {
+   "name": "refuse ftp endpoint: exit 2 endpoint_scheme_unsupported, no output created",
+   "ok": true
+  },
+  {
+   "name": "refuse endpoint with userinfo: exit 2 endpoint_userinfo_refused, no output created",
+   "ok": true
+  },
+  {
+   "name": "refuse missing --endpoint: exit 2 usage, no output created",
+   "ok": true
+  },
+  {
+   "name": "refuse unknown --retries: exit 2 usage, no output created",
+   "ok": true
+  },
+  {
+   "name": "refuse duplicate --plan: exit 2 usage_duplicate_argument, no output created",
+   "ok": true
+  },
+  {
+   "name": "static: no child_process/env/dir-scan/non-exclusive writes/deletes/wall clock/hardcoded paths/fetch/retry in capture.mjs",
+   "ok": true
+  },
+  {
+   "name": "static: every output write goes through O_CREAT|O_EXCL|O_NOFOLLOW; the only network call is one http(s).request per call",
+   "ok": true
+  },
+  {
+   "name": "static: fixtures unchanged",
+   "ok": true
+  }
+ ]
+}
