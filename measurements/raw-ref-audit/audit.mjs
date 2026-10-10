@@ -19,24 +19,44 @@ const refuse = (reason, extra = {}) => { throw new Refusal(reason, extra); };
 const HEX64 = /^[0-9a-f]{64}$/;
 const isNat = (x) => Number.isSafeInteger(x) && x >= 0;
 
-function readInput(p, role) {
+const seen = [];
+function checkParents(p) {
+  const abs = path.resolve(p);
+  const parts = abs.split(path.sep).filter(Boolean);
+  let cur = path.parse(abs).root;
+  for (const c of parts.slice(0, -1)) {
+    cur = path.join(cur, c);
+    let st;
+    try { st = fs.lstatSync(cur); } catch (e) { refuse(`parent_path_${e.code}`, { path: p, component: cur }); }
+    if (st.isSymbolicLink()) refuse("parent_path_symlink", { path: p, component: cur });
+  }
+}
+function readInput(p, role, record = true) {
+  checkParents(p);
   let fd;
   try { fd = fs.openSync(p, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW); } catch (e) { refuse(e.code === "ELOOP" ? "input_is_symlink" : `input_open_${e.code}`, { role, path: p }); }
   try {
     const st = fs.fstatSync(fd);
     if (!st.isFile()) refuse("input_not_regular_file", { role, path: p });
     const buf = fs.readFileSync(fd);
-    return { role, path: p, buf, bytes: buf.length, sha256Before: hex(buf), ino: st.ino, dev: st.dev };
+    const r = { role, path: p, buf, bytes: buf.length, sha256Before: hex(buf), ino: st.ino, dev: st.dev };
+    if (record) seen.push(r);
+    return r;
   } finally { fs.closeSync(fd); }
 }
 
 function parseHeader(buf) {
-  if (buf.length < 8 || !buf.subarray(0, 4).equals(HMAGIC)) return { ok: false, reason: "segment_header_invalid" };
+  const bad = (detail) => ({ ok: false, reason: "segment_header_invalid", detail });
+  if (buf.length < 8 || !buf.subarray(0, 4).equals(HMAGIC)) return bad("magic_or_short");
   const l = buf.readUInt32BE(4);
-  if (l > 4096 || buf.length < 8 + l + 32) return { ok: false, reason: "segment_header_invalid" };
+  if (l > 4096 || buf.length < 8 + l + 32) return bad("length");
   const j = buf.subarray(8, 8 + l);
-  if (!sha(HMAGIC, j).equals(buf.subarray(8 + l, 40 + l))) return { ok: false, reason: "segment_header_invalid" };
-  try { return { ok: true, header: JSON.parse(j.toString("utf8")), end: 40 + l }; } catch { return { ok: false, reason: "segment_header_invalid" }; }
+  if (!sha(HMAGIC, j).equals(buf.subarray(8 + l, 40 + l))) return bad("sha");
+  let h;
+  try { h = JSON.parse(j.toString("utf8")); } catch { return bad("json_unparseable"); }
+  if (h === null || typeof h !== "object" || Array.isArray(h)) return bad("json_not_object");
+  if (typeof h.format !== "string" || typeof h.segment_id !== "string") return bad("fields_not_strings");
+  return { ok: true, header: h, end: 40 + l };
 }
 
 function parseJournal(buf, segId) {
@@ -52,15 +72,18 @@ function parseJournal(buf, segId) {
   }
   if (entries.length === 0) return { ok: false, reason: "journal_empty" };
   const last = entries[entries.length - 1];
-  return { ok: true, entries: entries.length, committedEnd: last.end, lastSeq: last.lastSeq, partialTailBytes: buf.length - full };
+  return { ok: true, list: entries, entries: entries.length, committedEnd: last.end, lastSeq: last.lastSeq, partialTailBytes: buf.length - full };
 }
 
 // Verify one record at `pos` in `buf` against an ack's length/raw/meta fields. Returns null if it matches, else a reason.
+// All reads are bounds-checked against the ack's claimed span [pos, pos+a.length), which must lie inside buf.
 function checkRecord(buf, pos, a, rawPos) {
-  if (pos + a.length > buf.length) return "beyond_eof";
+  if (pos < 0 || pos + a.length > buf.length) return "beyond_eof";
+  const end = pos + a.length;
+  if (a.length < 44) return "framing_mismatch";
   if (!buf.subarray(pos, pos + 4).equals(RMAGIC)) return "framing_mismatch";
   const ml = buf.readUInt32BE(pos + 4);
-  if (pos + 12 + ml > buf.length) return "framing_mismatch";
+  if (pos + 12 + ml > end) return "framing_mismatch";
   const rl = buf.readUInt32BE(pos + 8 + ml);
   const len = 12 + ml + rl + 32;
   if (len !== a.length || rawPos !== pos + 12 + ml || rl !== a.rawLength) return "framing_mismatch";
@@ -71,8 +94,55 @@ function checkRecord(buf, pos, a, rawPos) {
   if (hex(meta) !== a.metaSha256) return "ack_meta_sha_mismatch";
   let m;
   try { m = JSON.parse(meta.toString("utf8")); } catch { return "record_meta_unparseable"; }
+  if (m === null || typeof m !== "object" || Array.isArray(m)) return "record_meta_not_object";
   if (m.seq !== a.seq) return "seq_mismatch";
   return null;
+}
+
+// Walk verified records from the header end; stops at the first record that does not verify. Never throws.
+function walk(buf, start) {
+  const spans = [];
+  let o = start;
+  for (;;) {
+    if (o + 12 > buf.length || !buf.subarray(o, o + 4).equals(RMAGIC)) break;
+    const ml = buf.readUInt32BE(o + 4);
+    if (o + 12 + ml > buf.length) break;
+    const rl = buf.readUInt32BE(o + 8 + ml);
+    const len = 12 + ml + rl + 32;
+    if (o + len > buf.length) break;
+    const meta = buf.subarray(o + 8, o + 8 + ml);
+    if (!sha(meta, buf.subarray(o + 12 + ml, o + 12 + ml + rl)).equals(buf.subarray(o + len - 32, o + len))) break;
+    let m;
+    try { m = JSON.parse(meta.toString("utf8")); } catch { break; }
+    if (m === null || typeof m !== "object" || !Number.isSafeInteger(m.seq)) break;
+    spans.push([o, o + len, m.seq]);
+    o += len;
+  }
+  return { spans, end: o };
+}
+
+// Bind each authenticated journal entry to this segment's verified framing: aligned | contradicted | unverifiable.
+function bindJournal(pj, hdEnd, segBytes, spans) {
+  const ends = new Map();
+  for (const [, e, q] of spans) ends.set(e, q);
+  const sorted = [...spans].sort((x, y) => x[0] - y[0]);
+  const inside = (E) => { let lo = 0, hi = sorted.length - 1; while (lo <= hi) { const mid = (lo + hi) >> 1; const [s, e] = sorted[mid]; if (E <= s) hi = mid - 1; else if (E >= e) lo = mid + 1; else return true; } return false; };
+  const out = { aligned: 0, contradicted: 0, unverifiable: 0, provenEnd: null, maxUnverifiableEnd: null, firstContradiction: null };
+  pj.list.forEach((x, i) => {
+    let k;
+    let why;
+    if (x.end < hdEnd) { k = "contradicted"; why = "inside_header"; }
+    else if (x.end === hdEnd) { k = x.lastSeq === 0 ? "aligned" : "contradicted"; why = "header_end_lastSeq_not_0"; }
+    else if (x.end > segBytes) { k = "unverifiable"; }
+    else if (ends.has(x.end)) { k = ends.get(x.end) === x.lastSeq ? "aligned" : "contradicted"; why = "lastSeq_mismatch"; }
+    else if (inside(x.end)) { k = "contradicted"; why = "inside_record"; }
+    else k = "unverifiable";
+    out[k]++;
+    if (k === "aligned") out.provenEnd = Math.max(out.provenEnd ?? 0, x.end);
+    if (k === "unverifiable") out.maxUnverifiableEnd = Math.max(out.maxUnverifiableEnd ?? 0, x.end);
+    if (k === "contradicted" && out.firstContradiction === null) out.firstContradiction = { entry: i, end: x.end, lastSeq: x.lastSeq, why };
+  });
+  return out;
 }
 
 function parseAcks(buf) {
@@ -93,6 +163,14 @@ function parseAcks(buf) {
   });
   if (acks.length === 0) refuse("ack_journal_has_no_acks");
   return { acks, lines: lines.length, nonAckLines: other };
+}
+
+export function rehash(inputs) {
+  return inputs.map((x) => {
+    let y = null;
+    try { y = readInput(x.path, x.role, false); } catch { y = null; }
+    return { path: x.path, role: x.role, bytes: x.bytes, sha256Before: x.sha256Before, sha256After: y?.sha256Before ?? null, sameInode: y !== null && y.ino === x.ino && y.dev === x.dev };
+  });
 }
 
 const ranges = (seqs) => { const out = []; for (const s of [...seqs].sort((a, b) => a - b)) { const l = out[out.length - 1]; if (l && l[1] === s - 1) l[1] = s; else out.push([s, s]); } return out; };
@@ -117,6 +195,12 @@ export function audit({ segment, journal, acks, quarantine = [], fullRefs = fals
   const hd = parseHeader(seg.buf);
   const identity = !hd.ok ? hd.reason : hd.header.format !== FORMAT_PIN.format || hd.header.segment_id !== segId ? "segment_identity_mismatch" : null;
   const pj = parseJournal(jr.buf, segId);
+  const verifiedSpans = [];
+  if (identity === null) {
+    verifiedSpans.push(...walk(seg.buf, hd.end).spans);
+    for (const a of pa.acks) if (a.offset >= hd.end && checkRecord(seg.buf, a.offset, a, a.rawOffset) === null) verifiedSpans.push([a.offset, a.offset + a.length, a.seq]);
+  }
+  const bind = pj.ok && identity === null ? bindJournal(pj, hd.end, seg.bytes, verifiedSpans) : null;
   const bySeq = new Map();
   for (const a of pa.acks) { const l = bySeq.get(a.seq) ?? []; l.push(a); bySeq.set(a.seq, l); }
   const key = (a) => JSON.stringify([a.segment_id, a.offset, a.length, a.rawOffset, a.rawLength, a.sha256, a.metaSha256]);
@@ -137,9 +221,12 @@ export function audit({ segment, journal, acks, quarantine = [], fullRefs = fals
       if (r !== null) { status = "INVALIDATED"; reason = r; }
       else {
         accessible = true;
+        const e = a.offset + a.length;
         if (!pj.ok) { status = "UNKNOWN"; reason = `journal_unverifiable:${pj.reason}`; }
-        else if (a.offset + a.length > pj.committedEnd) { status = "INVALIDATED"; reason = "beyond_committed_end"; }
-        else { status = "RESOLVABLE"; reason = null; }
+        else if (bind.contradicted > 0) { status = "UNKNOWN"; reason = "journal_not_bound_to_segment"; }
+        else if (bind.provenEnd !== null && e <= bind.provenEnd) { status = "RESOLVABLE"; reason = null; }
+        else if (bind.maxUnverifiableEnd !== null && e <= bind.maxUnverifiableEnd) { status = "UNKNOWN"; reason = "commit_end_unverifiable"; }
+        else { status = "INVALIDATED"; reason = "beyond_committed_end"; }
       }
     }
     const preserved = [];
@@ -148,11 +235,11 @@ export function audit({ segment, journal, acks, quarantine = [], fullRefs = fals
       const pos = a.offset - q.baseOffset;
       if (pos >= 0 && checkRecord(q.buf, pos, a, a.rawOffset - q.baseOffset) === null) preserved.push({ in: "quarantine", file: path.basename(q.path), position: pos });
     }
-    refs.push({ seq, status, reason, refAccessible: accessible, bytesPreserved: preserved.length > 0 ? preserved : "not_found", ackLines: list.map((x) => x.line), conflicting,
+    refs.push({ seq, status, reason, refAccessible: accessible, bytesPreserved: conflicting ? "not_searched" : preserved.length > 0 ? preserved : "not_found", ackLines: list.map((x) => x.line), conflicting,
       ack: conflicting ? list.map((x) => ({ offset: x.offset, length: x.length, sha256: x.sha256 })) : { segment_id: a.segment_id, epochs: [...new Set(list.map((x) => x.epoch))], vias: [...new Set(list.map((x) => x.via))], offset: a.offset, length: a.length, rawOffset: a.rawOffset, rawLength: a.rawLength, sha256: a.sha256, metaSha256: a.metaSha256 } });
   }
   // Read-only check: re-open and re-hash every input after the audit.
-  const after = inputs.map((x) => { const y = readInput(x.path, x.role); return { path: x.path, role: x.role, bytes: x.bytes, sha256Before: x.sha256Before, sha256After: y.sha256Before, sameInode: y.ino === x.ino && y.dev === x.dev }; });
+  const after = rehash(inputs);
   const changed = after.filter((x) => x.sha256Before !== x.sha256After || !x.sameInode);
   const summary = { RESOLVABLE: 0, INVALIDATED: {}, UNKNOWN: {} };
   let nonResolvableBytes = 0;
@@ -161,6 +248,7 @@ export function audit({ segment, journal, acks, quarantine = [], fullRefs = fals
     if (r.status === "RESOLVABLE") summary.RESOLVABLE++; else { summary[r.status][r.reason] = (summary[r.status][r.reason] ?? 0) + 1; if (!r.conflicting) nonResolvableBytes += r.ack.length; }
     if (r.refAccessible) pres.refAccessible++;
     if (r.bytesPreserved === "not_found") pres.bytesNotFound++;
+    else if (r.bytesPreserved === "not_searched") pres.bytesNotSearched = (pres.bytesNotSearched ?? 0) + 1;
     else { if (r.bytesPreserved.some((p) => p.in === "active_segment")) pres.bytesPreservedActive++; if (r.bytesPreserved.some((p) => p.in === "quarantine")) pres.bytesPreservedQuarantine++; }
   }
   const nonRes = refs.filter((r) => r.status !== "RESOLVABLE");
@@ -168,8 +256,8 @@ export function audit({ segment, journal, acks, quarantine = [], fullRefs = fals
     exit: changed.length > 0 ? 3 : 0,
     report: {
       tool: "raw-ref-audit/1", formatPin: FORMAT_PIN, readOnly: { inputs: after, changed: changed.length },
-      segment: { headerOk: hd.ok, headerSegmentId: hd.ok ? hd.header.segment_id : null, ackSegmentId: segId, identity: identity ?? "match", bytes: seg.bytes, ackFilePath: [...files][0], suppliedPath: segment },
-      journal: pj.ok ? { ok: true, entries: pj.entries, committedEnd: pj.committedEnd, lastSeq: pj.lastSeq, partialTailBytes: pj.partialTailBytes, segmentShorterThanCommittedEnd: seg.bytes < pj.committedEnd } : { ok: false, reason: pj.reason, at: pj.at ?? null },
+      segment: { headerOk: hd.ok, headerDetail: hd.ok ? null : hd.detail, headerSegmentId: hd.ok ? hd.header.segment_id : null, ackSegmentId: segId, identity: identity ?? "match", bytes: seg.bytes, ackFilePath: [...files][0], suppliedPath: segment },
+      journal: pj.ok ? { ok: true, entries: pj.entries, committedEnd: pj.committedEnd, lastSeq: pj.lastSeq, partialTailBytes: pj.partialTailBytes, segmentShorterThanCommittedEnd: seg.bytes < pj.committedEnd, binding: bind } : { ok: false, reason: pj.reason, at: pj.at ?? null },
       acks: { lines: pa.lines, ackLines: pa.acks.length, nonAckLines: pa.nonAckLines, uniqueSeqs: refs.length, duplicateIdentical: dupIdentical, conflictingSeqs: refs.filter((r) => r.conflicting).length },
       summary, presence: pres, nonResolvableRefBytes: nonResolvableBytes,
       resolvableSeqRanges: ranges(refs.filter((r) => r.status === "RESOLVABLE").map((r) => r.seq)),
@@ -200,7 +288,9 @@ if (isMain) {
     process.exitCode = exit;
   } catch (e) {
     if (!(e instanceof Refusal)) throw e;
-    process.stdout.write(`${JSON.stringify({ refused: e.reason, ...e.extra })}\n`);
-    process.exitCode = 2;
+    const after = rehash(seen);
+    const changed = after.filter((x) => x.sha256Before !== x.sha256After || !x.sameInode).length;
+    process.stdout.write(`${JSON.stringify({ refused: e.reason, ...e.extra, readOnly: { inputsRead: after, changed } })}\n`);
+    process.exitCode = changed > 0 ? 3 : 2;
   }
 }

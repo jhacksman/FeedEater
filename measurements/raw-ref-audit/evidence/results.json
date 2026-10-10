@@ -204,6 +204,66 @@
       "pass": true
     },
     {
+      "case": "B1 seed-999 segment+acks (same id) with seed-173 journal: journal authenticates but is contradicted by framing -> 10000 UNKNOWN journal_not_bound_to_segment, 0 RESOLVABLE",
+      "expected": {
+        "rc": 0,
+        "RESOLVABLE": 0,
+        "UNKNOWN": {
+          "journal_not_bound_to_segment": 10000
+        },
+        "journalAuthenticates": true,
+        "contradictedEntries": ">0"
+      },
+      "actual": {
+        "rc": 0,
+        "RESOLVABLE": 0,
+        "INVALIDATED": {},
+        "UNKNOWN": {
+          "journal_not_bound_to_segment": 10000
+        },
+        "nonResolvable": [
+          [
+            1,
+            10000
+          ]
+        ],
+        "presence": {
+          "refAccessible": 10000,
+          "bytesPreservedActive": 10000,
+          "bytesPreservedQuarantine": 0,
+          "bytesNotFound": 0
+        },
+        "nonResolvableRefBytes": 10501519,
+        "journalAuthenticates": true,
+        "binding": {
+          "aligned": 208,
+          "contradicted": 9792,
+          "unverifiable": 0,
+          "provenEnd": 4464412,
+          "maxUnverifiableEnd": null,
+          "firstContradiction": {
+            "entry": 1,
+            "end": 1173,
+            "lastSeq": 1,
+            "why": "inside_record"
+          }
+        }
+      },
+      "pass": true
+    },
+    {
+      "case": "control: seed-999 segment with its own journal -> 10000 RESOLVABLE, 0 contradicted entries",
+      "expected": {
+        "RESOLVABLE": 10000,
+        "contradicted": 0
+      },
+      "actual": {
+        "RESOLVABLE": 10000,
+        "contradicted": 0
+      },
+      "pass": true
+    },
+    {
       "case": "malformed ack journal line: refused exit 2",
       "expected": {
         "rc": 2,
@@ -212,7 +272,36 @@
       "actual": {
         "rc": 2,
         "refused": "ack_journal_malformed_line",
-        "line": 2
+        "line": 2,
+        "readOnly": {
+          "inputsRead": [
+            {
+              "path": "work/c6/seg",
+              "role": "segment",
+              "bytes": 10500229,
+              "sha256Before": "8fe69a9f73fc62c29ea2edfd491efebe618de958905da73b922c81b06a97e5d2",
+              "sha256After": "8fe69a9f73fc62c29ea2edfd491efebe618de958905da73b922c81b06a97e5d2",
+              "sameInode": true
+            },
+            {
+              "path": "work/c6/seg.commit",
+              "role": "journal",
+              "bytes": 480000,
+              "sha256Before": "beea6f22d3dee1aed79c2a06ca042714e353e40f5ffbfd2283339b9fcd33ccc1",
+              "sha256After": "beea6f22d3dee1aed79c2a06ca042714e353e40f5ffbfd2283339b9fcd33ccc1",
+              "sameInode": true
+            },
+            {
+              "path": "work/c6/acks.jsonl",
+              "role": "acks",
+              "bytes": 3487950,
+              "sha256Before": "27d82131bd7428e3db82013d83d04e1290f6405fcdf33daeb8e64220739a1811",
+              "sha256After": "27d82131bd7428e3db82013d83d04e1290f6405fcdf33daeb8e64220739a1811",
+              "sameInode": true
+            }
+          ],
+          "changed": 0
+        }
       },
       "pass": true
     },
@@ -224,7 +313,36 @@
       },
       "actual": {
         "rc": 2,
-        "refused": "ack_journal_truncated_final_line"
+        "refused": "ack_journal_truncated_final_line",
+        "readOnly": {
+          "inputsRead": [
+            {
+              "path": "work/c7/seg",
+              "role": "segment",
+              "bytes": 10500229,
+              "sha256Before": "8fe69a9f73fc62c29ea2edfd491efebe618de958905da73b922c81b06a97e5d2",
+              "sha256After": "8fe69a9f73fc62c29ea2edfd491efebe618de958905da73b922c81b06a97e5d2",
+              "sameInode": true
+            },
+            {
+              "path": "work/c7/seg.commit",
+              "role": "journal",
+              "bytes": 480000,
+              "sha256Before": "beea6f22d3dee1aed79c2a06ca042714e353e40f5ffbfd2283339b9fcd33ccc1",
+              "sha256After": "beea6f22d3dee1aed79c2a06ca042714e353e40f5ffbfd2283339b9fcd33ccc1",
+              "sameInode": true
+            },
+            {
+              "path": "work/c7/acks.jsonl",
+              "role": "acks",
+              "bytes": 3487905,
+              "sha256Before": "85915bee00792c4e595636f803bb055527b86ae42cb5332904a65b110057ee0d",
+              "sha256After": "85915bee00792c4e595636f803bb055527b86ae42cb5332904a65b110057ee0d",
+              "sameInode": true
+            }
+          ],
+          "changed": 0
+        }
       },
       "pass": true
     },
@@ -409,7 +527,7 @@
       "pass": true
     },
     {
-      "case": "duplicate identical acks counted (seq 10 RESOLVABLE); conflicting seq 20 UNKNOWN conflicting_acks",
+      "case": "duplicate identical acks counted (seq 10 RESOLVABLE); conflicting seq 20 UNKNOWN conflicting_acks, bytesPreserved not_searched",
       "expected": {
         "RESOLVABLE": 9999,
         "UNKNOWN": {
@@ -422,7 +540,8 @@
             20,
             20
           ]
-        ]
+        ],
+        "bytesPreserved20": "not_searched"
       },
       "actual": {
         "RESOLVABLE": 9999,
@@ -440,11 +559,13 @@
           "refAccessible": 9999,
           "bytesPreservedActive": 9999,
           "bytesPreservedQuarantine": 0,
-          "bytesNotFound": 1
+          "bytesNotFound": 0,
+          "bytesNotSearched": 1
         },
         "nonResolvableRefBytes": 0,
         "duplicateIdentical": 2,
-        "conflictingSeqs": 1
+        "conflictingSeqs": 1,
+        "bytesPreserved20": "not_searched"
       },
       "pass": true
     },
@@ -500,7 +621,11 @@
         "rc": 2,
         "refused": "input_is_symlink",
         "role": "segment",
-        "path": "work/c13/link.seg"
+        "path": "work/c15/link.seg",
+        "readOnly": {
+          "inputsRead": [],
+          "changed": 0
+        }
       },
       "pass": true
     },
@@ -541,6 +666,30 @@
       "pass": true
     },
     {
+      "case": "segment reached through a symlinked parent directory: refused parent_path_symlink",
+      "expected": {
+        "rc": 2,
+        "refused": "parent_path_symlink"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "parent_path_symlink"
+      },
+      "pass": true
+    },
+    {
+      "case": "refusal output carries before/after hashes of inputs read, unchanged",
+      "expected": {
+        "changed": 0,
+        "inputsRead": 3
+      },
+      "actual": {
+        "changed": 0,
+        "inputsRead": 3
+      },
+      "pass": true
+    },
+    {
       "case": "quarantine not named for the supplied segment: refused",
       "expected": {
         "rc": 2,
@@ -549,6 +698,139 @@
       "actual": {
         "rc": 2,
         "refused": "quarantine_not_for_segment"
+      },
+      "pass": true
+    },
+    {
+      "case": "ROOT exact: valid header + 4 B 'T0R1', ack offset=headerEnd length=4 rawOffset=headerEnd+12 rawLength=0 -> exit 0, INVALIDATED framing_mismatch, no crash",
+      "expected": {
+        "rc": 0,
+        "INVALIDATED": {
+          "framing_mismatch": 1
+        }
+      },
+      "actual": {
+        "rc": 0,
+        "INVALIDATED": {
+          "framing_mismatch": 1
+        }
+      },
+      "pass": true
+    },
+    {
+      "case": "valid hashed header JSON null: exit 0, INVALIDATED segment_header_invalid (json_not_object)",
+      "expected": {
+        "rc": 0,
+        "INVALIDATED": {
+          "segment_header_invalid": 1
+        },
+        "headerDetail": "json_not_object"
+      },
+      "actual": {
+        "rc": 0,
+        "INVALIDATED": {
+          "segment_header_invalid": 1
+        },
+        "headerDetail": "json_not_object"
+      },
+      "pass": true
+    },
+    {
+      "case": "valid hashed header JSON array: exit 0, INVALIDATED segment_header_invalid (json_not_object)",
+      "expected": {
+        "rc": 0,
+        "INVALIDATED": {
+          "segment_header_invalid": 1
+        },
+        "headerDetail": "json_not_object"
+      },
+      "actual": {
+        "rc": 0,
+        "INVALIDATED": {
+          "segment_header_invalid": 1
+        },
+        "headerDetail": "json_not_object"
+      },
+      "pass": true
+    },
+    {
+      "case": "valid hashed header JSON string: exit 0, INVALIDATED segment_header_invalid (json_not_object)",
+      "expected": {
+        "rc": 0,
+        "INVALIDATED": {
+          "segment_header_invalid": 1
+        },
+        "headerDetail": "json_not_object"
+      },
+      "actual": {
+        "rc": 0,
+        "INVALIDATED": {
+          "segment_header_invalid": 1
+        },
+        "headerDetail": "json_not_object"
+      },
+      "pass": true
+    },
+    {
+      "case": "valid hashed header JSON number: exit 0, INVALIDATED segment_header_invalid (json_not_object)",
+      "expected": {
+        "rc": 0,
+        "INVALIDATED": {
+          "segment_header_invalid": 1
+        },
+        "headerDetail": "json_not_object"
+      },
+      "actual": {
+        "rc": 0,
+        "INVALIDATED": {
+          "segment_header_invalid": 1
+        },
+        "headerDetail": "json_not_object"
+      },
+      "pass": true
+    },
+    {
+      "case": "valid hashed header object, non-string fields: exit 0, INVALIDATED segment_header_invalid (fields_not_strings)",
+      "expected": {
+        "rc": 0,
+        "INVALIDATED": {
+          "segment_header_invalid": 1
+        },
+        "headerDetail": "fields_not_strings"
+      },
+      "actual": {
+        "rc": 0,
+        "INVALIDATED": {
+          "segment_header_invalid": 1
+        },
+        "headerDetail": "fields_not_strings"
+      },
+      "pass": true
+    },
+    {
+      "case": "record meta JSON null: exit 0, INVALIDATED record_meta_not_object",
+      "expected": {
+        "INVALIDATED": {
+          "record_meta_not_object": 1
+        }
+      },
+      "actual": {
+        "rc": 0,
+        "INVALIDATED": {
+          "record_meta_not_object": 1
+        }
+      },
+      "pass": true
+    },
+    {
+      "case": "truncated 4-11 B frames x {active, quarantine} x {real, lying length}: 32 cases exit 0, named INVALIDATED, bytes not_found, inputs unchanged",
+      "expected": {
+        "cases": 32,
+        "allNamed": true
+      },
+      "actual": {
+        "cases": 32,
+        "failed": []
       },
       "pass": true
     }

@@ -24,32 +24,44 @@ for (const [f, h] of Object.entries(PIN)) {
 const { encodePipe } = await import(`./${W}/raw94/tier0.mjs`);
 const { makeFrames } = await import(`./${W}/raw94/fixture.mjs`);
 
-// Run the real writer: frames 1..9998 then, after ack 9998, frames 9999+10000 in one pipe write (one commit batch).
-function writeSegment(seg, id, frames, epoch = 1) {
+// Run the real writer. perFrame: one pipe write per frame, each awaited by its ack (one commit entry per frame), then
+// frames n-1 and n in one write, so the journal is deterministic: header entry + (n-2) + 1 entries. Otherwise: frames
+// 1..n-2 in one write (batching varies with pipe reads), then the final two after ack n-2.
+function writeSegment(seg, id, frames, { perFrame = false, epoch = 1 } = {}) {
   return new Promise((res, rej) => {
     const w = spawn(process.execPath, [`${W}/raw94/writer.mjs`, "--segment", seg, "--segment-id", id, "--epoch", String(epoch)], { stdio: ["pipe", "pipe", "inherit"] });
-    let out = "";
+    const chunks = [];
+    let part = "";
+    let maxAck = 0;
     const pipe = (fs_) => Buffer.concat(fs_.map((f) => encodePipe(Buffer.from(JSON.stringify(f.meta), "utf8"), f.raw)));
     const n = frames.length;
-    let tailSent = n <= 2;
+    let sent = 0;
+    const tail = () => { sent = n; w.stdin.end(pipe(frames.slice(n - 2))); };
+    const step = () => { if (sent >= n - 2) tail(); else if (perFrame) { w.stdin.write(pipe([frames[sent]])); sent++; } else { w.stdin.write(pipe(frames.slice(0, n - 2))); sent = n - 2; } };
     w.stdout.on("data", (d) => {
-      out += d;
-      if (!tailSent && out.includes(`"seq":${n - 2},`)) { tailSent = true; w.stdin.end(pipe(frames.slice(n - 2))); }
+      chunks.push(d);
+      const lines = (part + d.toString()).split("\n");
+      part = lines.pop();
+      for (const l of lines) { const o = JSON.parse(l); if (o.type === "ack") maxAck = Math.max(maxAck, o.seq); }
+      if (sent < n && maxAck === sent) step();
     });
-    w.on("exit", (c) => (c === 0 ? res(out) : rej(new Error(`writer exit ${c}`))));
-    if (n <= 2) w.stdin.end(pipe(frames)); else w.stdin.write(pipe(frames.slice(0, n - 2)));
+    w.on("exit", (c) => (c === 0 ? res(Buffer.concat(chunks).toString()) : rej(new Error(`writer exit ${c}`))));
+    if (n <= 2) tail(); else step();
   });
 }
 const recoverWith94 = (seg, id) => spawnSync(process.execPath, [`${W}/raw94/writer.mjs`, "--segment", seg, "--segment-id", id, "--epoch", "2"], { input: Buffer.alloc(0), maxBuffer: 1 << 28 });
 
+const variable = {};
 const frames = makeFrames(10000, 173);
 const base = `${W}/base.seg`;
-const ackText = await writeSegment(base, ID, frames);
+let t = Date.now();
+const ackText = await writeSegment(base, ID, frames, { perFrame: true });
+variable.generateSeed173PerFrameMs = Date.now() - t;
 fs.writeFileSync(`${W}/base.acks.jsonl`, ackText);
 const baseJ = fs.readFileSync(`${base}.commit`);
 const acks = ackText.trimEnd().split("\n").map((l) => JSON.parse(l)).filter((o) => o.type === "ack");
 check("raw94 writer produced 10000 append acks", acks.length === 10000 && acks.every((a, i) => a.seq === i + 1 && a.via === "append"));
-check(`commit journal has a last entry covering exactly 9999-10000 (${baseJ.length / 48} entries)`, baseJ.length % 48 === 0 && baseJ.readUInt32BE(baseJ.length - 48 + 12) === 10000 && baseJ.readUInt32BE(baseJ.length - 96 + 12) === 9998);
+check("commit journal is deterministic: 10000 entries (header + 9998 single-frame + 1), last entry covers exactly 9999-10000", baseJ.length === 10000 * 48 && baseJ.readUInt32BE(baseJ.length - 48 + 12) === 10000 && baseJ.readUInt32BE(baseJ.length - 96 + 12) === 9998);
 
 let k = 0;
 function mk({ seg = base, journal = baseJ, ackBody = ackText } = {}) {
@@ -65,7 +77,8 @@ function runAudit(args) {
   const r = spawnSync(process.execPath, ["audit.mjs", ...args], { maxBuffer: 1 << 28 });
   const after = files.map((f) => { try { return fh(f); } catch { return null; } });
   const out = JSON.parse(r.stdout.toString());
-  const toolHashesMatch = out.readOnly === undefined || out.readOnly.inputs.every((x, i) => x.sha256Before === before[i] && x.sha256After === before[i]);
+  const list = out.readOnly?.inputs ?? out.readOnly?.inputsRead ?? [];
+  const toolHashesMatch = list.every((x) => x.sha256Before === x.sha256After && x.sameInode && x.sha256Before === fh(x.path));
   return { rc: r.status, out, unchanged: before.every((h, i) => h === after[i]) && toolHashesMatch };
 }
 const A = (c, q = []) => runAudit(["--segment", c.s, "--journal", c.j, "--acks", c.a, ...q.flatMap((x) => ["--quarantine", x])]);
@@ -93,6 +106,19 @@ for (const [name, jl, seqs, bytes] of [["last journal entry lost", baseJ.length 
   const act2 = { writerRc: rec.status, quarantines: qs.map((q) => [q.split("/").pop(), fs.statSync(q).size]), rc: r2.rc, ...sum(r2.out) };
   const exp2 = { writerRc: 0, rc: 0, INVALIDATED: { beyond_eof: n }, nonResolvable: seqs, refAccessible: 10000 - n, bytesPreservedQuarantine: n, nonResolvableRefBytes: bytes };
   check(`${name}, after raw94 recovery (writer exit ${rec.status}): ${n} INVALIDATED beyond_eof, not accessible, bytes preserved in quarantine`, rec.status === 0 && r2.unchanged && r2.rc === 0 && eq(act2.INVALIDATED, exp2.INVALIDATED) && eq(act2.nonResolvable, seqs) && act2.presence.refAccessible === 10000 - n && act2.presence.bytesPreservedQuarantine === n && act2.presence.bytesNotFound === 0 && act2.nonResolvableRefBytes === bytes, exp2, act2);
+}
+{ // B1: seed-999 segment + its acks, SAME segment_id, with the seed-173 journal
+  const s9 = `${W}/seed999.seg`;
+  t = Date.now();
+  const a9 = await writeSegment(s9, ID, makeFrames(10000, 999));
+  variable.generateSeed999BatchedMs = Date.now() - t;
+  const c = mk({ seg: s9, journal: baseJ, ackBody: a9 }); const r = A(c);
+  const b = r.out.journal.binding;
+  const exp = { rc: 0, RESOLVABLE: 0, UNKNOWN: { journal_not_bound_to_segment: 10000 }, journalAuthenticates: true, contradictedEntries: ">0" };
+  const act = { rc: r.rc, ...sum(r.out), journalAuthenticates: r.out.journal.ok, binding: b };
+  check("B1 seed-999 segment+acks (same id) with seed-173 journal: journal authenticates but is contradicted by framing -> 10000 UNKNOWN journal_not_bound_to_segment, 0 RESOLVABLE", r.rc === 0 && r.unchanged && r.out.summary.RESOLVABLE === 0 && eq(r.out.summary.UNKNOWN, exp.UNKNOWN) && r.out.journal.ok && b.contradicted > 0, exp, act);
+  const c2 = mk({ seg: s9, journal: fs.readFileSync(`${s9}.commit`), ackBody: a9 }); const r2 = A(c2);
+  check("control: seed-999 segment with its own journal -> 10000 RESOLVABLE, 0 contradicted entries", r2.rc === 0 && r2.out.summary.RESOLVABLE === 10000 && r2.out.journal.binding.contradicted === 0, { RESOLVABLE: 10000, contradicted: 0 }, { RESOLVABLE: r2.out.summary.RESOLVABLE, contradicted: r2.out.journal.binding.contradicted });
 }
 { // malformed / truncated ack journal
   const c = mk({ ackBody: ackText.replace("\n", "\n{bad\n") }); const r = A(c);
@@ -140,7 +166,9 @@ for (const [name, jl, seqs, bytes] of [["last journal entry lost", baseJ.length 
   const c = mk({ ackBody: [...L, L[i10], JSON.stringify(rec), JSON.stringify(conf)].join("\n") + "\n" }); const r = A(c);
   const exp = { RESOLVABLE: 9999, UNKNOWN: { conflicting_acks: 1 }, duplicateIdentical: 2, conflictingSeqs: 1, nonResolvable: [[20, 20]] };
   const act = { ...sum(r.out), duplicateIdentical: r.out.acks.duplicateIdentical, conflictingSeqs: r.out.acks.conflictingSeqs };
-  check("duplicate identical acks counted (seq 10 RESOLVABLE); conflicting seq 20 UNKNOWN conflicting_acks", r.rc === 0 && r.unchanged && act.RESOLVABLE === 9999 && eq(act.UNKNOWN, exp.UNKNOWN) && act.duplicateIdentical === 2 && act.conflictingSeqs === 1 && eq(act.nonResolvable, [[20, 20]]), exp, act);
+  const r20 = r.out.refs.find((x) => x.seq === 20);
+  exp.bytesPreserved20 = "not_searched"; act.bytesPreserved20 = r20?.bytesPreserved;
+  check("duplicate identical acks counted (seq 10 RESOLVABLE); conflicting seq 20 UNKNOWN conflicting_acks, bytesPreserved not_searched", r.rc === 0 && r.unchanged && act.RESOLVABLE === 9999 && eq(act.UNKNOWN, exp.UNKNOWN) && act.duplicateIdentical === 2 && act.conflictingSeqs === 1 && eq(act.nonResolvable, [[20, 20]]) && act.bytesPreserved20 === "not_searched", exp, act);
 }
 { // corrupt journal entry -> commit proof unavailable
   const j = Buffer.from(baseJ); j[3 * 48 + 20] ^= 1;
@@ -162,9 +190,52 @@ for (const [name, jl, seqs, bytes] of [["last journal entry lost", baseJ.length 
   check("missing --journal: refused missing_argument", r3.rc === 2 && r3.out.refused === "missing_argument", { rc: 2, refused: "missing_argument" }, { rc: r3.rc, refused: r3.out.refused });
   const r4 = runAudit(["--segment", c.s, "--journal", `${c.d}/nope`, "--acks", c.a]);
   check("absent journal file: refused input_open_ENOENT", r4.rc === 2 && r4.out.refused === "input_open_ENOENT", { rc: 2, refused: "input_open_ENOENT" }, { rc: r4.rc, refused: r4.out.refused });
+  const ld = `${W}/linkdir`; fs.symlinkSync(c.d.split("/").pop(), ld);
+  const r6 = runAudit(["--segment", `${ld}/seg`, "--journal", c.j, "--acks", c.a]);
+  check("segment reached through a symlinked parent directory: refused parent_path_symlink", r6.rc === 2 && r6.out.refused === "parent_path_symlink" && r6.unchanged, { rc: 2, refused: "parent_path_symlink" }, { rc: r6.rc, refused: r6.out.refused });
+  check("refusal output carries before/after hashes of inputs read, unchanged", r2.out.readOnly.changed === 0 && r2.out.readOnly.inputsRead.length === 3 && r2.unchanged, { changed: 0, inputsRead: 3 }, { changed: r2.out.readOnly.changed, inputsRead: r2.out.readOnly.inputsRead.length });
   fs.writeFileSync(`${c.d}/x.quarantine-5-e1`, "x");
   const r5 = runAudit(["--segment", c.s, "--journal", c.j, "--acks", c.a, "--quarantine", `${c.d}/x.quarantine-5-e1`]);
   check("quarantine not named for the supplied segment: refused", r5.rc === 2 && r5.out.refused === "quarantine_not_for_segment", { rc: 2, refused: "quarantine_not_for_segment" }, { rc: r5.rc, refused: r5.out.refused });
+}
+{ // ROOT: malformed headers and truncated 4-11 B frames in active and quarantine; must classify, never crash
+  const { encodeHeader, encodeRecord, encodeCommit, FORMAT } = await import(`./${W}/raw94/tier0.mjs`);
+  const H = encodeHeader({ format: FORMAT, segment_id: ID });
+  const hEnd = H.length;
+  const ackLine = (o) => `${JSON.stringify({ type: "ack", via: "append", segment_id: ID, epoch: 1, file: "seg", seq: 1, ...o })}\n`;
+  const J0 = encodeCommit(ID, hEnd, 0);
+  const craft = (segBytes, ack, journal = J0, q = null) => {
+    const d = `${W}/c${++k}`; fs.mkdirSync(d);
+    const s = `${d}/seg`; fs.writeFileSync(s, segBytes); fs.writeFileSync(`${s}.commit`, journal); fs.writeFileSync(`${d}/acks.jsonl`, ackLine(ack));
+    const qs = [];
+    if (q !== null) { const qp = `${s}.quarantine-${q.at}-e2`; fs.writeFileSync(qp, q.bytes); qs.push(qp); }
+    return A({ d, s, j: `${s}.commit`, a: `${d}/acks.jsonl` }, qs);
+  };
+  const z = "0".repeat(64);
+  const r0 = craft(Buffer.concat([H, Buffer.from("T0R1")]), { offset: hEnd, length: 4, rawOffset: hEnd + 12, rawLength: 0, sha256: hex(Buffer.alloc(0)), metaSha256: z });
+  check("ROOT exact: valid header + 4 B 'T0R1', ack offset=headerEnd length=4 rawOffset=headerEnd+12 rawLength=0 -> exit 0, INVALIDATED framing_mismatch, no crash", r0.rc === 0 && r0.unchanged && eq(r0.out.summary.INVALIDATED, { framing_mismatch: 1 }), { rc: 0, INVALIDATED: { framing_mismatch: 1 } }, { rc: r0.rc, INVALIDATED: r0.out.summary?.INVALIDATED });
+  for (const [name, hb, detail] of [["JSON null", encodeHeader(null), "json_not_object"], ["JSON array", encodeHeader([FORMAT, ID]), "json_not_object"], ["JSON string", encodeHeader("x"), "json_not_object"], ["JSON number", encodeHeader(5), "json_not_object"], ["object, non-string fields", encodeHeader({ format: 2, segment_id: null }), "fields_not_strings"]]) {
+    const r = craft(Buffer.concat([hb, encodeRecord(Buffer.from('{"seq":1}'), Buffer.from("abc"))]), { offset: hb.length, length: 12 + 9 + 3 + 32, rawOffset: hb.length + 21, rawLength: 3, sha256: hex(Buffer.from("abc")), metaSha256: hex(Buffer.from('{"seq":1}')) });
+    check(`valid hashed header ${name}: exit 0, INVALIDATED segment_header_invalid (${detail})`, r.rc === 0 && r.unchanged && eq(r.out.summary.INVALIDATED, { segment_header_invalid: 1 }) && r.out.segment.headerDetail === detail, { rc: 0, INVALIDATED: { segment_header_invalid: 1 }, headerDetail: detail }, { rc: r.rc, INVALIDATED: r.out.summary?.INVALIDATED, headerDetail: r.out.segment?.headerDetail });
+  }
+  const mn = Buffer.from("null"), rw = Buffer.from("abc");
+  const rn = craft(Buffer.concat([H, encodeRecord(mn, rw)]), { offset: hEnd, length: 12 + 4 + 3 + 32, rawOffset: hEnd + 16, rawLength: 3, sha256: hex(rw), metaSha256: hex(mn) }, Buffer.concat([J0, encodeCommit(ID, hEnd + 51, 1)]));
+  check("record meta JSON null: exit 0, INVALIDATED record_meta_not_object", rn.rc === 0 && rn.unchanged && eq(rn.out.summary.INVALIDATED, { record_meta_not_object: 1 }), { INVALIDATED: { record_meta_not_object: 1 } }, { rc: rn.rc, INVALIDATED: rn.out.summary?.INVALIDATED });
+  const real = encodeRecord(Buffer.from('{"seq":1}'), Buffer.from("abc"));
+  const realAck = { offset: hEnd, length: real.length, rawOffset: hEnd + 21, rawLength: 3, sha256: hex(Buffer.from("abc")), metaSha256: hex(Buffer.from('{"seq":1}')) };
+  const tr = [];
+  for (let n = 4; n <= 11; n++) {
+    const pre = real.subarray(0, n);
+    const lie = { ...realAck, length: n };
+    const cases = [
+      ["active, ack real length", craft(Buffer.concat([H, pre]), realAck), "beyond_eof"],
+      ["active, ack length=n", craft(Buffer.concat([H, pre]), lie), "framing_mismatch"],
+      ["quarantine, ack real length", craft(H, realAck, J0, { at: hEnd, bytes: pre }), "beyond_eof"],
+      ["quarantine, ack length=n", craft(H, lie, J0, { at: hEnd, bytes: pre }), "beyond_eof"],
+    ];
+    for (const [w, r, why] of cases) tr.push({ n, w, ok: r.rc === 0 && r.unchanged && eq(r.out.summary.INVALIDATED, { [why]: 1 }) && r.out.refs[0].bytesPreserved === "not_found", expected: why, actual: r.out.summary?.INVALIDATED });
+  }
+  check("truncated 4-11 B frames x {active, quarantine} x {real, lying length}: 32 cases exit 0, named INVALIDATED, bytes not_found, inputs unchanged", tr.every((x) => x.ok), { cases: 32, allNamed: true }, { cases: tr.length, failed: tr.filter((x) => !x.ok) });
 }
 { // static: read-only, no payload output, no clock, no process/network
   const src = fs.readFileSync("audit.mjs", "utf8");
@@ -176,6 +247,7 @@ for (const [name, jl, seqs, bytes] of [["last journal entry lost", baseJ.length 
   const leaks = frames.slice(0, 200).filter((f) => f.raw.length >= 16 && outText.includes(f.raw.toString("utf8"))).length;
   check("full-refs output contains no raw payload bytes (first 200 frames checked)", r.rc === 0 && leaks === 0 && r.out.refs.length === 10000);
 }
+fs.writeFileSync("evidence/variable.json", `${JSON.stringify({ note: "variable host timing only; not asserted, not evidence of anything beyond this run", ...variable }, null, 2)}\n`);
 fs.writeFileSync("evidence/results.json", `${JSON.stringify({ rawWriterCommit: RAW, fixture: "raw94 fixture.mjs makeFrames(10000,173)", allAckBytes: allBytes, results }, null, 2)}\n`);
 console.log(`${pass} PASS, ${fail} FAIL`);
 fs.rmSync(W, { recursive: true, force: true });

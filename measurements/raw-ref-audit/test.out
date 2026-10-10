@@ -2,12 +2,14 @@ PASS raw94 fixture.mjs extracted from 94a0ae0 with pinned sha256
 PASS raw94 tier0.mjs extracted from 94a0ae0 with pinned sha256
 PASS raw94 writer.mjs extracted from 94a0ae0 with pinned sha256
 PASS raw94 writer produced 10000 append acks
-PASS commit journal has a last entry covering exactly 9999-10000 (192 entries)
+PASS commit journal is deterministic: 10000 entries (header + 9998 single-frame + 1), last entry covers exactly 9999-10000
 PASS intact: 10000 RESOLVABLE, read-only
 PASS last journal entry lost, before recovery: 2 INVALIDATED beyond_committed_end (2087 B), still accessible in active file
 PASS last journal entry lost, after raw94 recovery (writer exit 0): 2 INVALIDATED beyond_eof, not accessible, bytes preserved in quarantine
 PASS journal reduced to first entry only, before recovery: 10000 INVALIDATED beyond_committed_end (10500111 B), still accessible in active file
 PASS journal reduced to first entry only, after raw94 recovery (writer exit 0): 10000 INVALIDATED beyond_eof, not accessible, bytes preserved in quarantine
+PASS B1 seed-999 segment+acks (same id) with seed-173 journal: journal authenticates but is contradicted by framing -> 10000 UNKNOWN journal_not_bound_to_segment, 0 RESOLVABLE
+PASS control: seed-999 segment with its own journal -> 10000 RESOLVABLE, 0 contradicted entries
 PASS malformed ack journal line: refused exit 2
 PASS truncated ack journal final line: refused exit 2
 PASS truncated segment: 4999 RESOLVABLE, 5001 INVALIDATED beyond_eof
@@ -15,14 +17,24 @@ PASS corrupt record 5000: INVALIDATED record_sha_mismatch, bytes not found, othe
 PASS corrupt metaLen of record 7000 (in bounds): INVALIDATED framing_mismatch, later refs still RESOLVABLE
 PASS foreign segment identity: 10000 INVALIDATED segment_identity_mismatch
 PASS wrong raw sha (77) and wrong meta sha (78): INVALIDATED with exact reason
-PASS duplicate identical acks counted (seq 10 RESOLVABLE); conflicting seq 20 UNKNOWN conflicting_acks
+PASS duplicate identical acks counted (seq 10 RESOLVABLE); conflicting seq 20 UNKNOWN conflicting_acks, bytesPreserved not_searched
 PASS corrupt journal entry: 10000 UNKNOWN journal_unverifiable, bytes still accessible
 PASS partial trailing journal entry (20 B): reported, whole entries still prove 10000 RESOLVABLE
 PASS symlinked segment input: refused input_is_symlink
 PASS mixed segment ids in ack journal: refused
 PASS missing --journal: refused missing_argument
 PASS absent journal file: refused input_open_ENOENT
+PASS segment reached through a symlinked parent directory: refused parent_path_symlink
+PASS refusal output carries before/after hashes of inputs read, unchanged
 PASS quarantine not named for the supplied segment: refused
+PASS ROOT exact: valid header + 4 B 'T0R1', ack offset=headerEnd length=4 rawOffset=headerEnd+12 rawLength=0 -> exit 0, INVALIDATED framing_mismatch, no crash
+PASS valid hashed header JSON null: exit 0, INVALIDATED segment_header_invalid (json_not_object)
+PASS valid hashed header JSON array: exit 0, INVALIDATED segment_header_invalid (json_not_object)
+PASS valid hashed header JSON string: exit 0, INVALIDATED segment_header_invalid (json_not_object)
+PASS valid hashed header JSON number: exit 0, INVALIDATED segment_header_invalid (json_not_object)
+PASS valid hashed header object, non-string fields: exit 0, INVALIDATED segment_header_invalid (fields_not_strings)
+PASS record meta JSON null: exit 0, INVALIDATED record_meta_not_object
+PASS truncated 4-11 B frames x {active, quarantine} x {real, lying length}: 32 cases exit 0, named INVALIDATED, bytes not_found, inputs unchanged
 PASS static: imports only node:fs,node:crypto,node:path; no write/truncate/unlink/rename/spawn/network/clock or payload encoding calls
 PASS full-refs output contains no raw payload bytes (first 200 frames checked)
-27 PASS, 0 FAIL
+39 PASS, 0 FAIL

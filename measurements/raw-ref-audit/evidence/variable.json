@@ -1,0 +1,5 @@
+{
+  "note": "variable host timing only; not asserted, not evidence of anything beyond this run",
+  "generateSeed173PerFrameMs": 4193,
+  "generateSeed999BatchedMs": 499
+}
