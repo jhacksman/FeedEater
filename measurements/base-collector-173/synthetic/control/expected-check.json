@@ -1,0 +1,50 @@
+{
+  "tool": "check-report (reject-only; not an admission contract)",
+  "report": "synthetic/control/measure.json",
+  "verdict": "NO_REJECT_FOUND",
+  "reject": [],
+  "notObserved": [],
+  "observed": {
+    "initialize": {
+      "reportExpected": 1,
+      "directRaw": 1,
+      "liveRaw": 1
+    },
+    "swap": {
+      "reportExpectedTracked": 2,
+      "directRawAllPools": 3,
+      "liveRaw": 1
+    },
+    "factory": {
+      "reportExpected": 1,
+      "directRaw": 1,
+      "liveRaw": 1
+    },
+    "reorgRemoval": {
+      "directRaw": 1,
+      "liveRaw": 1
+    }
+  },
+  "clock": {
+    "basis": "process.hrtime.bigint on one host",
+    "comparable": true,
+    "hosts": [
+      "synthetic-host",
+      "synthetic-host"
+    ]
+  },
+  "statusMaxGapMs": {
+    "report": 5000,
+    "raw": 5000
+  },
+  "heartbeatMaxGapMs": {
+    "report": 5000,
+    "raw": 5000
+  },
+  "notCertifiableAt5206f90": [
+    "a7_g1_status_cadence_not_in_report_scope",
+    "malformed_status_dropped_silently_by_measure",
+    "direct_ws_loss_not_in_report_scope",
+    "factory_and_reorg_coverage_not_in_report_scope"
+  ]
+}

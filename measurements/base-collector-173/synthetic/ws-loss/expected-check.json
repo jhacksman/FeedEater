@@ -1,0 +1,54 @@
+{
+  "tool": "check-report (reject-only; not an admission contract)",
+  "report": "synthetic/ws-loss/measure.json",
+  "verdict": "REJECT",
+  "reject": [
+    "measure_direct_ws_lost_before_teardown_end",
+    "measure_direct_heads_stale",
+    "direct_capture_ws_closed_before_teardown_end"
+  ],
+  "notObserved": [],
+  "observed": {
+    "initialize": {
+      "reportExpected": 1,
+      "directRaw": 1,
+      "liveRaw": 1
+    },
+    "swap": {
+      "reportExpectedTracked": 2,
+      "directRawAllPools": 2,
+      "liveRaw": 1
+    },
+    "factory": {
+      "reportExpected": 1,
+      "directRaw": 1,
+      "liveRaw": 1
+    },
+    "reorgRemoval": {
+      "directRaw": 1,
+      "liveRaw": 1
+    }
+  },
+  "clock": {
+    "basis": "process.hrtime.bigint on one host",
+    "comparable": true,
+    "hosts": [
+      "synthetic-host",
+      "synthetic-host"
+    ]
+  },
+  "statusMaxGapMs": {
+    "report": 5000,
+    "raw": 5000
+  },
+  "heartbeatMaxGapMs": {
+    "report": 5000,
+    "raw": 5000
+  },
+  "notCertifiableAt5206f90": [
+    "a7_g1_status_cadence_not_in_report_scope",
+    "malformed_status_dropped_silently_by_measure",
+    "direct_ws_loss_not_in_report_scope",
+    "factory_and_reorg_coverage_not_in_report_scope"
+  ]
+}

@@ -1,0 +1,55 @@
+{
+  "tool": "check-report (reject-only; not an admission contract)",
+  "report": "synthetic/g1/measure.json",
+  "verdict": "REJECT",
+  "reject": [
+    "report_status_stale_or_silent(maxGapMs=290000)",
+    "report_heartbeat_stale_or_silent(maxGapMs=290000)",
+    "raw_status_stale_or_silent(maxGapMs=289999.95)",
+    "raw_heartbeat_stale_or_silent(maxGapMs=289999.95)"
+  ],
+  "notObserved": [],
+  "observed": {
+    "initialize": {
+      "reportExpected": 1,
+      "directRaw": 1,
+      "liveRaw": 1
+    },
+    "swap": {
+      "reportExpectedTracked": 2,
+      "directRawAllPools": 3,
+      "liveRaw": 1
+    },
+    "factory": {
+      "reportExpected": 1,
+      "directRaw": 1,
+      "liveRaw": 1
+    },
+    "reorgRemoval": {
+      "directRaw": 1,
+      "liveRaw": 1
+    }
+  },
+  "clock": {
+    "basis": "process.hrtime.bigint on one host",
+    "comparable": true,
+    "hosts": [
+      "synthetic-host",
+      "synthetic-host"
+    ]
+  },
+  "statusMaxGapMs": {
+    "report": 290000,
+    "raw": 289999.95
+  },
+  "heartbeatMaxGapMs": {
+    "report": 290000,
+    "raw": 289999.95
+  },
+  "notCertifiableAt5206f90": [
+    "a7_g1_status_cadence_not_in_report_scope",
+    "malformed_status_dropped_silently_by_measure",
+    "direct_ws_loss_not_in_report_scope",
+    "factory_and_reorg_coverage_not_in_report_scope"
+  ]
+}
