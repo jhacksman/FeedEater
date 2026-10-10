@@ -1,4 +1,4 @@
-# Raw Tier-0 writer prototype (DAT-PRV-001 primitive, standalone) — correction 1 of `320dcfc`
+# Raw Tier-0 writer prototype (DAT-PRV-001 primitive, standalone) — correction 2 (final) of `1bbabb2`, correction 1 of `320dcfc`
 
 This is a hermetic prototype of the primitive missing from DAT-PRV-001 (audit `b9dd122` P3, proposal `861bb80` S3a).
 - It is **not** integrated with #173 (collector, measure or persister), run-native, the joint guard, deploy or production.
@@ -26,6 +26,30 @@ This is a hermetic prototype of the primitive missing from DAT-PRV-001 (audit `b
   - Every rep's durations are kept in `evidence/p99-rep*-*.json`.
   - The test asserts that the stall was observed and that decisions kept completing during it. It does not assert the p99 bound; the bound result is reported as measured.
 - SIGKILL crash and restart; torn tail; overflow with the coverage gap accounted for; TERM-to-KILL cleanup of a writer that ignores TERM and is stuck; no owned PID survives.
+
+## Correction 2 (A7 `8cc61d3`, new HIGH): recovery contract
+In correction 1, a length beyond EOF was treated as proof of a torn final write. A7 showed that a mid-file length corruption within limits produced the same signature, so an intact later record was quarantined out of the active file. Correction 2 replaces that rule with committed-end evidence.
+- **Commit journal `<segment>.commit`:** fixed 48 B entries, `T0C1 | u64 end | u32 lastSeq | sha256(segment_id || first 16 B)`.
+  - The journal is created `O_EXCL|O_NOFOLLOW` with the segment, starting with the header end. The directory is fsynced.
+  - After each batch the writer fsyncs the segment, then appends and fsyncs one entry, then emits the acks. So every acked record lies below the last committed end C.
+- **Recovery contract:** checks run in this order, and every refusal is exit 3 with the segment, journal and quarantine directory untouched and no recovery ack.
+  1. **Segment:** it is opened `O_NOFOLLOW` and must be a regular file whose header identity matches. Otherwise it is refused, as in correction 1.
+  2. **Journal:** it is opened `O_NOFOLLOW` and must be a regular file. Missing, symlinked, empty, a bad full entry or non-monotonic entries are refused. Only a trailing partial entry (< 48 B, so there is no length field to corrupt) is quarantined and then truncated.
+  3. **Committed region:** `[header end, C)` must parse exactly as authenticated records ending at C, with strictly increasing seqs ending at the journal's `lastSeq`. A file shorter than C, or any bad magic, length, sha or meta, or a torn record inside the committed region, is refused. Length corruption anywhere before C is therefore refused, whether in a middle, near-end or final committed record.
+  4. **Uncommitted region `[C, EOF)`:** this region was never acked. It is cut only if it parses as zero or more complete authenticated records followed by at most one partial record whose magic matches and whose lengths are within limits.
+     - The exact bytes are first written to an `O_EXCL|O_NOFOLLOW` quarantine file, fsynced and sha'd, and the directory is fsynced. Only then is the segment truncated to C.
+     - A quarantine create, write or directory-fsync failure (including `EEXIST`) refuses before truncation.
+     - Anything else after C is refused.
+- **What the contract does not claim:**
+  - A length corrupted inside an uncommitted record can still look like a partial record. Such bytes are cut, but they were never acked; they are preserved in quarantine and the producer resends them. That is disclosed and tested.
+  - Tornness is never inferred from a length alone below C, and no magic scanning is used.
+- **Undetectable:**
+  - Loss of whole trailing journal entries through external damage would make acked records look uncommitted. They would then be quarantined, still preserved but no longer at their ack offsets.
+  - An adversary who recomputes the unkeyed shas is out of scope: the integrity checks protect against accidental damage only.
+- **Ack loss on exit:** the writer no longer calls `process.exit(0)` at end of input. The tests found that this could drop acks still queued for stdout, so it now sets `exitCode` and lets stdout drain.
+- **Test-only fault injection** (`writer.mjs --fault`):
+  - `crash-mid-append`, `crash-before-commit` and `crash-before-ack`, each exiting 7 at `--fault-at-seq`;
+  - `fail-quarantine` and `fail-dir-fsync`.
 
 ## Correction 1 (A7 `8af9d42`: 2 HIGH, 1 MED, 2 LOW)
 - **Segment identity:**
@@ -58,9 +82,9 @@ This is a hermetic prototype of the primitive missing from DAT-PRV-001 (audit `b
 - **`t_ingest` is not produced.** Which clock and which point (append or fsync) it binds to is a spec choice, so it stays unknown.
 - **Clock binding.** The receive times are fixture-supplied, not measured; no real clock, `boot_id` or `host_id` binding is demonstrated.
 - **Q2 (natural key)** is untouched. Records are keyed only by the producer's `seq`.
-- **Durability.** The ack follows `fsync` on the segment fd only. Directory fsync, rotation, partitioning, multiple writers and disk-full are not covered.
+- **Durability.** The ack follows the segment fsync, then the commit-journal append and fsync. The directory is fsynced only at creation and after quarantine. Rotation, partitioning, multiple writers and disk-full are not covered.
 - After a crash, resending depends on the bounded in-memory retention. A producer crash loses unacked frames, and that case is not tested.
 - The p99 bound is for the callback only. The event-loop delay p99 (about 2 ms in both arms, mostly the 1 ms `setTimeout` pacing) and the producer ack/pipe time are reported, not bounded.
-- Recovery trusts the file contents as of open. It does not detect or fence concurrent writers to the same segment beyond `O_EXCL` at creation; there is no lock.
+- Recovery assumes a single writer. It does not detect or fence concurrent writers to the same segment beyond `O_EXCL` at creation; there is no lock.
 - `O_NOFOLLOW` covers only the final path component; parent-directory symlinks are not checked.
 - Linux only (node v24.19.0). Not run on macOS.

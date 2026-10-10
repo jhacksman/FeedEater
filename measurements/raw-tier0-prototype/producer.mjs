@@ -90,6 +90,7 @@ export function run(frames, o) {
       const epoch = starts;
       const args = [WRITER, "--segment", opt.segment, "--segment-id", segId, "--epoch", String(epoch)];
       if (opt.stallMs > 0 && epoch === 1) args.push("--stall-after-seq", String(opt.stallAfterSeq), "--stall-ms", String(opt.stallMs));
+      if (opt.writerFault && epoch === 1) { args.push("--fault", opt.writerFault, "--fault-at-seq", String(opt.writerFaultAtSeq)); onWriterExit = () => setTimeout(startWriter, 20); }
       if (opt.ignoreTerm) args.push("--ignore-term", "1");
       const c = spawn(process.execPath, args, { stdio: ["pipe", "pipe", "inherit"] });
       pids.push(c.pid);

@@ -18,27 +18,27 @@ PASS every Tier-0 metadata equal to supplied metadata
 PASS every ack file/offset/sha resolves to the received bytes
 PASS re-decoded Tier-1 partition byte-identical f8771d6496997b797aa85f5554b157d29eb0afe299eac1c8649009816ef03e60
 PASS rep 0: writer stall observed 2000.4 ms
-PASS rep 0: 3578 decisions completed while writer stalled
+PASS rep 0: 3570 decisions completed while writer stalled
 PASS rep 0: both arms 10000 acked, 0 lost
-MEASURED rep 0 (control then stalled): callback p99 control 40030 ns, stalled 40714 ns, bound 1040030 ns -> within max(1 ms, 10%); event-loop delay p99 control 2150399 ns, stalled 2959359 ns (reported, not bounded); producer ack+pipe ns control 80487175, stalled 84560866
-PASS rep 1: writer stall observed 2000.3 ms
-PASS rep 1: 3592 decisions completed while writer stalled
+MEASURED rep 0 (control then stalled): callback p99 control 41955 ns, stalled 38733 ns, bound 1041955 ns -> within max(1 ms, 10%); event-loop delay p99 control 2034687 ns, stalled 2267135 ns (reported, not bounded); producer ack+pipe ns control 79496056, stalled 66408614
+PASS rep 1: writer stall observed 2000.1 ms
+PASS rep 1: 3620 decisions completed while writer stalled
 PASS rep 1: both arms 10000 acked, 0 lost
-MEASURED rep 1 (stalled then control): callback p99 control 36655 ns, stalled 38885 ns, bound 1036655 ns -> within max(1 ms, 10%); event-loop delay p99 control 2043903 ns, stalled 2144255 ns (reported, not bounded); producer ack+pipe ns control 72399573, stalled 73685993
+MEASURED rep 1 (stalled then control): callback p99 control 33293 ns, stalled 35139 ns, bound 1033293 ns -> within max(1 ms, 10%); event-loop delay p99 control 2042879 ns, stalled 2020351 ns (reported, not bounded); producer ack+pipe ns control 67656679, stalled 55222408
 PASS rep 2: writer stall observed 2000.3 ms
-PASS rep 2: 3604 decisions completed while writer stalled
+PASS rep 2: 3596 decisions completed while writer stalled
 PASS rep 2: both arms 10000 acked, 0 lost
-MEASURED rep 2 (control then stalled): callback p99 control 37566 ns, stalled 36986 ns, bound 1037566 ns -> within max(1 ms, 10%); event-loop delay p99 control 2038783 ns, stalled 2079743 ns (reported, not bounded); producer ack+pipe ns control 71101636, stalled 60648374
+MEASURED rep 2 (control then stalled): callback p99 control 36020 ns, stalled 37106 ns, bound 1036020 ns -> within max(1 ms, 10%); event-loop delay p99 control 2115583 ns, stalled 2019327 ns (reported, not bounded); producer ack+pipe ns control 74249182, stalled 53463418
 PASS crash: writer SIGKILLed and restarted (2 starts)
 PASS crash: every seq exactly once, in order, byte-equal
 PASS torn: proven torn final write 521 B (torn_body) quarantined at offset 3147980
 PASS torn: quarantine file holds exactly the cut bytes (sha matches)
 PASS torn: final segment 10000 valid records
-PASS overflow: 3223 lost in 1 ranges
+PASS overflow: 3239 lost in 1 ranges
 PASS overflow: durable + lost = published; no lost seq in Tier-0; acked = durable
 PASS overflow: re-decode equals decision-path Tier-1 for durable seqs
 PASS abort: TERM then KILL escalation
-PASS abort: 789 published records never acked (no raw_ref; not compliant)
+PASS abort: 799 published records never acked (no raw_ref; not compliant)
 PASS A7 small3 corrupt middle (1171 B): refused corrupt_segment/bad_sha exit 3, bytes unchanged, no quarantine
 PASS A7 P1 corrupt record 5000: refused, all 10,000 records' bytes kept, no acks
 PASS bad-magic-tail: not a proven torn write -> refused bad_magic, unchanged
@@ -46,11 +46,35 @@ PASS bad-length-tail: not a proven torn write -> refused bad_length, unchanged
 PASS A7 P2a foreign file: refused foreign_file, 3000 B unchanged
 PASS A7 symlink segment -> 13 B foreign target: refused segment_is_symlink, target unchanged
 PASS segment_id mismatch: refused, unchanged
-PASS A7 P4 rerun on existing segment with a new id: writerFailed segment_identity_mismatch, 173 ms, 0 acked, segment unchanged
-PASS A7 P4b seed-999 vs seed-173 segment: 0 acked, 0 wrong-sha accepted, 200 rejected {"ack_mismatch_raw_sha256":94,"writer_conflict":200}, segment unchanged
-PASS identical re-send on own segment: 200 acked at original offsets {"recovery":123,"dup_identical":77}, segment unchanged
+PASS A7 P4 rerun on existing segment with a new id: writerFailed segment_identity_mismatch, 179 ms, 0 acked, segment unchanged
+PASS A7 P4b seed-999 vs seed-173 segment: 0 acked, 0 wrong-sha accepted, 200 rejected {"ack_mismatch_raw_sha256":123,"writer_conflict":200}, segment unchanged
+PASS identical re-send on own segment: 200 acked at original offsets {"recovery":104,"dup_identical":96}, segment unchanged
 PASS A7 P6 seqs 1,5,3: recovered,gap:2-4,rejected:3(out_of_order),ack:1,ack:5,end
-PASS overflow: writer reported gaps [[1380,4602]], all inside producer lost ranges
+PASS overflow: writer reported gaps [[1380,4618]], all inside producer lost ranges
 PASS A7 P5 foreign decoy pid alive (not owned, not signalled); owned survivors 0
-PASS no owned writer survives (17 pids checked)
-52 PASS, 0 FAIL
+PASS A7 8cc61d3 small3 (1171 B) middle rawLen 3->1000: refused corrupt_segment/committed/torn_body exit 3, segment+journal unchanged, no quarantine, no acks
+PASS A7 8cc61d3: refused in committed region, active file still 1171 B (no records lost)
+PASS middle record 5000 rawLen -> 15728640: refused corrupt_segment/committed/torn_body exit 3, segment+journal unchanged, no quarantine, no acks
+PASS A7 probe 9990 record 9990 rawLen -> 15728640: refused corrupt_segment/committed/torn_body exit 3, segment+journal unchanged, no quarantine, no acks
+PASS middle record 5000 metaLen -> 60000: refused corrupt_segment/committed/bad_length exit 3, segment+journal unchanged, no quarantine, no acks
+PASS near-end record 9999 rawLen -> 1000: refused corrupt_segment/committed/bad_sha exit 3, segment+journal unchanged, no quarantine, no acks
+PASS near-end record 9999 metaLen -> 1: refused corrupt_segment/committed/bad_length exit 3, segment+journal unchanged, no quarantine, no acks
+PASS final record 10000 rawLen -> 15728640: refused corrupt_segment/committed/torn_body exit 3, segment+journal unchanged, no quarantine, no acks
+PASS final record 10000 metaLen -> 60000: refused corrupt_segment/committed/torn_meta exit 3, segment+journal unchanged, no quarantine, no acks
+PASS final record 10000 rawLen -> 1: refused corrupt_segment/committed/bad_sha exit 3, segment+journal unchanged, no quarantine, no acks
+PASS crash-mid-append at seq 3000: restart, every seq once in order byte-equal, 4000 acked; quarantine 1572 B torn_body uncommittedComplete=1; recovery acks 0
+PASS crash-before-commit at seq 3000: restart, every seq once in order byte-equal, 4000 acked; quarantine 2102 B complete uncommittedComplete=2; recovery acks 0
+PASS crash-before-ack at seq 3000: restart, every seq once in order byte-equal, 4000 acked; quarantine none; recovery acks 2
+PASS uncommitted final record rawLen->1000 after C: never acked, so cut after exact quarantine (110 B, sha matches original bytes); 2 committed records kept and recovery-acked
+PASS uncommitted record 3 rawLen->1 (framing not a proven partial): refused corrupt_segment/uncommitted/bad_sha exit 3, segment+journal unchanged, no quarantine, no acks
+PASS quarantine write failure (injected): refused quarantine_failed exit 3, segment+journal unchanged, no quarantine, no acks
+PASS quarantine file already exists: refused quarantine_failed/EEXIST, segment+journal and existing file unchanged
+PASS directory fsync failure after quarantine write (injected): refused, segment+journal unchanged (partial quarantine copy may remain)
+PASS genuine partial final append after C: 60 B quarantined (torn_body), active file back to C
+PASS journal missing: refused journal_missing, segment unchanged
+PASS journal symlink: refused journal_is_symlink
+PASS journal entry 6 corrupted: refused journal_bad_entry exit 3, segment+journal unchanged, no quarantine, no acks
+PASS journal partial final entry (20 B): quarantined, journal truncated to whole entries, 10000 records kept
+PASS raw bytes containing T0R1/T0H1/T0C1 and an embedded encoded record: crash+tear recovery keeps all 50, byte-equal
+PASS no owned writer survives (23 pids checked)
+76 PASS, 0 FAIL

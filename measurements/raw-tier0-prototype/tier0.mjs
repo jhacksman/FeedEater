@@ -93,3 +93,30 @@ export function readSegment(buf) {
 }
 
 export const rawSha = (raw) => crypto.createHash("sha256").update(raw).digest("hex");
+
+// Commit journal "<segment>.commit": fixed 48-byte entries "T0C1" | u64 end | u32 lastSeq | sha256(segment_id || first 16 bytes).
+// Written and fsynced after the segment fsync and before any ack; the last valid entry is the committed end C.
+export const CMAGIC = Buffer.from("T0C1", "latin1");
+export const CLEN = 48;
+export function encodeCommit(segId, end, lastSeq) {
+  const b = Buffer.alloc(16);
+  CMAGIC.copy(b, 0);
+  b.writeBigUInt64BE(BigInt(end), 4);
+  b.writeUInt32BE(lastSeq, 12);
+  return Buffer.concat([b, sha(Buffer.from(segId, "utf8"), b)]);
+}
+// Full entries must all authenticate and be monotonic; only a trailing partial entry (< 48 B) is a torn journal write.
+export function parseJournal(buf, segId) {
+  const entries = [];
+  const full = Math.floor(buf.length / CLEN) * CLEN;
+  for (let o = 0; o < full; o += CLEN) {
+    const b = buf.subarray(o, o + 16);
+    if (!b.subarray(0, 4).equals(CMAGIC) || !sha(Buffer.from(segId, "utf8"), b).equals(buf.subarray(o + 16, o + CLEN))) return { ok: false, reason: "journal_bad_entry", at: o };
+    const e = { end: Number(b.readBigUInt64BE(4)), lastSeq: b.readUInt32BE(12) };
+    const p = entries[entries.length - 1];
+    if (p !== undefined && (e.end < p.end || e.lastSeq < p.lastSeq)) return { ok: false, reason: "journal_non_monotonic", at: o };
+    entries.push(e);
+  }
+  if (entries.length === 0) return { ok: false, reason: "journal_empty" };
+  return { ok: true, entries, committedEnd: entries[entries.length - 1].end, lastSeq: entries[entries.length - 1].lastSeq, partialTailBytes: buf.length - full };
+}
