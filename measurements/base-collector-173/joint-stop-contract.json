@@ -1,0 +1,22 @@
+{
+  "status": "inert proposal; not implemented; no readiness, latency or admission claim",
+  "parent": "af53a874abf0d9798f8f1b7dc5ecf45d7e39f899",
+  "frozen": { "httpGuardController": "4df26b2bc2f90efd25e7dd3fb8f50ea4b3fa62a6", "wsProxy": "f694290cce356eb65a56e29b59a2abe6557767e8", "core173": "5206f9035ad1c057d78990b294941221e936f895" },
+  "pinnedInterfaces": [
+    { "head": "4df26b2", "file": "guard-run.sh", "lines": [107, 111, 119, 123, 134, 139, 143] },
+    { "head": "4df26b2", "file": "rpc-guard.mjs", "lines": [140, 170, "195-207", "300-301"] },
+    { "head": "f694290", "file": "ws-guard.mjs", "lines": ["74-77", 104, "157-225", "261-262"] },
+    { "head": "4df26b2", "file": "lib-run.sh", "lines": ["61-63"] }
+  ],
+  "latch": { "fields": ["stopped", "reason", "transport", "seq", "hrNs"], "transport": ["http", "ws", "signal", "controller"], "setOnce": true, "checkedSynchronouslyAt": ["http_admit", "http_send", "ws_admit_up", "ws_admit_down", "ws_send"], "file": "JOINT.STOP" },
+  "clock": "single process.hrtime.bigint(); one global seq; one exclusive JSONL",
+  "census": {
+    "http": ["received", "admitted", "refused", "dropped", "forwarded", "completed", "upstreamErrors", "inflightAtExit"],
+    "ws": ["received", "admitted", "refused", "dropped", "forwarded", "sendErrors", "inflightAtExit"],
+    "invariants": ["http.received=admitted+refused", "http.admitted=forwarded+dropped", "http.forwarded=completed+upstreamErrors+inflightAtExit", "ws.received=admitted+refused+dropped", "ws.admitted=forwarded+sendErrors+inflightAtExit", "decisionsAfterStop.http=0", "decisionsAfterStop.ws=0"]
+  },
+  "shutdownOrder": ["latch", "close both listeners", "drop queued HTTP (503) and WS frames", "close WS 1008", "write JOINT.STOP and summary", "controller TERM client + GRACE_S", "verify registry PID+lstart and container labels", "exit (14 > 13 > 143/130 > 10 > 11 > 12 > client)"],
+  "zeroAfterStopGuarantee": { "singleProcessGate": "yes for decisions (seq-ordered, by construction); kernel-buffered bytes from pre-latch sends counted as forwarded/inflight", "crossProcessSignalling": "no; observation lag unbounded, check-then-act race; zero only via a cross-process lock equivalent to a single authority" },
+  "proposedComponents": { "joint-guard.mjs": "new; rules copied with sha256 provenance from rpc-guard@4df26b2 and ws-guard@f694290", "joint-run.sh": "guard-run.sh@4df26b2 with only lines 119,123,134,139,143 changed; diff pinned" },
+  "acceptanceCases": ["J1_http_disallowed", "J2_http_cap_n_plus_1", "J3_ws_message_cap", "J4_ws_duration_cap", "J5_ws_oversize", "J6_ws_upstream_close", "J7_concurrent_queued_drop", "J8_ext_term_prompt_143", "J9_ext_term_delayed_143", "J10_ext_term_ignore_13", "J11_ext_int_130", "J12_decoys_untouched", "J13_provenance_pinned"]
+}
