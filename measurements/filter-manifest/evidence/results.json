@@ -1,0 +1,885 @@
+{
+  "note": "synthetic acceptance cases only; not delivery, latency, completeness or source-admission evidence",
+  "pass": 63,
+  "fail": 0,
+  "results": [
+    {
+      "case": "keccak256 vectors: '' and Transfer(address,address,uint256)",
+      "ok": true,
+      "expected": "known vectors",
+      "actual": {
+        "empty": "c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470",
+        "transfer": "ddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"
+      }
+    },
+    {
+      "case": "keccak256 of declared signatures equals the user-supplied topic0 pins",
+      "ok": true,
+      "expected": "equal",
+      "actual": "computed"
+    },
+    {
+      "case": "vendored source files match the pinned sha256 (incl. invalid checkpoint HTML)",
+      "ok": true,
+      "expected": {
+        "o1-census-contract-20261010.json": "efda199ea09fabf1f8250ea5a15fb611e36bb088fc4e07ba8004132b8142cff8",
+        "constants.py": "b7d7801149635e65592e0e10159c9dc23f0c0ebb30a8c717f88f00e286a07391",
+        "production-contracts.md": "b0f53ce4c745407aac8bb42aadc43450e36ffa204c0cf37f8128efd1eff4e4fc",
+        "launch-contract-suites.checkpoint-html.INVALID": "d019f01a9132cd93da42c11646066f476a65e45ee8ccdab68f1ae12e2123612f"
+      },
+      "actual": {
+        "constants.py": "b7d7801149635e65592e0e10159c9dc23f0c0ebb30a8c717f88f00e286a07391",
+        "launch-contract-suites.checkpoint-html.INVALID": "d019f01a9132cd93da42c11646066f476a65e45ee8ccdab68f1ae12e2123612f",
+        "o1-census-contract-20261010.json": "efda199ea09fabf1f8250ea5a15fb611e36bb088fc4e07ba8004132b8142cff8",
+        "production-contracts.md": "b0f53ce4c745407aac8bb42aadc43450e36ffa204c0cf37f8128efd1eff4e4fc"
+      }
+    },
+    {
+      "case": "valid synthetic spec compiles: exit 0, exactly 2 filtersets",
+      "ok": true,
+      "expected": {
+        "rc": 0,
+        "filtersets": 2
+      },
+      "actual": {
+        "rc": 0,
+        "filtersets": 2,
+        "stderr": ""
+      }
+    },
+    {
+      "case": "PoolManager filter: one address, topic0 OR [Swap, Initialize] (sorted), no other topic positions",
+      "ok": true,
+      "expected": "address+[[swap,initialize]]",
+      "actual": {
+        "address": [
+          "0x498581ff718922c3f8e6a244956af099b2652b2b"
+        ],
+        "topics": [
+          [
+            "0x40e9cecb9f5f1f1c5b9c97dec2917b7ee92e57ba5563708daca94dd84ad7112f",
+            "0xdd466e674ea557f56295e2d0218a125ea4b4f0f6f3307b95f85e6110838d6438"
+          ]
+        ]
+      }
+    },
+    {
+      "case": "PoolManager declaration provenance: constants.py l.79 address, l.236-237 Initialize, l.240-241 Swap, md l.84,133",
+      "ok": true,
+      "expected": "as stated",
+      "actual": {
+        "Initialize": {
+          "lines": [
+            236,
+            237
+          ],
+          "signature": "Initialize(bytes32,address,address,uint24,int24,address,uint160,int24)",
+          "topic0": "0xdd466e674ea557f56295e2d0218a125ea4b4f0f6f3307b95f85e6110838d6438"
+        },
+        "Swap": {
+          "lines": [
+            240,
+            241
+          ],
+          "signature": "Swap(bytes32,address,int128,int128,uint160,uint128,int24,uint24)",
+          "topic0": "0x40e9cecb9f5f1f1c5b9c97dec2917b7ee92e57ba5563708daca94dd84ad7112f"
+        },
+        "address": {
+          "constantsLine": 79,
+          "productionContractsMdLines": [
+            84,
+            133
+          ]
+        }
+      }
+    },
+    {
+      "case": "factories filter: exactly the six census rows (sorted), no topics key (all topics), no pool list",
+      "ok": true,
+      "expected": [
+        "0x1176122eb77ad6a2339322cda7c4d7ea9bfa63dc",
+        "0x1de58a6769526a03a504d9d59b8757cd8097dc57",
+        "0xa52ad458ce0282a971ecc71c051a32f28946bb9f",
+        "0xb9e5910043353717af54d8dd34b6ee57ffe49c35",
+        "0xe3ab924c72463c1ac8d1d8352ee640b89eb1ea64",
+        "0xff70918ef17a2d74d683a8297813b177bafad1f4"
+      ],
+      "actual": {
+        "address": [
+          "0x1176122eb77ad6a2339322cda7c4d7ea9bfa63dc",
+          "0x1de58a6769526a03a504d9d59b8757cd8097dc57",
+          "0xa52ad458ce0282a971ecc71c051a32f28946bb9f",
+          "0xb9e5910043353717af54d8dd34b6ee57ffe49c35",
+          "0xe3ab924c72463c1ac8d1d8352ee640b89eb1ea64",
+          "0xff70918ef17a2d74d683a8297813b177bafad1f4"
+        ]
+      }
+    },
+    {
+      "case": "row 6 supportGap absent_from_production_contracts_md; rows 1-5 found in md; every row binding UNKNOWN",
+      "ok": true,
+      "expected": "row6 gap only",
+      "actual": [
+        {
+          "row": 1,
+          "lines": [
+            535
+          ],
+          "gap": null
+        },
+        {
+          "row": 2,
+          "lines": [
+            547
+          ],
+          "gap": null
+        },
+        {
+          "row": 3,
+          "lines": [
+            559
+          ],
+          "gap": null
+        },
+        {
+          "row": 4,
+          "lines": [
+            323,
+            389,
+            571
+          ],
+          "gap": null
+        },
+        {
+          "row": 5,
+          "lines": [
+            29
+          ],
+          "gap": null
+        },
+        {
+          "row": 6,
+          "lines": [],
+          "gap": "absent_from_production_contracts_md"
+        }
+      ]
+    },
+    {
+      "case": "status: binding UNKNOWN, sourceAdmission NOT_ESTABLISHED, delivery/latency NOT_MEASURED; lanes NOT_RUN",
+      "ok": true,
+      "expected": "as stated",
+      "actual": {
+        "status": {
+          "binding": "UNKNOWN",
+          "delivery": "NOT_MEASURED",
+          "latency": "NOT_MEASURED",
+          "sourceAdmission": "NOT_ESTABLISHED"
+        },
+        "lanes": {
+          "direct": "NOT_RUN (root-owned)",
+          "native": "NOT_RUN (root-owned)"
+        }
+      }
+    },
+    {
+      "case": "comparison carries caller window and caps verbatim; no volume estimate field",
+      "ok": true,
+      "expected": {
+        "durationS": 3600,
+        "maxRawEvents": 1000,
+        "maxBytes": 1000000
+      },
+      "actual": {
+        "window": {
+          "durationS": 3600,
+          "fromUtc": "2000-01-01T00:00:00Z",
+          "owner": "root (caller-supplied; not validated against any clock)",
+          "toUtc": "2000-01-01T01:00:00Z"
+        },
+        "caps": {
+          "maxBytes": 1000000,
+          "maxRawEvents": 1000,
+          "semantics": "caller-supplied stop limits per lane per filterset; not a volume estimate"
+        }
+      }
+    },
+    {
+      "case": "checkpoint HTML recorded as INVALID evidence with its sha; gaps listed",
+      "ok": true,
+      "expected": "INVALID + 4 gaps",
+      "actual": {
+        "gaps": [
+          "launch-contract-suites.json retained bytes are an HTTP 429 checkpoint HTML page: hashed as invalid evidence, never parsed",
+          "factory row(s) 6 absent from the retained production-contracts md",
+          "topic0 pin is a retained declaration in constants.py, not a primary contract ABI; runtime binding not proven",
+          "factory allowlist rows are retained census rows; on-chain binding UNKNOWN"
+        ]
+      }
+    },
+    {
+      "case": "filterSha256 and manifestSha256 recompute from canonical JSON",
+      "ok": true,
+      "expected": "match",
+      "actual": {
+        "pm": "b57e55e84ce87072d1ca3a3d50005297300d5101053cd9fca9fd98b0fdb3fdcc",
+        "fac": "12b6a6ded6072e7f5354ce672d67bdbb6a749b226a6b68c3da467b7a5006db07",
+        "manifest": "3eab7f47965ce96afdf9791ed37176b136f8de67b4ed655eee0cc14ef313c0c4"
+      }
+    },
+    {
+      "case": "deterministic: rerun byte-identical; key order, whitespace and factory order permuted -> byte-identical manifest",
+      "ok": true,
+      "expected": "identical",
+      "actual": {
+        "rerunSame": true,
+        "permutedSame": true
+      }
+    },
+    {
+      "case": "refuse malformed JSON: exit 2 json_malformed",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "json_malformed"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "json_malformed",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse trailing data: exit 2 json_malformed",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "json_malformed"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "json_malformed",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse invalid UTF-8: exit 2 json_malformed",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "json_malformed"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "json_malformed",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse duplicate key caps: exit 2 json_duplicate_key",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "json_duplicate_key"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "json_duplicate_key",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse __proto__ key: exit 2 json_forbidden_key",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "json_forbidden_key"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "json_forbidden_key",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse unknown top-level field: exit 2 spec_unknown_field",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "spec_unknown_field"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "spec_unknown_field",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse missing window: exit 2 spec_missing_field",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "spec_missing_field"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "spec_missing_field",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse wrong schema: exit 2 spec_schema_mismatch",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "spec_schema_mismatch"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "spec_schema_mismatch",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse other source commit: exit 2 source_pin_mismatch",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "source_pin_mismatch"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "source_pin_mismatch",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse PoolManager address checksum-case: exit 2 address_malformed",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "address_malformed"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "address_malformed",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse PoolManager other address: exit 2 pool_manager_mismatch",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "pool_manager_mismatch"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "pool_manager_mismatch",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse Initialize topic wrong (ModifyLiquidity topic0): exit 2 topic_mismatch",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "topic_mismatch"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "topic_mismatch",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse Initialize/Swap swapped: exit 2 topic_mismatch",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "topic_mismatch"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "topic_mismatch",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse topic 63 hex: exit 2 topic_malformed",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "topic_malformed"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "topic_malformed",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse extra topic key: exit 2 spec_unknown_field",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "spec_unknown_field"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "spec_unknown_field",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse missing suite row 6 (5 factories): exit 2 missing_suite_row",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "missing_suite_row"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "missing_suite_row",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse no factories: exit 2 missing_suite_row",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "missing_suite_row"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "missing_suite_row",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse 7 factories (row 1 twice): exit 2 factory_row_duplicate",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "factory_row_duplicate"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "factory_row_duplicate",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse row 6 given row 1 address: exit 2 factory_address_duplicate",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "factory_address_duplicate"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "factory_address_duplicate",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse row 7: exit 2 factory_row_invalid",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "factory_row_invalid"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "factory_row_invalid",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse row as string: exit 2 factory_row_invalid",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "factory_row_invalid"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "factory_row_invalid",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse row 3 wrong address (hook address): exit 2 factory_mismatch",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "factory_mismatch"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "factory_mismatch",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse factories not array: exit 2 spec_malformed",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "spec_malformed"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "spec_malformed",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse factory extra field: exit 2 spec_unknown_field",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "spec_unknown_field"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "spec_unknown_field",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse window to == from: exit 2 window_invalid",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "window_invalid"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "window_invalid",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse window to before from: exit 2 window_invalid",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "window_invalid"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "window_invalid",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse window durationS mismatch: exit 2 window_invalid",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "window_invalid"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "window_invalid",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse window fractional durationS: exit 2 window_invalid",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "window_invalid"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "window_invalid",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse window non-Z offset: exit 2 window_invalid",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "window_invalid"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "window_invalid",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse window fractional seconds: exit 2 window_invalid",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "window_invalid"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "window_invalid",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse window calendar 2000-02-30: exit 2 window_invalid",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "window_invalid"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "window_invalid",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse window missing durationS: exit 2 spec_missing_field",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "spec_missing_field"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "spec_missing_field",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse cap 0: exit 2 cap_invalid",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "cap_invalid"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "cap_invalid",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse cap negative: exit 2 cap_invalid",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "cap_invalid"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "cap_invalid",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse cap fractional: exit 2 cap_invalid",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "cap_invalid"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "cap_invalid",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse cap string: exit 2 cap_invalid",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "cap_invalid"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "cap_invalid",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse cap above 2^53-1: exit 2 cap_invalid",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "cap_invalid"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "cap_invalid",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse cap missing maxBytes: exit 2 spec_missing_field",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "spec_missing_field"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "spec_missing_field",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse census one byte altered: exit 2 source_hash_mismatch",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "source_hash_mismatch"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "source_hash_mismatch",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse constants.py missing: exit 2 source_constants_missing",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "source_constants_missing"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "source_constants_missing",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse checkpoint HTML replaced by valid JSON: exit 2 source_hash_mismatch",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "source_hash_mismatch"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "source_hash_mismatch",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse production-contracts md missing: exit 2 source_productionContractsMd_missing",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "source_productionContractsMd_missing"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "source_productionContractsMd_missing",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse census is a symlink: exit 2 source_census_is_symlink",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "source_census_is_symlink"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "source_census_is_symlink",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse spec is a symlink: exit 2 spec_is_symlink",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "spec_is_symlink"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "spec_is_symlink",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse spec missing: exit 2 spec_missing",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "spec_missing"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "spec_missing",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse no arguments: exit 2 usage",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "usage"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "usage",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse duplicate --spec: exit 2 usage_duplicate_argument",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "usage_duplicate_argument"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "usage_duplicate_argument",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse unknown argument: exit 2 usage",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "usage"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "usage",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "static: no network/process/clock/write APIs; checkpoint bytes only hashed (src.suitesCheckpoint never read)",
+      "ok": true,
+      "expected": [],
+      "actual": []
+    },
+    {
+      "case": "vendored sources and fixture unchanged by the run",
+      "ok": true,
+      "expected": {
+        "constants.py": "b7d7801149635e65592e0e10159c9dc23f0c0ebb30a8c717f88f00e286a07391",
+        "launch-contract-suites.checkpoint-html.INVALID": "d019f01a9132cd93da42c11646066f476a65e45ee8ccdab68f1ae12e2123612f",
+        "o1-census-contract-20261010.json": "efda199ea09fabf1f8250ea5a15fb611e36bb088fc4e07ba8004132b8142cff8",
+        "production-contracts.md": "b0f53ce4c745407aac8bb42aadc43450e36ffa204c0cf37f8128efd1eff4e4fc"
+      },
+      "actual": {
+        "constants.py": "b7d7801149635e65592e0e10159c9dc23f0c0ebb30a8c717f88f00e286a07391",
+        "launch-contract-suites.checkpoint-html.INVALID": "d019f01a9132cd93da42c11646066f476a65e45ee8ccdab68f1ae12e2123612f",
+        "o1-census-contract-20261010.json": "efda199ea09fabf1f8250ea5a15fb611e36bb088fc4e07ba8004132b8142cff8",
+        "production-contracts.md": "b0f53ce4c745407aac8bb42aadc43450e36ffa204c0cf37f8128efd1eff4e4fc"
+      }
+    }
+  ]
+}

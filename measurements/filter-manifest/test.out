@@ -1,0 +1,64 @@
+PASS keccak256 vectors: '' and Transfer(address,address,uint256)
+PASS keccak256 of declared signatures equals the user-supplied topic0 pins
+PASS vendored source files match the pinned sha256 (incl. invalid checkpoint HTML)
+PASS valid synthetic spec compiles: exit 0, exactly 2 filtersets
+PASS PoolManager filter: one address, topic0 OR [Swap, Initialize] (sorted), no other topic positions
+PASS PoolManager declaration provenance: constants.py l.79 address, l.236-237 Initialize, l.240-241 Swap, md l.84,133
+PASS factories filter: exactly the six census rows (sorted), no topics key (all topics), no pool list
+PASS row 6 supportGap absent_from_production_contracts_md; rows 1-5 found in md; every row binding UNKNOWN
+PASS status: binding UNKNOWN, sourceAdmission NOT_ESTABLISHED, delivery/latency NOT_MEASURED; lanes NOT_RUN
+PASS comparison carries caller window and caps verbatim; no volume estimate field
+PASS checkpoint HTML recorded as INVALID evidence with its sha; gaps listed
+PASS filterSha256 and manifestSha256 recompute from canonical JSON
+PASS deterministic: rerun byte-identical; key order, whitespace and factory order permuted -> byte-identical manifest
+PASS refuse malformed JSON: exit 2 json_malformed
+PASS refuse trailing data: exit 2 json_malformed
+PASS refuse invalid UTF-8: exit 2 json_malformed
+PASS refuse duplicate key caps: exit 2 json_duplicate_key
+PASS refuse __proto__ key: exit 2 json_forbidden_key
+PASS refuse unknown top-level field: exit 2 spec_unknown_field
+PASS refuse missing window: exit 2 spec_missing_field
+PASS refuse wrong schema: exit 2 spec_schema_mismatch
+PASS refuse other source commit: exit 2 source_pin_mismatch
+PASS refuse PoolManager address checksum-case: exit 2 address_malformed
+PASS refuse PoolManager other address: exit 2 pool_manager_mismatch
+PASS refuse Initialize topic wrong (ModifyLiquidity topic0): exit 2 topic_mismatch
+PASS refuse Initialize/Swap swapped: exit 2 topic_mismatch
+PASS refuse topic 63 hex: exit 2 topic_malformed
+PASS refuse extra topic key: exit 2 spec_unknown_field
+PASS refuse missing suite row 6 (5 factories): exit 2 missing_suite_row
+PASS refuse no factories: exit 2 missing_suite_row
+PASS refuse 7 factories (row 1 twice): exit 2 factory_row_duplicate
+PASS refuse row 6 given row 1 address: exit 2 factory_address_duplicate
+PASS refuse row 7: exit 2 factory_row_invalid
+PASS refuse row as string: exit 2 factory_row_invalid
+PASS refuse row 3 wrong address (hook address): exit 2 factory_mismatch
+PASS refuse factories not array: exit 2 spec_malformed
+PASS refuse factory extra field: exit 2 spec_unknown_field
+PASS refuse window to == from: exit 2 window_invalid
+PASS refuse window to before from: exit 2 window_invalid
+PASS refuse window durationS mismatch: exit 2 window_invalid
+PASS refuse window fractional durationS: exit 2 window_invalid
+PASS refuse window non-Z offset: exit 2 window_invalid
+PASS refuse window fractional seconds: exit 2 window_invalid
+PASS refuse window calendar 2000-02-30: exit 2 window_invalid
+PASS refuse window missing durationS: exit 2 spec_missing_field
+PASS refuse cap 0: exit 2 cap_invalid
+PASS refuse cap negative: exit 2 cap_invalid
+PASS refuse cap fractional: exit 2 cap_invalid
+PASS refuse cap string: exit 2 cap_invalid
+PASS refuse cap above 2^53-1: exit 2 cap_invalid
+PASS refuse cap missing maxBytes: exit 2 spec_missing_field
+PASS refuse census one byte altered: exit 2 source_hash_mismatch
+PASS refuse constants.py missing: exit 2 source_constants_missing
+PASS refuse checkpoint HTML replaced by valid JSON: exit 2 source_hash_mismatch
+PASS refuse production-contracts md missing: exit 2 source_productionContractsMd_missing
+PASS refuse census is a symlink: exit 2 source_census_is_symlink
+PASS refuse spec is a symlink: exit 2 spec_is_symlink
+PASS refuse spec missing: exit 2 spec_missing
+PASS refuse no arguments: exit 2 usage
+PASS refuse duplicate --spec: exit 2 usage_duplicate_argument
+PASS refuse unknown argument: exit 2 usage
+PASS static: no network/process/clock/write APIs; checkpoint bytes only hashed (src.suitesCheckpoint never read)
+PASS vendored sources and fixture unchanged by the run
+63 PASS, 0 FAIL
