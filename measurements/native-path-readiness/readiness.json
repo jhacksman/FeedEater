@@ -35,10 +35,10 @@
     },
     {
       "requirement": "identical_filter_delivery_100pct",
-      "source": "src/measure.ts:107,110-128,116,164,188,256; src/collector.ts:340-347",
+      "source": "src/measure.ts:107,110-128,116,164,188,256; src/collector.ts:340-347; src/collector.ts:342-343,420-426,552-561,715-721; src/tracker.ts:73-77",
       "pr173": "PARTIAL",
       "main": "ABSENT",
-      "gap": "tracked-subset delivery only; subset equality UNKNOWN; needs declared permitted subset or raw-all path"
+      "gap": "tracked-subset delivery only; subset equality UNKNOWN; needs declared permitted subset or raw-all path; pre-reconcile live Swaps buffered (maxPendingSwaps, overflow pendingSwapsDropped) and replayed as backfill pending_swap if tracked; evicted-pool Swaps counted swapsForDropped; untracked counted untrackedSwaps"
     },
     {
       "requirement": "blockhash_logindex_dedup_removal_readd",
@@ -80,14 +80,14 @@
       "source": "src/main.ts:166-181; src/measure.ts:176-177,187,224,237",
       "pr173": "PARTIAL",
       "main": "ABSENT",
-      "gap": "events by block range, samples by clock marks; head null -> fromBlock 1; retained clock-window blocker"
+      "gap": "events by block range, samples by clock marks; head null -> fromBlock 1; retained clock-window blocker; no head -> scored range [1,1]"
     },
     {
       "requirement": "event_latency_denominators",
-      "source": "src/measure.ts:188,193,199,256-259,272,324,340",
+      "source": "src/measure.ts:188,193,199,256-259,272,324,340; src/measure.ts:235",
       "pr173": "SATISFIED",
       "main": "ABSENT",
-      "gap": "as defined, over the tracked subset; latency = collector->NATS->observer vs direct arrival"
+      "gap": "as defined, over the tracked subset; latency = collector->NATS->observer vs direct arrival; expected 0 -> pct 0; liveDelivery100 requires expected > 0"
     },
     {
       "requirement": "comparable_filter_identity",

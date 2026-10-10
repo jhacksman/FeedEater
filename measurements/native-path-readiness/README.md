@@ -45,7 +45,22 @@ pools it tracks (o1 hooks, configured extra hooks/pool ids), and the observer's 
 its pool is in the observer's own pool set. Delivery % and `liveDelivery100` (`src/measure.ts:256`) therefore measure
 delivery of that tracked subset, not of every log the identical node filter returns. They cannot establish 100%
 identical-filter delivery unless the tracked subset is declared as the permitted subset, or a raw-all publication path
-exists. Because `src/measure.ts:164` adds pools from collector output, and a pool initialized before warmup is known to
+exists.
+
+Collector-side Swap transitions not visible in the tracked-only description above (`src/collector.ts`, `src/tracker.ts`):
+
+| Transition | Source | Effect |
+|---|---|---|
+| live Swap of an untracked pool before reconciliation | `src/collector.ts:342` → `bufferSwap` `:420-426` | buffered, not published live; buffer bounded by `maxPendingSwaps` (`:421`); overflow dropped and counted `pendingSwapsDropped` (`:422`) |
+| after reconcile backfill | `src/collector.ts:558-561` | `reconciled = true`; buffered Swaps replayed via `ingest(log, "backfill", "pending_swap", …)`; published on `.backfill` subjects only if the pool is now tracked, else counted untracked |
+| Swap of an evicted pool | `src/collector.ts:343` → `src/tracker.ts:73-77` `noteUntracked` | not published; counted `swapsForDropped` |
+| other untracked Swap | `src/collector.ts:343` | not published; counted `untrackedSwaps` |
+| reconnect gap over `maxBackfillBlocks` | `src/collector.ts:552-555` | backfill truncated, `backfillTruncatedBlocks` counted, coverage incomplete |
+| collector coverage flag | `src/collector.ts:715-721` | complete only if no evictions, `swapsForDropped === 0`, `pendingSwapsDropped === 0` and no truncation |
+
+So a Swap first seen live before reconciliation reaches the bus, if at all, on a backfill subject: for the observer it is
+`recoveredOnBackfill` or `missedEntirely`, never live-delivered. Dropped, evicted-pool and untracked Swaps are counters
+only, not records. Because `src/measure.ts:164` adds pools from collector output, and a pool initialized before warmup is known to
 the observer only via `--pools-from-checkpoint`, equality of the collector's and observer's subsets is UNKNOWN. No
 retrofit, threshold or policy change is proposed here.
 
@@ -81,7 +96,10 @@ crash is not guaranteed by the code: UNKNOWN.
 | verdicts | `src/measure.ts:256-259,272,324,340` | `liveDelivery100` needs `expected > 0`; `p99AddedLe10ms` over delivered only; `no_target_swaps` etc. → `sourceValidationWindow:false` |
 
 Events are scored by a block range taken from head marks while persistence samples use the clock marks, so the two do not
-share one declared observation window; `head === null` at `window_start` gives `fromBlock = 1`. The measured latency is
+share one declared observation window. With no direct `newHeads` before `window_start` and none before `window_end`
+(`head === null` throughout), `fromBlock = 1` and `toBlock = fromBlock`, so the scored range is `[1, 1]`. `pct` is
+`0` when `expected === 0` (`src/measure.ts:235`), and `liveDelivery100` requires `expected > 0` (`:256`), so an empty
+window reports 0% and not-100%, not success. The measured latency is
 collector→NATS→observer delay relative to direct WebSocket arrival in the same process, not source latency. The retained
 clock-window blocker on frozen #173 applies unchanged.
 
