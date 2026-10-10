@@ -37,6 +37,9 @@ PASS refuse uppercase block hash: exit 2 value_invalid
 PASS refuse negative blockNumber: exit 2 value_invalid
 PASS refuse fractional blockNumber: exit 2 value_invalid
 PASS refuse blockNumber 2^53: exit 2 value_invalid
+PASS refuse head blockNumber 2^53-1 (H+1 unsafe): exit 2 value_invalid
+PASS refuse checkpoint blockNumber 2^53-1: exit 2 value_invalid
+PASS refuse maxCalls above ceiling 10000: exit 2 value_invalid
 PASS refuse blockNumber as hex string: exit 2 value_invalid
 PASS refuse lookback 0: exit 2 value_invalid
 PASS refuse lookback above maxGapBlocks: exit 2 value_invalid
@@ -50,6 +53,14 @@ PASS refuse manifest missing: exit 2 manifest_missing
 PASS refuse no arguments: exit 2 usage
 PASS refuse duplicate --spec: exit 2 usage_duplicate_argument
 PASS refuse unknown --execute: exit 2 usage
+PASS root repro C=1000 H=501000 L=1 maxGap 500000 chunk 1 maxCalls 1 under --max-old-space-size=32: exit 0 TRUNCATED_CALL_BUDGET, 1 call, planned 1000002 (500001 ranges x 2), first uncovered o1.factories [1000,1000], uncovered to 501000
+PASS 32 MiB fixture control (current plan.mjs): exit 0 PLANNED 8 calls
+PASS pre-correction e1d8346 plan.mjs, same 32 MiB repro: no plan (heap OOM), reproducing the A5 failure
+PASS C=0 H=2^53-2 maxGap 2^53-1 chunk 1 maxCalls 1: exact planned count 2*(2^53-1) as decimal string: exit 0 TRUNCATED_CALL_BUDGET calls_exceed_maxCalls
+PASS H=2^53-2, C=H-10, chunk 2^53-1: 2 ranges, last toBlock 2^53-2 exact, candidate H+1 = 2^53-1: exit 0 PLANNED 
+PASS non-advancing at C=H=2^53-2: exit 0 PLANNED 
+PASS lookback 2^53-1 clips at genesis: exit 0 PLANNED 
+PASS output bound: maxCalls at ceiling 10000 over a 2^53-2 gap under 32 MiB: exit 0, 10000 calls, stdout bytes recorded
 PASS static: no network/process/clock/write/env/directory-scan APIs (T7 unreadable: plan.mjs opens only --spec and --manifest) in plan.mjs
 PASS fixtures unchanged by the run
-54 PASS, 0 FAIL
+65 PASS, 0 FAIL

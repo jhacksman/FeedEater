@@ -1,6 +1,6 @@
 {
   "note": "synthetic acceptance cases only; not canonicality, completeness, delivery, latency or source-admission evidence",
-  "pass": 54,
+  "pass": 65,
   "fail": 0,
   "results": [
     {
@@ -179,7 +179,7 @@
       "case": "planSha256 recomputes; specSha256 is the spec file sha; output canonical",
       "ok": true,
       "expected": "match",
-      "actual": "04e6693864847ddea7cbec0dc598a413de110878514648624e90ad699694f7fb"
+      "actual": "7e9483a10146850098d41ea70f201011e9e6df3dd223a6c226bd1efd86560eba"
     },
     {
       "case": "deterministic: rerun byte-identical; run with cwd=/ and absolute paths byte-identical",
@@ -664,6 +664,45 @@
       }
     },
     {
+      "case": "refuse head blockNumber 2^53-1 (H+1 unsafe): exit 2 value_invalid",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "value_invalid"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "value_invalid",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse checkpoint blockNumber 2^53-1: exit 2 value_invalid",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "value_invalid"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "value_invalid",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse maxCalls above ceiling 10000: exit 2 value_invalid",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "value_invalid"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "value_invalid",
+        "stderr": ""
+      }
+    },
+    {
       "case": "refuse blockNumber as hex string: exit 2 value_invalid",
       "ok": true,
       "expected": {
@@ -830,6 +869,123 @@
         "rc": 2,
         "refused": "usage",
         "stderr": ""
+      }
+    },
+    {
+      "case": "root repro C=1000 H=501000 L=1 maxGap 500000 chunk 1 maxCalls 1 under --max-old-space-size=32: exit 0 TRUNCATED_CALL_BUDGET, 1 call, planned 1000002 (500001 ranges x 2), first uncovered o1.factories [1000,1000], uncovered to 501000",
+      "ok": true,
+      "expected": {
+        "rc": 0,
+        "planned": "1000002",
+        "callCount": 1
+      },
+      "actual": {
+        "rc": 0,
+        "status": "TRUNCATED_CALL_BUDGET",
+        "planned": "1000002",
+        "uncovered": {
+          "firstUncoveredFilterset": "o1.factories.raw_all_topics",
+          "firstUncoveredRange": {
+            "fromBlock": 1000,
+            "segment": "overlap",
+            "toBlock": 1000
+          },
+          "fromBlock": 1000,
+          "toBlock": 501000
+        }
+      }
+    },
+    {
+      "case": "32 MiB fixture control (current plan.mjs): exit 0 PLANNED 8 calls",
+      "ok": true,
+      "expected": {
+        "rc": 0
+      },
+      "actual": {
+        "rc": 0,
+        "status": "PLANNED"
+      }
+    },
+    {
+      "case": "pre-correction e1d8346 plan.mjs, same 32 MiB repro: no plan (heap OOM), reproducing the A5 failure",
+      "ok": true,
+      "expected": {
+        "rc": "!=0",
+        "heap": true
+      },
+      "actual": {
+        "rc": null,
+        "signal": "SIGABRT",
+        "stderr": "FATAL ERROR: Ineffective mark-compacts near heap limit Allocation failed - JavaScript heap out of memory"
+      }
+    },
+    {
+      "case": "C=0 H=2^53-2 maxGap 2^53-1 chunk 1 maxCalls 1: exact planned count 2*(2^53-1) as decimal string: exit 0 TRUNCATED_CALL_BUDGET calls_exceed_maxCalls",
+      "ok": true,
+      "expected": {
+        "status": "TRUNCATED_CALL_BUDGET",
+        "reasons": [
+          "calls_exceed_maxCalls"
+        ]
+      },
+      "actual": {
+        "rc": 0,
+        "status": "TRUNCATED_CALL_BUDGET",
+        "reasons": [
+          "calls_exceed_maxCalls"
+        ]
+      }
+    },
+    {
+      "case": "H=2^53-2, C=H-10, chunk 2^53-1: 2 ranges, last toBlock 2^53-2 exact, candidate H+1 = 2^53-1: exit 0 PLANNED ",
+      "ok": true,
+      "expected": {
+        "status": "PLANNED",
+        "reasons": []
+      },
+      "actual": {
+        "rc": 0,
+        "status": "PLANNED",
+        "reasons": []
+      }
+    },
+    {
+      "case": "non-advancing at C=H=2^53-2: exit 0 PLANNED ",
+      "ok": true,
+      "expected": {
+        "status": "PLANNED",
+        "reasons": []
+      },
+      "actual": {
+        "rc": 0,
+        "status": "PLANNED",
+        "reasons": []
+      }
+    },
+    {
+      "case": "lookback 2^53-1 clips at genesis: exit 0 PLANNED ",
+      "ok": true,
+      "expected": {
+        "status": "PLANNED",
+        "reasons": []
+      },
+      "actual": {
+        "rc": 0,
+        "status": "PLANNED",
+        "reasons": []
+      }
+    },
+    {
+      "case": "output bound: maxCalls at ceiling 10000 over a 2^53-2 gap under 32 MiB: exit 0, 10000 calls, stdout bytes recorded",
+      "ok": true,
+      "expected": {
+        "rc": 0,
+        "callCount": 10000
+      },
+      "actual": {
+        "rc": 0,
+        "callCount": 10000,
+        "stdoutBytes": 5751675
       }
     },
     {

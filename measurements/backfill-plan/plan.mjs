@@ -88,7 +88,7 @@ function shape(o, keys, where) {
   if (missing.length > 0) refuse("spec_missing_field", { where, missing });
   if (extra.length > 0) refuse("spec_unknown_field", { where, extra });
 }
-const nat = (v, where, min = 0) => { if (!Number.isSafeInteger(v) || v < min) refuse("value_invalid", { where, m: `safe integer >= ${min}` }); return v; };
+const nat = (v, where, min = 0, max = Number.MAX_SAFE_INTEGER) => { if (!Number.isSafeInteger(v) || v < min || v > max) refuse("value_invalid", { where, m: `safe integer in [${min}, ${max}]` }); return v; };
 const hash32 = (v, where) => { if (typeof v !== "string" || !H32.test(v)) refuse("value_invalid", { where, m: "lowercase 0x + 64 hex" }); return v; };
 function utc(s, where) {
   const m = typeof s === "string" ? TS.exec(s) : null;
@@ -139,19 +139,19 @@ export function validateSpec(spec) {
   shape(spec.checkpoint, ["source", "manifestSha256", "blockNumber", "blockHash", "recordedAtUtc"], "checkpoint");
   source(spec.checkpoint.source, "checkpoint.source");
   if (typeof spec.checkpoint.manifestSha256 !== "string" || !SHA.test(spec.checkpoint.manifestSha256)) refuse("value_invalid", { where: "checkpoint.manifestSha256" });
-  nat(spec.checkpoint.blockNumber, "checkpoint.blockNumber");
+  nat(spec.checkpoint.blockNumber, "checkpoint.blockNumber", 0, MAX_BLOCK);
   hash32(spec.checkpoint.blockHash, "checkpoint.blockHash");
   const recAt = utc(spec.checkpoint.recordedAtUtc, "checkpoint.recordedAtUtc");
   shape(spec.head, ["source", "blockNumber", "blockHash", "observedAtUtc"], "head");
   source(spec.head.source, "head.source");
-  nat(spec.head.blockNumber, "head.blockNumber");
+  nat(spec.head.blockNumber, "head.blockNumber", 0, MAX_BLOCK);
   hash32(spec.head.blockHash, "head.blockHash");
   const obsAt = utc(spec.head.observedAtUtc, "head.observedAtUtc");
   shape(spec.evidence, ["checkpointBlockHashAtHead", "removedLogsSeen"], "evidence");
   if (spec.evidence.checkpointBlockHashAtHead !== null) hash32(spec.evidence.checkpointBlockHashAtHead, "evidence.checkpointBlockHashAtHead");
   if (![true, false, null].includes(spec.evidence.removedLogsSeen)) refuse("value_invalid", { where: "evidence.removedLogsSeen", m: "true | false | null" });
   shape(spec.caps, ["maxGapBlocks", "maxChunkBlocks", "maxCalls", "maxBytes"], "caps");
-  for (const k of ["maxGapBlocks", "maxChunkBlocks", "maxCalls", "maxBytes"]) nat(spec.caps[k], `caps.${k}`, 1);
+  for (const k of ["maxGapBlocks", "maxChunkBlocks", "maxCalls", "maxBytes"]) nat(spec.caps[k], `caps.${k}`, 1, k === "maxCalls" ? MAX_CALLS_CEILING : Number.MAX_SAFE_INTEGER);
   nat(spec.lookbackBlocks, "lookbackBlocks", 1);
   if (spec.lookbackBlocks > spec.caps.maxGapBlocks) refuse("value_invalid", { where: "lookbackBlocks", m: "must be <= caps.maxGapBlocks" });
   const same = (a, b) => a.chainId === b.chainId && a.sourceId === b.sourceId;
@@ -162,18 +162,17 @@ export function validateSpec(spec) {
   return { recAt, obsAt };
 }
 
+export const MAX_BLOCK = Number.MAX_SAFE_INTEGER - 1;
+export const MAX_CALLS_CEILING = 10000;
 const q = (n) => `0x${n.toString(16)}`;
-function chunks(from, to, size, segment) {
-  const out = [];
-  for (let a = from; a <= to; a += size) out.push({ segment, fromBlock: a, toBlock: Math.min(to, a + size - 1) });
-  return out;
-}
+const ceilDiv = (a, b) => (a + b - 1n) / b;
 
 export const RULES = Object.freeze({
   overlap: "re-read [max(0, C-L+1), C]: L = operator-declared lookbackBlocks (>=1, <= maxGapBlocks); the checkpoint block itself is always re-read",
   gap: "read [C+1, H] only when 1 <= H-C <= maxGapBlocks; H-C = 0 plans the overlap only; H-C > maxGapBlocks plans nothing (GAP_EXCEEDS_CAP)",
-  chunking: "each segment split ascending into ranges of <= maxChunkBlocks blocks; overlap before gap; every filterset per range in manifest order; one call per (range, filterset)",
-  budget: "if calls > maxCalls emit only the first maxCalls calls (TRUNCATED_CALL_BUDGET) and state the uncovered block range; maxBytes is an executor stop limit (no volume estimate)",
+  chunking: "each segment split ascending into ranges of <= maxChunkBlocks blocks; overlap before gap; every filterset per range in manifest order; one call per (range, filterset); range and call counts are computed arithmetically and only emitted calls are generated",
+  budget: "if calls > maxCalls emit only the first maxCalls calls (TRUNCATED_CALL_BUDGET) and state the first uncovered (range, filterset) and the uncovered block range; maxBytes is an executor stop limit (no volume estimate)",
+  integers: "block numbers <= 2^53-2 so C+1 and H+1 are exact; caps are safe integers >= 1; maxCalls <= 10000 bounds the output; counts are exact decimal strings (BigInt)",
   reconciliation: "UNKNOWN_NEEDS_RECONCILIATION (no ranges) when: checkpointBlockHashAtHead null or != checkpoint.blockHash; removedLogsSeen true or null; H < C; H == C with a different hash; head observed before the checkpoint was recorded",
   historyLimit: "nothing below max(0, C-L+1) is ever requested; reorgs deeper than L, provider log-history retention and pruning are not detectable here; an executor that cannot serve a range must report UNKNOWN, never empty",
   resumeLive: "live may resume at H+1 only after every planned call completed within maxBytes and canonicality was re-verified by the executor; this plan proves neither",
@@ -196,30 +195,43 @@ export function plan(specBuf, manifestBuf) {
   if (H < C) reasons.push("head_below_checkpoint");
   if (H === C && spec.head.blockHash !== spec.checkpoint.blockHash) reasons.push("head_hash_conflict_at_checkpoint_height");
   if (obsAt < recAt) reasons.push("head_observed_before_checkpoint_recorded");
-  const gap = H - C;
-  const overlapFrom = Math.max(0, C - L + 1);
+  const bC = BigInt(C);
+  const bH = BigInt(H);
+  const chunk = BigInt(caps.maxChunkBlocks);
+  const F = BigInt(man.filtersets.length);
+  const gap = bH - bC;
+  const overlapFrom = bC - BigInt(L) + 1n < 0n ? 0n : bC - BigInt(L) + 1n;
   let status;
-  let segs = [];
+  let oR = 0n;
+  let gR = 0n;
   if (reasons.length > 0) status = "UNKNOWN_NEEDS_RECONCILIATION";
-  else if (gap > caps.maxGapBlocks) { status = "GAP_EXCEEDS_CAP"; reasons.push("gap_exceeds_maxGapBlocks"); }
+  else if (gap > BigInt(caps.maxGapBlocks)) { status = "GAP_EXCEEDS_CAP"; reasons.push("gap_exceeds_maxGapBlocks"); }
   else {
-    segs = [...chunks(overlapFrom, C, caps.maxChunkBlocks, "overlap"), ...(gap > 0 ? chunks(C + 1, H, caps.maxChunkBlocks, "gap") : [])];
+    oR = ceilDiv(bC - overlapFrom + 1n, chunk);
+    gR = gap > 0n ? ceilDiv(gap, chunk) : 0n;
     status = "PLANNED";
   }
-  const all = [];
-  for (const s of segs) for (const f of man.filtersets) all.push({ ...s, f });
-  let truncated = false;
+  const total = (oR + gR) * F;
+  const n = total < BigInt(caps.maxCalls) ? total : BigInt(caps.maxCalls);
+  const seg = (segment, a, to) => ({ segment, fromBlock: a, toBlock: a + chunk - 1n < to ? a + chunk - 1n : to });
+  const rangeAt = (r) => (r < oR ? seg("overlap", overlapFrom + r * chunk, bC) : seg("gap", bC + 1n + (r - oR) * chunk, bH));
+  const provenance = { backfill: true, live: false };
+  const calls = [];
+  for (let x = 0n; x < n; x++) {
+    const r = rangeAt(x / F);
+    const f = man.filtersets[Number(x % F)];
+    calls.push({ index: Number(x), segment: r.segment, filtersetId: f.id, filterSha256: f.filterSha256, fromBlock: Number(r.fromBlock), toBlock: Number(r.toBlock),
+      request: { method: "eth_getLogs", params: [{ ...f.filter, fromBlock: q(r.fromBlock), toBlock: q(r.toBlock) }] }, publicationProvenance: provenance });
+  }
+  const truncated = total > n;
   let uncovered = null;
-  let calls = all;
-  if (all.length > caps.maxCalls) {
-    truncated = true;
-    calls = all.slice(0, caps.maxCalls);
-    const first = all[caps.maxCalls];
-    uncovered = { fromBlock: first.fromBlock, toBlock: H > C ? H : C, firstUncoveredFilterset: first.f.id };
+  if (truncated) {
+    const r = rangeAt(n / F);
+    uncovered = { fromBlock: Number(r.fromBlock), toBlock: Number(gap > 0n ? bH : bC), firstUncoveredFilterset: man.filtersets[Number(n % F)].id, firstUncoveredRange: { segment: r.segment, fromBlock: Number(r.fromBlock), toBlock: Number(r.toBlock) } };
     status = "TRUNCATED_CALL_BUDGET";
     reasons.push("calls_exceed_maxCalls");
   }
-  const provenance = { backfill: true, live: false };
+  const planned = status === "PLANNED" || status === "TRUNCATED_CALL_BUDGET";
   const body = {
     schema: OUTPUT_SCHEMA,
     status,
@@ -236,11 +248,11 @@ export function plan(specBuf, manifestBuf) {
       caps,
     },
     rules: RULES,
-    span: status === "PLANNED" || status === "TRUNCATED_CALL_BUDGET" ? { overlap: { fromBlock: overlapFrom, toBlock: C, clippedAtGenesis: C - L + 1 < 0 }, gap: gap > 0 ? { fromBlock: C + 1, toBlock: H, blocks: gap } : null, nonAdvancingHead: gap === 0 } : null,
-    calls: calls.map((c, i) => ({ index: i, segment: c.segment, filtersetId: c.f.id, filterSha256: c.f.filterSha256, fromBlock: c.fromBlock, toBlock: c.toBlock,
-      request: { method: "eth_getLogs", params: [{ ...c.f.filter, fromBlock: q(c.fromBlock), toBlock: q(c.toBlock) }] }, publicationProvenance: provenance })),
+    span: planned ? { overlap: { fromBlock: Number(overlapFrom), toBlock: C, clippedAtGenesis: C - L + 1 < 0 }, gap: gap > 0n ? { fromBlock: C + 1, toBlock: H, blocks: Number(gap) } : null, nonAdvancingHead: gap === 0n } : null,
+    calls,
     callCount: calls.length,
-    plannedCallsBeforeBudget: all.length,
+    rangesBeforeBudget: { overlap: oR.toString(), gap: gR.toString() },
+    plannedCallsBeforeBudget: total.toString(),
     truncated,
     uncovered,
     executorStopLimits: { maxBytes: caps.maxBytes, onExceed: "stop; plan outcome UNKNOWN" },

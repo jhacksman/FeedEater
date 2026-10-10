@@ -59,7 +59,8 @@ The checkpoint durable identity is the block number, block hash, `source` and `m
 | overlap | Re-read `[max(0, C−L+1), C]`, where L ≥ 1 and L ≤ maxGapBlocks. The checkpoint block is always re-read. |
 | gap | Read `[C+1, H]` when 1 ≤ H−C ≤ maxGapBlocks. H = C plans the overlap only. H−C > maxGapBlocks gives `GAP_EXCEEDS_CAP` with no calls. |
 | chunking | Ranges ascend, each at most maxChunkBlocks long, overlap first. Each range has one call per filterset, in manifest order. |
-| budget | If the calls exceed maxCalls, only the first maxCalls are emitted (`TRUNCATED_CALL_BUDGET`) and the `uncovered` range is stated. maxBytes is an executor stop limit, with outcome UNKNOWN; it is not a volume estimate. |
+| budget | If the calls exceed maxCalls, only the first maxCalls are emitted (`TRUNCATED_CALL_BUDGET`); `uncovered` states the first uncovered (range, filterset) and the uncovered block range. Range and call counts are computed arithmetically; only emitted calls are generated, so the gap is never enumerated. maxBytes is an executor stop limit, with outcome UNKNOWN; it is not a volume estimate. |
+| integers | Block numbers ≤ 2^53−2, so C+1 and H+1 are exact. Caps are safe integers ≥ 1, and maxCalls ≤ 10000 bounds the output (about 5.8 MB at the ceiling). Counts are exact decimal strings computed in BigInt. |
 | reconciliation | `UNKNOWN_NEEDS_RECONCILIATION` with no calls, and every reason listed, when any of these hold: the checkpoint hash evidence is null or conflicting; `removedLogsSeen` is true or null; H < C; H = C with a different hash; the head was observed before the checkpoint was recorded. |
 | history limit | Nothing below `max(0, C−L+1)` is ever requested. Reorgs deeper than L, and provider log retention or pruning, are not detectable here. An executor that can't serve a range must report UNKNOWN, never empty. |
 | resume live | `resumeLive.allowed` is always false. `candidateFromBlock` is H+1 only for `PLANNED`. Live may resume only after the executor has completed every call within maxBytes and re-verified canonicality. |
@@ -71,7 +72,8 @@ The output is canonical JSON. It contains:
 - `inputs`: the spec sha and manifest pins, with head and evidence marked `UNVERIFIED_CALLER_SUPPLIED`;
 - `rules` and `span`;
 - `calls[]`: `{segment, filtersetId, filterSha256, fromBlock, toBlock, request:{method:"eth_getLogs", params:[filter + hex range]}, publicationProvenance:{backfill:true, live:false}}`;
-- `truncated` and `uncovered`;
+- `rangesBeforeBudget {overlap, gap}` and `plannedCallsBeforeBudget`, as exact decimal strings;
+- `truncated` and `uncovered {fromBlock, toBlock, firstUncoveredFilterset, firstUncoveredRange}`;
 - `backfillSubject`: class `backfill`, name `UNADOPTED`, `mustDifferFromLiveSubject: true`;
 - `claims`: binding UNKNOWN, canonicality UNVERIFIED_CALLER_SUPPLIED, sourceAdmission NOT_ESTABLISHED, completeness and latency NOT_MEASURED;
 - `planSha256`.
@@ -88,4 +90,5 @@ The output is canonical JSON. It contains:
 - *Unverified inputs:* hash evidence, the head and the timestamps are caller assertions. Nothing is verified against a chain.
 - *Head age:* not evaluated, because no clock is read. The only staleness check is head observation against checkpoint record time.
 - *Reorgs:* reorg depth beyond L is undetectable. Removed/re-add resolution is deferred to reconciliation, since the Q2 identity is unadopted.
+- *Tests:* run from this directory (`cd measurements/backfill-plan && node test.mjs`). The pre-correction control needs git and `e1d8346` locally.
 - *Byte caps:* response sizes are unknown in advance, so maxBytes can only be enforced by an executor, which isn't included here.
