@@ -248,3 +248,50 @@ R3 must show `backfillOnLiveSubjects` and `lateLiveAfterBackfill` at 0.
 
 The checker only rejects on these. It does not repair them. The owner decision on a further
 collector/harness repair remains escalated.
+
+## HTTP request guard (preparation only; not wired into `run-native.sh`)
+
+The collector's own HTTP calls are not fully observable (no call counter in status or logs; a
+successful `publish_retry` logs nothing; a failed reconcile does not say how many calls it made), so
+any budget computed from collector artifacts is advisory. `rpc-guard.mjs` makes a request budget
+deterministic by sitting between the clients and the node:
+
+- Listens on `127.0.0.1` only. Upstream is one plain `http://` URL (no credentials, query, fragment).
+- Allowlist, read-only: `eth_blockNumber` (no params), `eth_getBlockByNumber(<latest|hex>, false)`,
+  `eth_getLogs` with one filter that has an explicit non-empty `address`, valid `topics`, hex
+  `fromBlock`/`toBlock`, `toBlock >= fromBlock` and span <= `--max-log-span`. `--methods` may only
+  narrow this list.
+- Refused locally, never forwarded: non-POST, body > 64 KiB, malformed or empty JSON, batch arrays,
+  non-objects, extra fields, `jsonrpc != "2.0"`, null/missing id, any other method, bad params, and
+  every request after `--cap` admissions.
+- Every request is numbered and logged (`recv`) on arrival; admission (`admit`) is decided
+  synchronously before anything is sent, so `admitted <= cap` holds under any concurrency.
+- Admitted requests are sent one at a time, at least `--min-interval-ms` apart, each aborted after
+  `--timeout-ms` (<= 60000) with a 504.
+- The first refusal writes `guard.STOP` (reason, seq). From then on nothing new is admitted.
+- SIGTERM/SIGINT: aborts the in-flight request, drops queued ones unsent, writes
+  `guard.summary.json`, exits 0 within 2 s.
+- Evidence under the explicit `--run-dir` (absolute, existing; `guard.jsonl` created exclusively):
+  `guard.jsonl` (monotonic `process.hrtime` lines: start, recv, admit, forward, response,
+  upstream_error, refuse, stop, drop, shutdown, summary), `guard.ready.json`, `guard.STOP`,
+  `guard.summary.json` (received, admitted, forwarded, completed, dropped, refused by reason,
+  upstream errors by reason).
+
+`guard-run.sh RUN_DIR UPSTREAM CAP MIN_INTERVAL_MS TIMEOUT_MS MAX_LOG_SPAN DEADLINE_S -- CMD...`
+starts the guard and one client (with `FE173_GUARD_URL` and `BASE_COLLECTOR_HTTP_URL` set to the
+guard), registers both in `RUN_DIR/registry` through `lib-run.sh`, and signals only those two. Exit:
+client's code, 10 on `guard.STOP`, 11 at the deadline, 12 if the guard is not ready or dies, 2 on
+usage. Outcome in `RUN_DIR/guard-run.json`.
+
+What it does not do: it counts HTTP only (WS connections/subscriptions are not covered); it does not
+stop the collector's fast reconcile retry, which keeps failing locally until the controller stops it;
+it is not wired into `run-native.sh` (one guard per run with `collect` as the client would need a
+controller that also owns `persist`/`measure`/captures; that is Codex's decision).
+
+Offline proof: `FE173_TEST_ROOT=<absolute dir> ./verify-guard.sh` against `fake-upstream.mjs` on
+127.0.0.1 (no node, Docker, NATS or Postgres). It uses an explicit `mktemp` template under
+`FE173_TEST_ROOT`, which macOS honours. The fake upstream's own log is the forwarded count:
+config refusals 0, cap 0 → 0, cap 3 of 5 sequential → 3, 20 concurrent at cap 5 → 5 (one in flight,
+gaps >= 50 ms), timeout → 1 (504 in < 1.5 s), 23 invalid inputs → 0, shutdown with 1 in flight and
+2 queued → 1 (exit <= 3 s), controller STOP/deadline/normal → 1/0/2, unregistered decoy untouched.
+`verify-offline.sh` and `verify-synthetic.sh` still use bare `mktemp -d` (macOS: `/var/folders`).
