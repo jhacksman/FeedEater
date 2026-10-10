@@ -1,0 +1,214 @@
+{
+ "schema": "native-diagnostic-guard-results/1",
+ "runplanSha256": "26ffb8136cb85ae36a3cd286a1b96a22e4c3d353e7338696cd2b334c77f005c9",
+ "cases": [
+  {
+   "case": "vendor capture.mjs is byte-identical to 56f8f3b (sha256 + blob)",
+   "pass": true
+  },
+  {
+   "case": "static: no env, child process, fetch, WebSocket, LAN bind; one listen on LOOPBACK; transport only via vendor httpTransport",
+   "pass": true
+  },
+  {
+   "case": "runplan deterministic, self-hash, secrets hashed only",
+   "pass": true
+  },
+  {
+   "case": "CLI plan by path from cwd=/ with empty env equals evidence",
+   "pass": true
+  },
+  {
+   "case": "unresolved checkpoint/head/window/filters/env -> root_inputs_unresolved exit 2",
+   "pass": true
+  },
+  {
+   "case": "spec refusal: source commit mismatch",
+   "pass": true
+  },
+  {
+   "case": "spec refusal: HTTP_URL supplied",
+   "pass": true
+  },
+  {
+   "case": "spec refusal: unknown env key",
+   "pass": true
+  },
+  {
+   "case": "spec refusal: paceMs < 1250",
+   "pass": true
+  },
+  {
+   "case": "spec refusal: timeoutMs > 8000",
+   "pass": true
+  },
+  {
+   "case": "spec refusal: maxResponseBytes > 1MiB",
+   "pass": true
+  },
+  {
+   "case": "spec refusal: maxCalls > allowlist",
+   "pass": true
+  },
+  {
+   "case": "spec refusal: method eth_call",
+   "pass": true
+  },
+  {
+   "case": "spec refusal: getLogs toBlock latest",
+   "pass": true
+  },
+  {
+   "case": "spec refusal: getLogs range 501",
+   "pass": true
+  },
+  {
+   "case": "spec refusal: getLogs blockHash key",
+   "pass": true
+  },
+  {
+   "case": "spec refusal: getLogs undeclared filter (topic order swapped)",
+   "pass": true
+  },
+  {
+   "case": "spec refusal: measure out outside projectAromer",
+   "pass": true
+  },
+  {
+   "case": "spec refusal: window end <= start",
+   "pass": true
+  },
+  {
+   "case": "spec duplicate key refused by strict parser",
+   "pass": true
+  },
+  {
+   "case": "preflight refusal: out exists",
+   "pass": true
+  },
+  {
+   "case": "preflight refusal: out outside projectAromer",
+   "pass": true
+  },
+  {
+   "case": "preflight refusal: out parent symlink",
+   "pass": true
+  },
+  {
+   "case": "preflight refusal: projectAromer symlink",
+   "pass": true
+  },
+  {
+   "case": "preflight refusal: upstream userinfo",
+   "pass": true
+  },
+  {
+   "case": "preflight refusal: upstream ws scheme",
+   "pass": true
+  },
+  {
+   "case": "preflight refusals created nothing",
+   "pass": true
+  },
+  {
+   "case": "3 concurrent allowed calls: COMPLETE, upstream 3, one in flight, exact bytes forwarded and returned, raw files persisted",
+   "pass": true
+  },
+  {
+   "case": ">= 1250 ms between upstream completion and next send",
+   "pass": true
+  },
+  {
+   "case": "listener closed after budget complete (extra call never reaches upstream)",
+   "pass": true
+  },
+  {
+   "case": "runplan.json in output equals runplan",
+   "pass": true
+  },
+  {
+   "case": "refused before upstream: unlisted range; later allowed call also refused; STOPPED",
+   "pass": true
+  },
+  {
+   "case": "refused before upstream: malformed JSON; later allowed call also refused; STOPPED",
+   "pass": true
+  },
+  {
+   "case": "refused before upstream: batch array; later allowed call also refused; STOPPED",
+   "pass": true
+  },
+  {
+   "case": "refused before upstream: duplicate key; later allowed call also refused; STOPPED",
+   "pass": true
+  },
+  {
+   "case": "refused before upstream: extra key; later allowed call also refused; STOPPED",
+   "pass": true
+  },
+  {
+   "case": "refused before upstream: string id; later allowed call also refused; STOPPED",
+   "pass": true
+  },
+  {
+   "case": "refused before upstream: eth_call; later allowed call also refused; STOPPED",
+   "pass": true
+  },
+  {
+   "case": "refused before upstream: eth_getLogs latest; later allowed call also refused; STOPPED",
+   "pass": true
+  },
+  {
+   "case": "refused before upstream: oversize body; later allowed call also refused; STOPPED",
+   "pass": true
+  },
+  {
+   "case": "repeat of consumed entry -> call_already_consumed, upstream 1",
+   "pass": true
+  },
+  {
+   "case": "budget 1 with 2 concurrent -> upstream 1, other refused",
+   "pass": true
+  },
+  {
+   "case": "upstream response over maxResponseBytes -> response_oversize, STOPPED, upstream 1, no retry, queued call not sent",
+   "pass": true
+  },
+  {
+   "case": "upstream total bytes cap -> total_bytes_cap, STOPPED, upstream 1, no retry, queued call not sent",
+   "pass": true
+  },
+  {
+   "case": "upstream deadline -> timeout, STOPPED, upstream 1, no retry, queued call not sent",
+   "pass": true
+  },
+  {
+   "case": "upstream HTTP 500 -> http_status, STOPPED, upstream 1, no retry, queued call not sent",
+   "pass": true
+  },
+  {
+   "case": "upstream rpc error -> rpc_error, STOPPED, upstream 1, no retry, queued call not sent",
+   "pass": true
+  },
+  {
+   "case": "upstream id mismatch -> response_malformed, STOPPED, upstream 1, no retry, queued call not sent",
+   "pass": true
+  },
+  {
+   "case": "maxDurationMs with no calls -> STOPPED duration_exhausted, notUsed all, upstream 0",
+   "pass": true
+  },
+  {
+   "case": "EIO on response file -> WRITE_FAILED, client 502, partial disclosed, next call not sent",
+   "pass": true
+  },
+  {
+   "case": "7-byte short writes -> COMPLETE, files byte-exact",
+   "pass": true
+  },
+  {
+   "case": "CLI serve from cwd=/: loopback listener, 1 call, exit 0 COMPLETE",
+   "pass": true
+  }
+ ]
+}

@@ -1,0 +1,90 @@
+{
+ "schema": "native-diagnostic-guard-spec/1",
+ "source": {
+  "commit": "5206f9035ad1c057d78990b294941221e936f895"
+ },
+ "projectAromer": "/synthetic/PROJECT_AROMER",
+ "native": {
+  "env": {
+   "BASE_COLLECTOR_NATS_URL": "nats://synthetic.invalid:4222",
+   "BASE_COLLECTOR_DATABASE_URL": "postgres://synthetic.invalid/feedeater",
+   "BASE_COLLECTOR_STATE_DIR": "/synthetic/PROJECT_AROMER/state",
+   "BASE_COLLECTOR_START_BLOCK": "100",
+   "BASE_COLLECTOR_PERSIST_START_BLOCK": "100"
+  },
+  "measure": {
+   "out": "/synthetic/PROJECT_AROMER/measure/report.json",
+   "warmupS": 60,
+   "windowS": 600,
+   "teardownS": 30,
+   "poolsFromCheckpoint": false
+  }
+ },
+ "rootInputs": {
+  "checkpoint": {
+   "verifiedBlock": null,
+   "blockHash": "UNRESOLVED",
+   "fileSha256": null
+  },
+  "head": {
+   "number": null,
+   "hash": null
+  },
+  "window": {
+   "clockId": null,
+   "startUtc": null,
+   "endUtc": null
+  },
+  "filters": null
+ },
+ "limits": {
+  "maxCalls": 3,
+  "paceMs": 1250,
+  "timeoutMs": 8000,
+  "maxResponseBytes": 1048576,
+  "maxTotalBytes": 3145728,
+  "maxDurationMs": 600000,
+  "maxRangeBlocks": 500
+ },
+ "allow": [
+  {
+   "method": "eth_blockNumber",
+   "params": []
+  },
+  {
+   "method": "eth_getLogs",
+   "params": [
+    {
+     "address": [
+      "0x498581ff718922c3f8e6a244956af099b2652b2b"
+     ],
+     "topics": [
+      [
+       "0xdd466e674ea557f56295e2d0218a125ea4b4f0f6f3307b95f85e6110838d6438",
+       "0x40e9cecb9f5f1f1c5b9c97dec2917b7ee92e57ba5563708daca94dd84ad7112f"
+      ]
+     ],
+     "fromBlock": "0x64",
+     "toBlock": "0x6d"
+    }
+   ]
+  },
+  {
+   "method": "eth_getLogs",
+   "params": [
+    {
+     "address": [
+      "0x1176122eb77ad6a2339322cda7c4d7ea9bfa63dc",
+      "0x1de58a6769526a03a504d9d59b8757cd8097dc57",
+      "0xa52ad458ce0282a971ecc71c051a32f28946bb9f",
+      "0xb9e5910043353717af54d8dd34b6ee57ffe49c35",
+      "0xe3ab924c72463c1ac8d1d8352ee640b89eb1ea64",
+      "0xff70918ef17a2d74d683a8297813b177bafad1f4"
+     ],
+     "fromBlock": "0x64",
+     "toBlock": "0x6d"
+    }
+   ]
+  }
+ ]
+}
