@@ -5,24 +5,30 @@
   "reject": [
     "measure_direct_ws_lost_before_teardown_end",
     "measure_direct_heads_stale",
-    "direct_capture_ws_closed_before_teardown_end"
+    "direct_capture_ws_closed_or_error_before_stop"
   ],
   "notObserved": [],
   "observed": {
     "initialize": {
       "reportExpected": 1,
       "directRaw": 1,
-      "liveRaw": 1
+      "liveRaw": 1,
+      "directTransitions": 1,
+      "liveTransitions": 1
     },
     "swap": {
       "reportExpectedTracked": 2,
       "directRawAllPools": 2,
-      "liveRaw": 1
+      "liveRaw": 1,
+      "directTransitions": 2,
+      "liveTransitions": 2
     },
     "factory": {
       "reportExpected": 1,
       "directRaw": 1,
-      "liveRaw": 1
+      "liveRaw": 1,
+      "directTransitions": 1,
+      "liveTransitions": 1
     },
     "reorgRemoval": {
       "directRaw": 1,
@@ -35,6 +41,11 @@
     "hosts": [
       "synthetic-host",
       "synthetic-host"
+    ],
+    "limits": [
+      "capture hosts are the self-reported os.hostname() in each capture meta line; not independently verified",
+      "measure.json records no host, so binding measure to the capture host is by procedure (run-native.sh runs all on one host), not checked",
+      "hrtime is comparable only within one boot of one host; a reboot or a different host invalidates comparison"
     ]
   },
   "statusMaxGapMs": {

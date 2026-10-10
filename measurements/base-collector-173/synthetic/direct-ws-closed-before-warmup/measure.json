@@ -1,0 +1,1112 @@
+{
+  "tool": "base-collector measure (SYNTHETIC fixture from make-synthetic.mjs; not a measurement)",
+  "clock": "process.hrtime.bigint (single process; ns from an arbitrary per-process origin; marks are the phase boundaries)",
+  "settings": {
+    "warmupS": 30,
+    "windowS": 300,
+    "teardownS": 30,
+    "poolsFromCheckpoint": null,
+    "hooks": [
+      "0xa068cf4c52abdd3479145c4b3cbd8e3d71542a44",
+      "0x985c14baa2a18316ffda0aefb3a632fadfca2acc",
+      "0xbca7774615c74b7991a111f1c7b2d0efea61aacc",
+      "0x3b2b979df21036cee51b8debb13100e2cb8deacc",
+      "0xdda9bc41e324ef379e774ae1f7b062d23ea8aacc",
+      "0x1f91c998e7c2f4b690d75bdbf6502bdcd6e02acc"
+    ]
+  },
+  "marks": [
+    {
+      "phase": "warmup_start",
+      "atNs": "5000000000000000",
+      "headBlock": 4985
+    },
+    {
+      "phase": "window_start",
+      "atNs": "5000030000000000",
+      "headBlock": 5000
+    },
+    {
+      "phase": "window_end",
+      "atNs": "5000330000000000",
+      "headBlock": 5150
+    },
+    {
+      "phase": "teardown_end",
+      "atNs": "5000360000000000",
+      "headBlock": 5165
+    }
+  ],
+  "filterDigest": "8b5e28aa1ca300ea4b70d2f338c79a0800196823bc0dcac224a36ab7a36146ca",
+  "filterDigestVerified": true,
+  "window": {
+    "fromBlock": 5001,
+    "toBlock": 5150,
+    "startNs": "5000030000000000",
+    "endNs": "5000330000000000"
+  },
+  "observations": {
+    "statuses": [
+      {
+        "atNs": "5000001000000000",
+        "inWindow": false,
+        "headBlock": 4986,
+        "persistence": "ok",
+        "connected": true,
+        "coverageComplete": true,
+        "filterDigestMatch": true
+      },
+      {
+        "atNs": "5000006000000000",
+        "inWindow": false,
+        "headBlock": 4988,
+        "persistence": "ok",
+        "connected": true,
+        "coverageComplete": true,
+        "filterDigestMatch": true
+      },
+      {
+        "atNs": "5000011000000000",
+        "inWindow": false,
+        "headBlock": 4991,
+        "persistence": "ok",
+        "connected": true,
+        "coverageComplete": true,
+        "filterDigestMatch": true
+      },
+      {
+        "atNs": "5000016000000000",
+        "inWindow": false,
+        "headBlock": 4993,
+        "persistence": "ok",
+        "connected": true,
+        "coverageComplete": true,
+        "filterDigestMatch": true
+      },
+      {
+        "atNs": "5000021000000000",
+        "inWindow": false,
+        "headBlock": 4996,
+        "persistence": "ok",
+        "connected": true,
+        "coverageComplete": true,
+        "filterDigestMatch": true
+      },
+      {
+        "atNs": "5000026000000000",
+        "inWindow": false,
+        "headBlock": 4998,
+        "persistence": "ok",
+        "connected": true,
+        "coverageComplete": true,
+        "filterDigestMatch": true
+      },
+      {
+        "atNs": "5000031000000000",
+        "inWindow": true,
+        "headBlock": 5000,
+        "persistence": "ok",
+        "connected": true,
+        "coverageComplete": true,
+        "filterDigestMatch": true
+      },
+      {
+        "atNs": "5000036000000000",
+        "inWindow": true,
+        "headBlock": 5003,
+        "persistence": "ok",
+        "connected": true,
+        "coverageComplete": true,
+        "filterDigestMatch": true
+      },
+      {
+        "atNs": "5000041000000000",
+        "inWindow": true,
+        "headBlock": 5005,
+        "persistence": "ok",
+        "connected": true,
+        "coverageComplete": true,
+        "filterDigestMatch": true
+      },
+      {
+        "atNs": "5000046000000000",
+        "inWindow": true,
+        "headBlock": 5008,
+        "persistence": "ok",
+        "connected": true,
+        "coverageComplete": true,
+        "filterDigestMatch": true
+      },
+      {
+        "atNs": "5000051000000000",
+        "inWindow": true,
+        "headBlock": 5010,
+        "persistence": "ok",
+        "connected": true,
+        "coverageComplete": true,
+        "filterDigestMatch": true
+      },
+      {
+        "atNs": "5000056000000000",
+        "inWindow": true,
+        "headBlock": 5013,
+        "persistence": "ok",
+        "connected": true,
+        "coverageComplete": true,
+        "filterDigestMatch": true
+      },
+      {
+        "atNs": "5000061000000000",
+        "inWindow": true,
+        "headBlock": 5015,
+        "persistence": "ok",
+        "connected": true,
+        "coverageComplete": true,
+        "filterDigestMatch": true
+      },
+      {
+        "atNs": "5000066000000000",
+        "inWindow": true,
+        "headBlock": 5018,
+        "persistence": "ok",
+        "connected": true,
+        "coverageComplete": true,
+        "filterDigestMatch": true
+      },
+      {
+        "atNs": "5000071000000000",
+        "inWindow": true,
+        "headBlock": 5020,
+        "persistence": "ok",
+        "connected": true,
+        "coverageComplete": true,
+        "filterDigestMatch": true
+      },
+      {
+        "atNs": "5000076000000000",
+        "inWindow": true,
+        "headBlock": 5023,
+        "persistence": "ok",
+        "connected": true,
+        "coverageComplete": true,
+        "filterDigestMatch": true
+      },
+      {
+        "atNs": "5000081000000000",
+        "inWindow": true,
+        "headBlock": 5025,
+        "persistence": "ok",
+        "connected": true,
+        "coverageComplete": true,
+        "filterDigestMatch": true
+      },
+      {
+        "atNs": "5000086000000000",
+        "inWindow": true,
+        "headBlock": 5028,
+        "persistence": "ok",
+        "connected": true,
+        "coverageComplete": true,
+        "filterDigestMatch": true
+      },
+      {
+        "atNs": "5000091000000000",
+        "inWindow": true,
+        "headBlock": 5030,
+        "persistence": "ok",
+        "connected": true,
+        "coverageComplete": true,
+        "filterDigestMatch": true
+      },
+      {
+        "atNs": "5000096000000000",
+        "inWindow": true,
+        "headBlock": 5033,
+        "persistence": "ok",
+        "connected": true,
+        "coverageComplete": true,
+        "filterDigestMatch": true
+      },
+      {
+        "atNs": "5000101000000000",
+        "inWindow": true,
+        "headBlock": 5035,
+        "persistence": "ok",
+        "connected": true,
+        "coverageComplete": true,
+        "filterDigestMatch": true
+      },
+      {
+        "atNs": "5000106000000000",
+        "inWindow": true,
+        "headBlock": 5038,
+        "persistence": "ok",
+        "connected": true,
+        "coverageComplete": true,
+        "filterDigestMatch": true
+      },
+      {
+        "atNs": "5000111000000000",
+        "inWindow": true,
+        "headBlock": 5040,
+        "persistence": "ok",
+        "connected": true,
+        "coverageComplete": true,
+        "filterDigestMatch": true
+      },
+      {
+        "atNs": "5000116000000000",
+        "inWindow": true,
+        "headBlock": 5043,
+        "persistence": "ok",
+        "connected": true,
+        "coverageComplete": true,
+        "filterDigestMatch": true
+      },
+      {
+        "atNs": "5000121000000000",
+        "inWindow": true,
+        "headBlock": 5045,
+        "persistence": "ok",
+        "connected": true,
+        "coverageComplete": true,
+        "filterDigestMatch": true
+      },
+      {
+        "atNs": "5000126000000000",
+        "inWindow": true,
+        "headBlock": 5048,
+        "persistence": "ok",
+        "connected": true,
+        "coverageComplete": true,
+        "filterDigestMatch": true
+      },
+      {
+        "atNs": "5000131000000000",
+        "inWindow": true,
+        "headBlock": 5050,
+        "persistence": "ok",
+        "connected": true,
+        "coverageComplete": true,
+        "filterDigestMatch": true
+      },
+      {
+        "atNs": "5000136000000000",
+        "inWindow": true,
+        "headBlock": 5053,
+        "persistence": "ok",
+        "connected": true,
+        "coverageComplete": true,
+        "filterDigestMatch": true
+      },
+      {
+        "atNs": "5000141000000000",
+        "inWindow": true,
+        "headBlock": 5055,
+        "persistence": "ok",
+        "connected": true,
+        "coverageComplete": true,
+        "filterDigestMatch": true
+      },
+      {
+        "atNs": "5000146000000000",
+        "inWindow": true,
+        "headBlock": 5058,
+        "persistence": "ok",
+        "connected": true,
+        "coverageComplete": true,
+        "filterDigestMatch": true
+      },
+      {
+        "atNs": "5000151000000000",
+        "inWindow": true,
+        "headBlock": 5060,
+        "persistence": "ok",
+        "connected": true,
+        "coverageComplete": true,
+        "filterDigestMatch": true
+      },
+      {
+        "atNs": "5000156000000000",
+        "inWindow": true,
+        "headBlock": 5063,
+        "persistence": "ok",
+        "connected": true,
+        "coverageComplete": true,
+        "filterDigestMatch": true
+      },
+      {
+        "atNs": "5000161000000000",
+        "inWindow": true,
+        "headBlock": 5065,
+        "persistence": "ok",
+        "connected": true,
+        "coverageComplete": true,
+        "filterDigestMatch": true
+      },
+      {
+        "atNs": "5000166000000000",
+        "inWindow": true,
+        "headBlock": 5068,
+        "persistence": "ok",
+        "connected": true,
+        "coverageComplete": true,
+        "filterDigestMatch": true
+      },
+      {
+        "atNs": "5000171000000000",
+        "inWindow": true,
+        "headBlock": 5070,
+        "persistence": "ok",
+        "connected": true,
+        "coverageComplete": true,
+        "filterDigestMatch": true
+      },
+      {
+        "atNs": "5000176000000000",
+        "inWindow": true,
+        "headBlock": 5073,
+        "persistence": "ok",
+        "connected": true,
+        "coverageComplete": true,
+        "filterDigestMatch": true
+      },
+      {
+        "atNs": "5000181000000000",
+        "inWindow": true,
+        "headBlock": 5075,
+        "persistence": "ok",
+        "connected": true,
+        "coverageComplete": true,
+        "filterDigestMatch": true
+      },
+      {
+        "atNs": "5000186000000000",
+        "inWindow": true,
+        "headBlock": 5078,
+        "persistence": "ok",
+        "connected": true,
+        "coverageComplete": true,
+        "filterDigestMatch": true
+      },
+      {
+        "atNs": "5000191000000000",
+        "inWindow": true,
+        "headBlock": 5080,
+        "persistence": "ok",
+        "connected": true,
+        "coverageComplete": true,
+        "filterDigestMatch": true
+      },
+      {
+        "atNs": "5000196000000000",
+        "inWindow": true,
+        "headBlock": 5083,
+        "persistence": "ok",
+        "connected": true,
+        "coverageComplete": true,
+        "filterDigestMatch": true
+      },
+      {
+        "atNs": "5000201000000000",
+        "inWindow": true,
+        "headBlock": 5085,
+        "persistence": "ok",
+        "connected": true,
+        "coverageComplete": true,
+        "filterDigestMatch": true
+      },
+      {
+        "atNs": "5000206000000000",
+        "inWindow": true,
+        "headBlock": 5088,
+        "persistence": "ok",
+        "connected": true,
+        "coverageComplete": true,
+        "filterDigestMatch": true
+      },
+      {
+        "atNs": "5000211000000000",
+        "inWindow": true,
+        "headBlock": 5090,
+        "persistence": "ok",
+        "connected": true,
+        "coverageComplete": true,
+        "filterDigestMatch": true
+      },
+      {
+        "atNs": "5000216000000000",
+        "inWindow": true,
+        "headBlock": 5093,
+        "persistence": "ok",
+        "connected": true,
+        "coverageComplete": true,
+        "filterDigestMatch": true
+      },
+      {
+        "atNs": "5000221000000000",
+        "inWindow": true,
+        "headBlock": 5095,
+        "persistence": "ok",
+        "connected": true,
+        "coverageComplete": true,
+        "filterDigestMatch": true
+      },
+      {
+        "atNs": "5000226000000000",
+        "inWindow": true,
+        "headBlock": 5098,
+        "persistence": "ok",
+        "connected": true,
+        "coverageComplete": true,
+        "filterDigestMatch": true
+      },
+      {
+        "atNs": "5000231000000000",
+        "inWindow": true,
+        "headBlock": 5100,
+        "persistence": "ok",
+        "connected": true,
+        "coverageComplete": true,
+        "filterDigestMatch": true
+      },
+      {
+        "atNs": "5000236000000000",
+        "inWindow": true,
+        "headBlock": 5103,
+        "persistence": "ok",
+        "connected": true,
+        "coverageComplete": true,
+        "filterDigestMatch": true
+      },
+      {
+        "atNs": "5000241000000000",
+        "inWindow": true,
+        "headBlock": 5105,
+        "persistence": "ok",
+        "connected": true,
+        "coverageComplete": true,
+        "filterDigestMatch": true
+      },
+      {
+        "atNs": "5000246000000000",
+        "inWindow": true,
+        "headBlock": 5108,
+        "persistence": "ok",
+        "connected": true,
+        "coverageComplete": true,
+        "filterDigestMatch": true
+      },
+      {
+        "atNs": "5000251000000000",
+        "inWindow": true,
+        "headBlock": 5110,
+        "persistence": "ok",
+        "connected": true,
+        "coverageComplete": true,
+        "filterDigestMatch": true
+      },
+      {
+        "atNs": "5000256000000000",
+        "inWindow": true,
+        "headBlock": 5113,
+        "persistence": "ok",
+        "connected": true,
+        "coverageComplete": true,
+        "filterDigestMatch": true
+      },
+      {
+        "atNs": "5000261000000000",
+        "inWindow": true,
+        "headBlock": 5115,
+        "persistence": "ok",
+        "connected": true,
+        "coverageComplete": true,
+        "filterDigestMatch": true
+      },
+      {
+        "atNs": "5000266000000000",
+        "inWindow": true,
+        "headBlock": 5118,
+        "persistence": "ok",
+        "connected": true,
+        "coverageComplete": true,
+        "filterDigestMatch": true
+      },
+      {
+        "atNs": "5000271000000000",
+        "inWindow": true,
+        "headBlock": 5120,
+        "persistence": "ok",
+        "connected": true,
+        "coverageComplete": true,
+        "filterDigestMatch": true
+      },
+      {
+        "atNs": "5000276000000000",
+        "inWindow": true,
+        "headBlock": 5123,
+        "persistence": "ok",
+        "connected": true,
+        "coverageComplete": true,
+        "filterDigestMatch": true
+      },
+      {
+        "atNs": "5000281000000000",
+        "inWindow": true,
+        "headBlock": 5125,
+        "persistence": "ok",
+        "connected": true,
+        "coverageComplete": true,
+        "filterDigestMatch": true
+      },
+      {
+        "atNs": "5000286000000000",
+        "inWindow": true,
+        "headBlock": 5128,
+        "persistence": "ok",
+        "connected": true,
+        "coverageComplete": true,
+        "filterDigestMatch": true
+      },
+      {
+        "atNs": "5000291000000000",
+        "inWindow": true,
+        "headBlock": 5130,
+        "persistence": "ok",
+        "connected": true,
+        "coverageComplete": true,
+        "filterDigestMatch": true
+      },
+      {
+        "atNs": "5000296000000000",
+        "inWindow": true,
+        "headBlock": 5133,
+        "persistence": "ok",
+        "connected": true,
+        "coverageComplete": true,
+        "filterDigestMatch": true
+      },
+      {
+        "atNs": "5000301000000000",
+        "inWindow": true,
+        "headBlock": 5135,
+        "persistence": "ok",
+        "connected": true,
+        "coverageComplete": true,
+        "filterDigestMatch": true
+      },
+      {
+        "atNs": "5000306000000000",
+        "inWindow": true,
+        "headBlock": 5138,
+        "persistence": "ok",
+        "connected": true,
+        "coverageComplete": true,
+        "filterDigestMatch": true
+      },
+      {
+        "atNs": "5000311000000000",
+        "inWindow": true,
+        "headBlock": 5140,
+        "persistence": "ok",
+        "connected": true,
+        "coverageComplete": true,
+        "filterDigestMatch": true
+      },
+      {
+        "atNs": "5000316000000000",
+        "inWindow": true,
+        "headBlock": 5143,
+        "persistence": "ok",
+        "connected": true,
+        "coverageComplete": true,
+        "filterDigestMatch": true
+      },
+      {
+        "atNs": "5000321000000000",
+        "inWindow": true,
+        "headBlock": 5145,
+        "persistence": "ok",
+        "connected": true,
+        "coverageComplete": true,
+        "filterDigestMatch": true
+      },
+      {
+        "atNs": "5000326000000000",
+        "inWindow": true,
+        "headBlock": 5148,
+        "persistence": "ok",
+        "connected": true,
+        "coverageComplete": true,
+        "filterDigestMatch": true
+      },
+      {
+        "atNs": "5000331000000000",
+        "inWindow": false,
+        "headBlock": 5150,
+        "persistence": "ok",
+        "connected": true,
+        "coverageComplete": true,
+        "filterDigestMatch": true
+      },
+      {
+        "atNs": "5000336000000000",
+        "inWindow": false,
+        "headBlock": 5153,
+        "persistence": "ok",
+        "connected": true,
+        "coverageComplete": true,
+        "filterDigestMatch": true
+      },
+      {
+        "atNs": "5000341000000000",
+        "inWindow": false,
+        "headBlock": 5155,
+        "persistence": "ok",
+        "connected": true,
+        "coverageComplete": true,
+        "filterDigestMatch": true
+      },
+      {
+        "atNs": "5000346000000000",
+        "inWindow": false,
+        "headBlock": 5158,
+        "persistence": "ok",
+        "connected": true,
+        "coverageComplete": true,
+        "filterDigestMatch": true
+      },
+      {
+        "atNs": "5000351000000000",
+        "inWindow": false,
+        "headBlock": 5160,
+        "persistence": "ok",
+        "connected": true,
+        "coverageComplete": true,
+        "filterDigestMatch": true
+      },
+      {
+        "atNs": "5000356000000000",
+        "inWindow": false,
+        "headBlock": 5163,
+        "persistence": "ok",
+        "connected": true,
+        "coverageComplete": true,
+        "filterDigestMatch": true
+      }
+    ],
+    "heartbeats": [
+      {
+        "atNs": "5000003000000000",
+        "inWindow": false
+      },
+      {
+        "atNs": "5000008000000000",
+        "inWindow": false
+      },
+      {
+        "atNs": "5000013000000000",
+        "inWindow": false
+      },
+      {
+        "atNs": "5000018000000000",
+        "inWindow": false
+      },
+      {
+        "atNs": "5000023000000000",
+        "inWindow": false
+      },
+      {
+        "atNs": "5000028000000000",
+        "inWindow": false
+      },
+      {
+        "atNs": "5000033000000000",
+        "inWindow": true
+      },
+      {
+        "atNs": "5000038000000000",
+        "inWindow": true
+      },
+      {
+        "atNs": "5000043000000000",
+        "inWindow": true
+      },
+      {
+        "atNs": "5000048000000000",
+        "inWindow": true
+      },
+      {
+        "atNs": "5000053000000000",
+        "inWindow": true
+      },
+      {
+        "atNs": "5000058000000000",
+        "inWindow": true
+      },
+      {
+        "atNs": "5000063000000000",
+        "inWindow": true
+      },
+      {
+        "atNs": "5000068000000000",
+        "inWindow": true
+      },
+      {
+        "atNs": "5000073000000000",
+        "inWindow": true
+      },
+      {
+        "atNs": "5000078000000000",
+        "inWindow": true
+      },
+      {
+        "atNs": "5000083000000000",
+        "inWindow": true
+      },
+      {
+        "atNs": "5000088000000000",
+        "inWindow": true
+      },
+      {
+        "atNs": "5000093000000000",
+        "inWindow": true
+      },
+      {
+        "atNs": "5000098000000000",
+        "inWindow": true
+      },
+      {
+        "atNs": "5000103000000000",
+        "inWindow": true
+      },
+      {
+        "atNs": "5000108000000000",
+        "inWindow": true
+      },
+      {
+        "atNs": "5000113000000000",
+        "inWindow": true
+      },
+      {
+        "atNs": "5000118000000000",
+        "inWindow": true
+      },
+      {
+        "atNs": "5000123000000000",
+        "inWindow": true
+      },
+      {
+        "atNs": "5000128000000000",
+        "inWindow": true
+      },
+      {
+        "atNs": "5000133000000000",
+        "inWindow": true
+      },
+      {
+        "atNs": "5000138000000000",
+        "inWindow": true
+      },
+      {
+        "atNs": "5000143000000000",
+        "inWindow": true
+      },
+      {
+        "atNs": "5000148000000000",
+        "inWindow": true
+      },
+      {
+        "atNs": "5000153000000000",
+        "inWindow": true
+      },
+      {
+        "atNs": "5000158000000000",
+        "inWindow": true
+      },
+      {
+        "atNs": "5000163000000000",
+        "inWindow": true
+      },
+      {
+        "atNs": "5000168000000000",
+        "inWindow": true
+      },
+      {
+        "atNs": "5000173000000000",
+        "inWindow": true
+      },
+      {
+        "atNs": "5000178000000000",
+        "inWindow": true
+      },
+      {
+        "atNs": "5000183000000000",
+        "inWindow": true
+      },
+      {
+        "atNs": "5000188000000000",
+        "inWindow": true
+      },
+      {
+        "atNs": "5000193000000000",
+        "inWindow": true
+      },
+      {
+        "atNs": "5000198000000000",
+        "inWindow": true
+      },
+      {
+        "atNs": "5000203000000000",
+        "inWindow": true
+      },
+      {
+        "atNs": "5000208000000000",
+        "inWindow": true
+      },
+      {
+        "atNs": "5000213000000000",
+        "inWindow": true
+      },
+      {
+        "atNs": "5000218000000000",
+        "inWindow": true
+      },
+      {
+        "atNs": "5000223000000000",
+        "inWindow": true
+      },
+      {
+        "atNs": "5000228000000000",
+        "inWindow": true
+      },
+      {
+        "atNs": "5000233000000000",
+        "inWindow": true
+      },
+      {
+        "atNs": "5000238000000000",
+        "inWindow": true
+      },
+      {
+        "atNs": "5000243000000000",
+        "inWindow": true
+      },
+      {
+        "atNs": "5000248000000000",
+        "inWindow": true
+      },
+      {
+        "atNs": "5000253000000000",
+        "inWindow": true
+      },
+      {
+        "atNs": "5000258000000000",
+        "inWindow": true
+      },
+      {
+        "atNs": "5000263000000000",
+        "inWindow": true
+      },
+      {
+        "atNs": "5000268000000000",
+        "inWindow": true
+      },
+      {
+        "atNs": "5000273000000000",
+        "inWindow": true
+      },
+      {
+        "atNs": "5000278000000000",
+        "inWindow": true
+      },
+      {
+        "atNs": "5000283000000000",
+        "inWindow": true
+      },
+      {
+        "atNs": "5000288000000000",
+        "inWindow": true
+      },
+      {
+        "atNs": "5000293000000000",
+        "inWindow": true
+      },
+      {
+        "atNs": "5000298000000000",
+        "inWindow": true
+      },
+      {
+        "atNs": "5000303000000000",
+        "inWindow": true
+      },
+      {
+        "atNs": "5000308000000000",
+        "inWindow": true
+      },
+      {
+        "atNs": "5000313000000000",
+        "inWindow": true
+      },
+      {
+        "atNs": "5000318000000000",
+        "inWindow": true
+      },
+      {
+        "atNs": "5000323000000000",
+        "inWindow": true
+      },
+      {
+        "atNs": "5000328000000000",
+        "inWindow": true
+      },
+      {
+        "atNs": "5000333000000000",
+        "inWindow": false
+      },
+      {
+        "atNs": "5000338000000000",
+        "inWindow": false
+      },
+      {
+        "atNs": "5000343000000000",
+        "inWindow": false
+      },
+      {
+        "atNs": "5000348000000000",
+        "inWindow": false
+      },
+      {
+        "atNs": "5000353000000000",
+        "inWindow": false
+      },
+      {
+        "atNs": "5000358000000000",
+        "inWindow": false
+      }
+    ]
+  },
+  "expected": 4,
+  "deliveredLive": 4,
+  "liveDeliveryPct": 100,
+  "missedLive": 0,
+  "missedLiveRecoveredOnBackfill": 0,
+  "missedEntirely": 0,
+  "duplicateLivePublishes": 0,
+  "backfillOnLiveSubjects": 0,
+  "lateLiveAfterBackfill": 0,
+  "directRepeats": 0,
+  "extraLive": 0,
+  "byKind": {
+    "initialize": {
+      "expected": 1,
+      "delivered": 1,
+      "recoveredOnBackfill": 0,
+      "missedEntirely": 0,
+      "latencyN": 1,
+      "p99": 0.8
+    },
+    "swap": {
+      "expected": 2,
+      "delivered": 2,
+      "recoveredOnBackfill": 0,
+      "missedEntirely": 0,
+      "latencyN": 2,
+      "p99": 0.8
+    },
+    "factory": {
+      "expected": 1,
+      "delivered": 1,
+      "recoveredOnBackfill": 0,
+      "missedEntirely": 0,
+      "latencyN": 1,
+      "p99": 0.8
+    }
+  },
+  "scope": {
+    "targetSwapsExpected": 2,
+    "trackedPoolsMeasured": 1,
+    "collectorTrackedPools": 1,
+    "collectorUntrackedSwaps": 0,
+    "collectorCoverageComplete": true,
+    "persistence": "ok_every_sample",
+    "statusSamples": 60,
+    "persistenceStates": {
+      "ok": 60,
+      "missing": 0,
+      "unknown": 0
+    },
+    "heartbeatSamples": 60,
+    "disconnectObserved": false,
+    "reconnectObserved": false,
+    "filterDigestMismatchObserved": false,
+    "notCovered": [],
+    "sourceValidationWindow": true
+  },
+  "addedLatencyMs": {
+    "n": 4,
+    "p50": 0.8,
+    "p95": 0.8,
+    "p99": 0.8,
+    "max": 0.8,
+    "negative": 0
+  },
+  "persistence": {
+    "statusSamples": 72,
+    "missingSamples": 0,
+    "lastCollectorStatus": {
+      "v": 1,
+      "type": "status",
+      "epoch": 1,
+      "atMs": 5000356000,
+      "connected": true,
+      "reconciled": true,
+      "filterDigest": "8b5e28aa1ca300ea4b70d2f338c79a0800196823bc0dcac224a36ab7a36146ca",
+      "headBlock": 5163,
+      "verifiedBlock": 5153,
+      "trackedSinceBlock": 4990,
+      "trackedPools": 1,
+      "coverage": {
+        "complete": true,
+        "undeliveredBlocks": [],
+        "droppedPools": 0,
+        "recentDropped": [],
+        "swapsForDroppedPools": 0,
+        "untrackedSwaps": 0,
+        "pendingSwapsDropped": 0,
+        "backfillTruncatedBlocks": 0
+      },
+      "counters": {
+        "connects": 1
+      },
+      "persistence": {
+        "state": "ok",
+        "lastHeartbeatMs": 5000354000,
+        "contiguousBlock": 5153,
+        "startBoundary": 4990,
+        "gaps": 0
+      }
+    },
+    "lastHeartbeat": {
+      "v": 1,
+      "type": "persister",
+      "atMs": 5000358000,
+      "contiguousBlock": 5154,
+      "startBoundary": 4990,
+      "queued": 0,
+      "droppedOverflow": 0,
+      "lastFlushOkMs": 5000358000,
+      "lastError": null,
+      "gapBlocks": [],
+      "gapCount": 0
+    }
+  },
+  "dat011": {
+    "liveDelivery100": true,
+    "zeroDuplicateLive": true,
+    "zeroBackfillContamination": true,
+    "p99AddedLe10ms": true,
+    "pass": true
+  }
+}

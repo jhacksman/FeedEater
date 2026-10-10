@@ -113,7 +113,7 @@ fi
 for p in collect persist capdirect capnats; do fe_stop_pid "$(fe_pid $p)"; done
 crc=0
 node "$H/check-report.mjs" "$RUN/measure.json" --nats-capture "$RUN/nats.jsonl" --direct-capture "$RUN/direct.jsonl" \
-  --status-interval-ms "${BASE_COLLECTOR_STATUS_INTERVAL_MS:-5000}" --heartbeat-ms "${BASE_COLLECTOR_PERSIST_HEARTBEAT_MS:-5000}" >"$RUN/check.json" || crc=$?
+  --env "$RUN/base-collector.env" >"$RUN/check.json" || crc=$?
 (cd "$FE/modules/base-collector" && find dist -type f | LC_ALL=C sort | while read -r f; do fe_sha "$f"; done) >"$RUN/dist.sha256"
 (cd "$RUN" && fe_sha ./*.json ./*.jsonl ./*.log ./*.env 2>/dev/null) >"$RUN/artifacts.sha256" || true
 fe_log "done: $RUN check exit $crc ($(node -pe 'JSON.parse(require("fs").readFileSync(process.argv[1])).verdict' "$RUN/check.json"))"

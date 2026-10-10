@@ -3,13 +3,18 @@
 // checks below fired.
 //
 // usage: node check-report.mjs MEASURE.json --nats-capture NATS.jsonl --direct-capture DIRECT.jsonl
-//        [--status-interval-ms 5000] [--heartbeat-ms 5000]
+//        --env RUN/base-collector.env [--status-interval-ms N] [--heartbeat-ms N]
+//
+// --env binds the run: status/heartbeat intervals (collector defaults 5000/5000 for keys the file
+// does not set) and the expected filters/digest, rebuilt with the checkout dist (FE, default ../..).
+// Missing/invalid intervals, or claimed flags that differ from the recorded settings, exit 2.
 //
 // Clock: measure.json marks/observations and every capture line `hrNs` are process.hrtime.bigint()
 // read on the same host (libuv: CLOCK_MONOTONIC on Linux, mach_absolute_time on macOS), so they are
 // one comparable clock. Each capture must bracket measure's warmup_start..teardown_end, or the run
 // is rejected as not comparable.
 import fs from "node:fs";
+import path from "node:path";
 
 const P = "feedeater.base_collector";
 const NOT_CERTIFIABLE_AT_5206F90 = [
@@ -25,12 +30,47 @@ const opt = (n, d) => {
   return i >= 0 ? args[i + 1] : d;
 };
 if (args[0] === undefined || args[0].startsWith("--")) {
-  process.stderr.write("usage: node check-report.mjs MEASURE.json --nats-capture F --direct-capture F [--status-interval-ms N] [--heartbeat-ms N]\n");
+  process.stderr.write("usage: node check-report.mjs MEASURE.json --nats-capture F --direct-capture F --env RUN/base-collector.env [--status-interval-ms N] [--heartbeat-ms N]\n");
   process.exit(2);
 }
 const rep = JSON.parse(fs.readFileSync(args[0], "utf8"));
-const statusMs = Number(opt("status-interval-ms", "5000"));
-const hbMs = Number(opt("heartbeat-ms", "5000"));
+// Intervals are bound to the run's recorded settings (--env base-collector.env, collector defaults
+// 5000/5000 for keys it does not set). Claimed flags must match them; anything else exits 2.
+const usage2 = (why) => {
+  process.stderr.write(`check-report: ${why}\n`);
+  process.exit(2);
+};
+const envFile = opt("env");
+if (envFile === undefined) usage2("--env <run base-collector.env> is required to bind status/heartbeat intervals");
+let envText;
+try {
+  envText = fs.readFileSync(envFile, "utf8");
+} catch {
+  usage2(`cannot read --env ${envFile}`);
+}
+const envKv = Object.fromEntries(envText.split("\n").filter((l) => /^[A-Z0-9_]+=/.test(l)).map((l) => [l.slice(0, l.indexOf("=")), l.slice(l.indexOf("=") + 1)]));
+const bound = (key, flagName) => {
+  const raw = envKv[key] ?? "5000";
+  if (!/^[1-9][0-9]*$/.test(raw)) usage2(`${key}=${raw} in --env is not a positive integer`);
+  const v = Number(raw);
+  const claimed = opt(flagName);
+  if (args.includes(`--${flagName}`) && (claimed === undefined || !/^[1-9][0-9]*$/.test(claimed))) usage2(`--${flagName} must be a positive integer`);
+  if (claimed !== undefined && Number(claimed) !== v) usage2(`--${flagName} ${claimed} differs from recorded ${key}=${v}`);
+  return v;
+};
+let runCfg;
+const FE = process.env.FE ?? path.resolve(path.dirname(new URL(import.meta.url).pathname), "../..");
+const dist = await import(`${FE}/modules/base-collector/dist/index.js`);
+try {
+  runCfg = dist.loadSettings(envKv);
+} catch (e) {
+  usage2(`--env does not load as collector settings: ${e instanceof Error ? e.message : String(e)}`);
+}
+const norm = (x) => JSON.stringify(x ?? null).toLowerCase();
+const runFilters = dist.buildFilters(runCfg);
+const runDigest = dist.filterDigest(runCfg);
+const statusMs = bound("BASE_COLLECTOR_STATUS_INTERVAL_MS", "status-interval-ms");
+const hbMs = bound("BASE_COLLECTOR_PERSIST_HEARTBEAT_MS", "heartbeat-ms");
 const reject = [];
 const ns = (s) => BigInt(s);
 const cmp = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
@@ -52,6 +92,7 @@ if (ph.some((m) => m === undefined)) {
 }
 const [T0, W0, W1, T1] = ph.map((m) => ns(m.atNs));
 for (let i = 1; i < ph.length; i++) if (ns(ph[i].atNs) <= ns(ph[i - 1].atNs)) reject.push("phase_marks_out_of_order");
+if (rep.filterDigest !== runDigest) reject.push("report_filter_digest_differs_from_run_settings");
 if (ns(rep.window.startNs) !== W0 || ns(rep.window.endNs) !== W1) reject.push("report_window_differs_from_marks");
 if (rep.marks.some((m) => m.phase === "direct_ws_closed" && ns(m.atNs) <= T1)) reject.push("measure_direct_ws_lost_before_teardown_end");
 if (ph[1].headBlock === null || ph[2].headBlock === null) reject.push("measure_direct_head_not_observed");
@@ -95,7 +136,16 @@ const readJsonl = (p, name) => {
 };
 const natsRows = readJsonl(opt("nats-capture"), "nats");
 const directRows = readJsonl(opt("direct-capture"), "direct");
-const clock = { basis: "process.hrtime.bigint on one host", comparable: true, hosts: [] };
+const clock = {
+  basis: "process.hrtime.bigint on one host",
+  comparable: true,
+  hosts: [],
+  limits: [
+    "capture hosts are the self-reported os.hostname() in each capture meta line; not independently verified",
+    "measure.json records no host, so binding measure to the capture host is by procedure (run-native.sh runs all on one host), not checked",
+    "hrtime is comparable only within one boot of one host; a reboot or a different host invalidates comparison",
+  ],
+};
 const metaOf = (rows, name) => {
   const start = rows.find((r) => r.type === "meta" && r.phase === "start");
   const stop = rows.find((r) => r.type === "meta" && r.phase === "stop");
@@ -118,6 +168,8 @@ const observed = {
   factory: { reportExpected: rep.byKind.factory?.expected ?? 0, directRaw: null, liveRaw: null },
   reorgRemoval: { directRaw: null, liveRaw: null },
 };
+let directKind = null;
+let directLogs = null;
 let rawStGap = null;
 let rawHbGap = null;
 
@@ -164,17 +216,81 @@ if (directRows !== null) {
   const meta = metaOf(directRows, "direct");
   if (meta !== undefined && meta.filterDigest !== rep.filterDigest) reject.push("direct_capture_filter_digest_differs_from_report");
   if (directRows.some((r) => r.type === "rpc_error")) reject.push("direct_capture_rpc_error");
-  if (directRows.some((r) => r.type === "direct_ws_closed" && between(ns(r.hrNs), T0, T1))) reject.push("direct_capture_ws_closed_before_teardown_end");
-  const pm = meta?.filters?.[0]?.address?.[0];
-  const [tInit, tSwap] = meta?.filters?.[0]?.topics?.[0] ?? [];
-  const factories = new Set(meta?.filters?.[1]?.address ?? []);
+  if (meta !== undefined && norm(meta.filters) !== norm(runFilters)) reject.push("direct_capture_filters_differ_from_run_settings");
+  const stopRow = directRows.find((r) => r.type === "meta" && r.phase === "stop");
+  const stopT = stopRow === undefined ? null : ns(stopRow.hrNs);
+  if (directRows.some((r) => (r.type === "direct_ws_closed" || r.type === "ws_error") && (stopT === null || ns(r.hrNs) < stopT))) reject.push("direct_capture_ws_closed_or_error_before_stop");
+  for (let i = 1; i <= runFilters.length; i++) {
+    if (!directRows.some((r) => r.type === "ack" && r.id === i && typeof r.result === "string" && ns(r.hrNs) <= W0)) reject.push(`direct_capture_filter_ack_missing(id=${i})`);
+  }
+  const lc = (x) => (typeof x === "string" ? x.toLowerCase() : x);
+  const pm = lc(meta?.filters?.[0]?.address?.[0]);
+  const [tInit, tSwap] = (meta?.filters?.[0]?.topics?.[0] ?? []).map(lc);
+  const factories = new Set((meta?.filters?.[1]?.address ?? []).map(lc));
   const logs = directRows.filter((r) => r.type === "log" && between(Number.parseInt(r.blockNumber, 16), rep.window.fromBlock, rep.window.toBlock));
   const isPm = (r, topic) => r.address.toLowerCase() === pm && r.topics[0]?.toLowerCase() === topic;
+  directKind = (r) => (isPm(r, tInit) ? "initialize" : isPm(r, tSwap) ? "swap" : factories.has(r.address.toLowerCase()) ? "factory" : null);
+  directLogs = logs;
   observed.initialize.directRaw = countIf(logs, (r) => isPm(r, tInit));
   observed.swap.directRawAllPools = countIf(logs, (r) => isPm(r, tSwap));
   observed.factory.directRaw = countIf(logs, (r) => factories.has(r.address.toLowerCase()));
   observed.reorgRemoval.directRaw = countIf(logs, (r) => r.removed === true);
 }
+// ---- identities: direct raw vs live raw vs report, per kind -------------------------------------
+// Per blockHash:logIndex ordered active/removed transitions (same-state repeats collapsed).
+// initialize/factory: direct and live transitions must match exactly and report expected must equal
+// the direct transition count. swap: every live identity must be in direct with the same
+// transitions (tracked-pool selection is the collector's, so direct swaps on untracked pools are
+// not required on live).
+if (directLogs !== null && natsRows !== null) {
+  const tryParse = (x) => {
+    try {
+      return JSON.parse(x);
+    } catch {
+      return null;
+    }
+  };
+  const seqs = () => ({ initialize: new Map(), swap: new Map(), factory: new Map() });
+  const add = (m, key, removed) => {
+    const q = m.get(key) ?? [];
+    if (q.at(-1) !== removed) q.push(removed);
+    m.set(key, q);
+  };
+  const d = seqs();
+  let outside = 0;
+  for (const r of directLogs) {
+    const k = directKind(r);
+    if (k === null) outside += 1;
+    else add(d[k], `${r.blockHash.toLowerCase()}:${Number.parseInt(r.logIndex, 16)}`, r.removed === true);
+  }
+  pushN("direct_capture_log_outside_filters", outside);
+  const l = seqs();
+  const liveSubj = /^feedeater\.base_collector\.(?:removed\.)?(initialize|swap|factory)$/;
+  for (const r of natsRows) {
+    if (r.type !== "msg" || !liveSubj.test(r.subject) || !between(ns(r.hrNs), W0, T1)) continue;
+    const p = tryParse(r.payload);
+    if (p === null || !Number.isSafeInteger(p.blockNumber) || typeof p.blockHash !== "string") {
+      reject.push("raw_live_record_malformed");
+      continue;
+    }
+    if (!between(p.blockNumber, rep.window.fromBlock, rep.window.toBlock)) continue;
+    add(l[liveSubj.exec(r.subject)[1]], `${p.blockHash.toLowerCase()}:${p.logIndex}`, p.removed === true);
+  }
+  const same = (a, b) => a !== undefined && b !== undefined && a.length === b.length && a.every((x, i) => x === b[i]);
+  for (const k of ["initialize", "swap", "factory"]) {
+    const nTrans = (m) => [...m.values()].reduce((a, q) => a + q.length, 0);
+    const missing = [...d[k].keys()].filter((key) => k !== "swap" && !same(d[k].get(key), l[k].get(key))).length;
+    const extra = [...l[k].keys()].filter((key) => !same(d[k].get(key), l[k].get(key))).length;
+    pushN(`identity_direct_not_on_live:${k}`, missing);
+    pushN(`identity_live_not_matching_direct:${k}`, extra);
+    const repExp = rep.byKind?.[k]?.expected;
+    if (k !== "swap" && repExp !== nTrans(d[k])) reject.push(`report_vs_direct_transitions:${k}(direct=${nTrans(d[k])},report=${repExp})`);
+    if (k === "swap" && !(repExp >= nTrans(l[k]))) reject.push(`report_swap_expected_below_live(live=${nTrans(l[k])},report=${repExp})`);
+    observed[k].directTransitions = nTrans(d[k]);
+    observed[k].liveTransitions = nTrans(l[k]);
+  }
+}
+
 if (new Set(clock.hosts).size > 1) {
   reject.push("captures_from_different_hosts");
   clock.comparable = false;

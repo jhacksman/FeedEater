@@ -1,5 +1,7 @@
 # FeedEater #173 measurement preparation (A5 → Codex; reject-only)
 
+Reviewer: A7. A4 has no role in this handoff.
+
 - Candidate under test: PR #173, head `5206f9035ad1c057d78990b294941221e936f895` (frozen). This branch's
   parent is that head. It only adds `measurements/base-collector-173/`, so the collector code is
   byte-identical (`git diff --stat 5206f90 HEAD` lists only this directory).
@@ -12,7 +14,7 @@
 
 | file | role |
 | --- | --- |
-| `check-report.mjs` | reject checklist over `measure.json` + raw NATS capture + raw direct capture (exit 1 = REJECT, 0 = NO_REJECT_FOUND, 2 = usage) |
+| `check-report.mjs` | reject checklist over `measure.json` + raw NATS capture + raw direct capture, bound to the run's `base-collector.env` (exit 1 = REJECT, 0 = NO_REJECT_FOUND, 2 = usage or unbindable settings) |
 | `capture-nats.mjs` | raw capture of `feedeater.base_collector.>` (subject, raw payload, `hrNs`) |
 | `capture-direct.mjs` | raw direct node capture with the collector's exact filters/digest (from the same dist + env) |
 | `make-synthetic.mjs` | rebuilds `synthetic/` by driving the 5206f90 dist `Measurement` the way `main measure` does |
@@ -21,7 +23,7 @@
 | `run-native.sh`, `lib-run.sh` | one scratch run (r1/r2/r3) with deadlines and an owned-only cleanup trap |
 | `fake-node.mjs`, `verify-offline.sh` | offline tests: fake local node, docker shim, refusals, cleanup ownership, plus `verify-synthetic.sh` |
 | `verify-synthetic.sh` | checker output and exit code per synthetic case must equal the committed bytes; `--regen` also rebuilds the fixtures and requires identical bytes |
-| `synthetic/<case>/` | `measure.json`, `nats.jsonl`, `direct.jsonl`, `expected-check.json`, `expected-exit` |
+| `synthetic/<case>/` | `measure.json`, `nats.jsonl`, `direct.jsonl`, `base-collector.env`, `expected-check.json`, `expected-exit` |
 | `MANIFEST.sha256` | sha256 of every other file in this directory |
 
 ## One comparable clock; matching filters
@@ -34,10 +36,20 @@
   checked on macOS here, so the checker enforces it at run time instead. Each capture's start/stop
   meta `hrNs` must bracket `warmup_start`..`teardown_end`, and both captures must report the same
   host. If not, the run is rejected and `clock.comparable` is false.
+- Limits of that host binding (also printed as `clock.limits`):
+  - capture hosts are the self-reported `os.hostname()` in each capture's meta line, and are not
+    verified independently;
+  - `measure.json` records no host, so measure being on the capture host is procedural
+    (`run-native.sh` runs everything on one host) and is not checked;
+  - `hrtime` is only comparable within one boot of one host.
 - Run all three processes on one host: native Mac, or all on Thor.
 - Filters: `collect`, `measure` and `capture-direct` all call `buildFilters(cfg)` from the same dist
-  and environment file. The checker rejects a direct-capture `filterDigest` that differs from the
-  report's, and any in-window status, raw or reported, with a different digest.
+  and environment file. The checker rebuilds the filters and digest from `--env` with the same dist.
+  It rejects any of these:
+  - a report digest that differs from the env's;
+  - direct-capture filters that differ from the env's (addresses and topics compared lowercased);
+  - a direct-capture `filterDigest` that differs from the report's;
+  - any in-window status, raw or reported, with a different digest.
 - Default digest (no `EXTRA_HOOKS`/`EXTRA_POOL_IDS`/`SUITES_JSON`/`POOL_MANAGER`):
   `8b5e28aa1ca300ea4b70d2f338c79a0800196823bc0dcac224a36ab7a36146ca`.
 - The filters are PoolManager `0x498581ff…2b2b` Initialize/Swap, plus the six o1 factories, all
@@ -68,10 +80,21 @@ Synthetic cases (semantic probes only, not latency evidence). The #173 report gi
 | case | content | checker |
 | --- | --- | --- |
 | `control` | dense 5 s status/heartbeat; Initialize, tracked Swap A→R, factory log, one untracked Swap | `NO_REJECT_FOUND` (exit 0) |
+| `checksummed-filter` | control with EIP-55 checksummed PoolManager in the capture filters and logs | `NO_REJECT_FOUND` (exit 0): addresses are normalized |
 | `g1` | A7 G1 pattern over a 5 min window: good statuses at 0 s and 10 s, one heartbeat at 10 s | `REJECT`: `report_/raw_status_stale_or_silent(maxGapMs=290000)`, `report_/raw_heartbeat_stale_or_silent` |
 | `malformed-status` | control plus one `connected:false` status without `persistence`. `recordBus` throws, so `main` drops it and the report omits it | `REJECT`: `raw_status_malformed_in_window(n=1)` |
-| `ws-loss` | direct socket closes 150 s into the window; `measure` only marks it and its head stops | `REJECT`: `measure_direct_ws_lost_before_teardown_end`, `measure_direct_heads_stale`, `direct_capture_ws_closed_before_teardown_end` |
+| `ws-loss` | direct socket closes 150 s into the window; `measure` only marks it and its head stops | `REJECT`: `measure_direct_ws_lost_before_teardown_end`, `measure_direct_heads_stale`, `direct_capture_ws_closed_or_error_before_stop` |
 | `factory-reorg-not-observed` | clean dense window with no factory log and no removal | `REJECT`: `not_observed:factory`, `not_observed:reorg_removal` |
+| `extra-direct-initialize` | control plus one in-window direct Initialize that `measure` never saw (A7 at 3026725: NO_REJECT_FOUND) | `REJECT`: `identity_direct_not_on_live:initialize(n=1)`, `report_vs_direct_transitions:initialize(direct=2,report=1)` |
+| `direct-ws-closed-before-warmup` | direct capture closes 1 ns after its start, before warmup, with no ACKs and no logs (A7 at 3026725: NO_REJECT_FOUND) | `REJECT`: `direct_capture_ws_closed_or_error_before_stop`, `direct_capture_filter_ack_missing(id=1,2)`, identity/transition mismatches |
+| `direct-filter-ack-missing` | only the PoolManager subscription is acknowledged | `REJECT`: `direct_capture_filter_ack_missing(id=2)` |
+
+Interval binding (`verify-synthetic.sh`, on `g1`). Each of these exits 2, with no verdict:
+- `--env` missing or unreadable;
+- `--status-interval-ms x --heartbeat-ms x`;
+- a flag given with no value;
+- a claimed `1000000` against the recorded `5000`, which at 3026725 turned `g1` into `NO_REJECT_FOUND`;
+- an invalid interval in the env file itself.
 
 ## Native/Thor run (Codex, once fresh read-only node connectivity exists)
 
@@ -184,8 +207,27 @@ R3 must show `backfillOnLiveSubjects` and `lateLiveAfterBackfill` at 0.
 
 - *Phases and clock:* phase marks missing or out of order; report window ≠ marks; capture not
   bracketing `measure`'s clock; captures from different hosts.
-- *Direct socket:* `measure` `direct_ws_closed` before `teardown_end`; direct head not observed or
-  stale (< 90% of window_s / 2 blocks); a direct-capture `direct_ws_closed` or `rpc_error`.
+- *Settings:* `--env` is required.
+  - Status and heartbeat intervals come from it, using the collector defaults 5000/5000 for keys it
+    doesn't set.
+  - Missing or invalid values, or `--status-interval-ms`/`--heartbeat-ms` claims that differ from
+    them, exit 2.
+  - The filters and digest are rebuilt from it (see above).
+- *Direct socket:*
+  - `measure` `direct_ws_closed` before `teardown_end`;
+  - direct head not observed or stale (< 90% of window_s / 2 blocks);
+  - a direct-capture `direct_ws_closed` or `ws_error` at any time before its stop line, or an
+    `rpc_error`;
+  - a missing subscription ACK for any filter at or before `window_start` (`capture-direct.mjs`
+    now records ACKs).
+- *Identities, per kind, in the scored block range:* each `blockHash:logIndex` has an ordered
+  active/removed sequence, with same-state repeats collapsed.
+  - Initialize/factory: direct and live raw sequences must match exactly, and report
+    `byKind.<kind>.expected` must equal the direct transition count.
+  - Swap: every live identity must be on direct with the same sequence, and report swap `expected`
+    must be ≥ the live count. Direct swaps on untracked pools aren't required on live, so tracked-pool
+    selection is not checked independently.
+  - Rejected too: a direct log outside both filters, and a malformed live record.
 - *Status and heartbeat:*
   - an in-window gap above 2 × interval, window edges included, in the report or the raw capture (G1);
   - an in-window status, reported or raw, that is malformed, not `ok`, disconnected, has incomplete

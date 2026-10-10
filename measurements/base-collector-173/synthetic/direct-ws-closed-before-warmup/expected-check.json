@@ -1,0 +1,70 @@
+{
+  "tool": "check-report (reject-only; not an admission contract)",
+  "report": "synthetic/direct-ws-closed-before-warmup/measure.json",
+  "verdict": "REJECT",
+  "reject": [
+    "direct_capture_ws_closed_or_error_before_stop",
+    "direct_capture_filter_ack_missing(id=1)",
+    "direct_capture_filter_ack_missing(id=2)",
+    "identity_live_not_matching_direct:initialize(n=1)",
+    "report_vs_direct_transitions:initialize(direct=0,report=1)",
+    "identity_live_not_matching_direct:swap(n=1)",
+    "identity_live_not_matching_direct:factory(n=1)",
+    "report_vs_direct_transitions:factory(direct=0,report=1)"
+  ],
+  "notObserved": [],
+  "observed": {
+    "initialize": {
+      "reportExpected": 1,
+      "directRaw": 0,
+      "liveRaw": 1,
+      "directTransitions": 0,
+      "liveTransitions": 1
+    },
+    "swap": {
+      "reportExpectedTracked": 2,
+      "directRawAllPools": 0,
+      "liveRaw": 1,
+      "directTransitions": 0,
+      "liveTransitions": 2
+    },
+    "factory": {
+      "reportExpected": 1,
+      "directRaw": 0,
+      "liveRaw": 1,
+      "directTransitions": 0,
+      "liveTransitions": 1
+    },
+    "reorgRemoval": {
+      "directRaw": 0,
+      "liveRaw": 1
+    }
+  },
+  "clock": {
+    "basis": "process.hrtime.bigint on one host",
+    "comparable": true,
+    "hosts": [
+      "synthetic-host",
+      "synthetic-host"
+    ],
+    "limits": [
+      "capture hosts are the self-reported os.hostname() in each capture meta line; not independently verified",
+      "measure.json records no host, so binding measure to the capture host is by procedure (run-native.sh runs all on one host), not checked",
+      "hrtime is comparable only within one boot of one host; a reboot or a different host invalidates comparison"
+    ]
+  },
+  "statusMaxGapMs": {
+    "report": 5000,
+    "raw": 5000
+  },
+  "heartbeatMaxGapMs": {
+    "report": 5000,
+    "raw": 5000
+  },
+  "notCertifiableAt5206f90": [
+    "a7_g1_status_cadence_not_in_report_scope",
+    "malformed_status_dropped_silently_by_measure",
+    "direct_ws_loss_not_in_report_scope",
+    "factory_and_reorg_coverage_not_in_report_scope"
+  ]
+}

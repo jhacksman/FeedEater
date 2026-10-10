@@ -1,0 +1,63 @@
+{
+  "tool": "check-report (reject-only; not an admission contract)",
+  "report": "synthetic/direct-filter-ack-missing/measure.json",
+  "verdict": "REJECT",
+  "reject": [
+    "direct_capture_filter_ack_missing(id=2)"
+  ],
+  "notObserved": [],
+  "observed": {
+    "initialize": {
+      "reportExpected": 1,
+      "directRaw": 1,
+      "liveRaw": 1,
+      "directTransitions": 1,
+      "liveTransitions": 1
+    },
+    "swap": {
+      "reportExpectedTracked": 2,
+      "directRawAllPools": 3,
+      "liveRaw": 1,
+      "directTransitions": 3,
+      "liveTransitions": 2
+    },
+    "factory": {
+      "reportExpected": 1,
+      "directRaw": 1,
+      "liveRaw": 1,
+      "directTransitions": 1,
+      "liveTransitions": 1
+    },
+    "reorgRemoval": {
+      "directRaw": 1,
+      "liveRaw": 1
+    }
+  },
+  "clock": {
+    "basis": "process.hrtime.bigint on one host",
+    "comparable": true,
+    "hosts": [
+      "synthetic-host",
+      "synthetic-host"
+    ],
+    "limits": [
+      "capture hosts are the self-reported os.hostname() in each capture meta line; not independently verified",
+      "measure.json records no host, so binding measure to the capture host is by procedure (run-native.sh runs all on one host), not checked",
+      "hrtime is comparable only within one boot of one host; a reboot or a different host invalidates comparison"
+    ]
+  },
+  "statusMaxGapMs": {
+    "report": 5000,
+    "raw": 5000
+  },
+  "heartbeatMaxGapMs": {
+    "report": 5000,
+    "raw": 5000
+  },
+  "notCertifiableAt5206f90": [
+    "a7_g1_status_cadence_not_in_report_scope",
+    "malformed_status_dropped_silently_by_measure",
+    "direct_ws_loss_not_in_report_scope",
+    "factory_and_reorg_coverage_not_in_report_scope"
+  ]
+}

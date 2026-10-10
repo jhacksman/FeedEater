@@ -65,7 +65,12 @@ const every5s = (offsetS) => {
   return out;
 };
 
-function build(name, { statusTimes, heartbeatTimes, extraStatuses = [], wsLossAt = null, kinds = null }) {
+const PM_CHECKSUMMED = "0x498581fF718922c3f8e6A244956aF099B2652b2b";
+const ENV = "BASE_COLLECTOR_WS_URL=ws://10.9.11.68:8546\nBASE_COLLECTOR_HTTP_URL=http://10.9.11.68:8545\nBASE_COLLECTOR_NATS_URL=nats://127.0.0.1:14222\nBASE_COLLECTOR_STATUS_INTERVAL_MS=5000\nBASE_COLLECTOR_PERSIST_HEARTBEAT_MS=5000\n";
+// Logs the direct capture saw but the measure process did not (A7: extra in-window Initialize).
+const EXTRA_INIT = [{ ...initLog, topics: [TOPIC_INITIALIZE, `0x${"33".repeat(32)}`, `0x${w("01")}`, `0x${w("02")}`] }, EVENT_BLOCK + 50, `0x${"b3".repeat(32)}`, 0, false, "initialize", W0 + 101n * S];
+
+function build(name, { statusTimes, heartbeatTimes, extraStatuses = [], wsLossAt = null, kinds = null, directOnly = [], checksum = false, deadCapture = false, acks = [1, 2] }) {
   const m = new Measurement(cfg, []);
   const marks = [];
   const nats = [];
@@ -103,6 +108,7 @@ function build(name, { statusTimes, heartbeatTimes, extraStatuses = [], wsLossAt
     ...heartbeatTimes.map((t) => [t, `${P}.ctl.persister`, heartbeat(t)]),
   ].sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0));
   for (const [t, subject, p] of ctl) bus(subject, p, t);
+  for (const e of directOnly) direct.push({ type: "log", hrNs: (e[6] + 30n * US).toString(), wallMs: 0, ...raw(e) });
   nats.sort((a, b) => (BigInt(a.hrNs) < BigInt(b.hrNs) ? -1 : 1));
   const headSeen = (t) => (wsLossAt !== null && t > wsLossAt ? headAt(wsLossAt) : headAt(t));
   marks.push({ phase: "warmup_start", atNs: T0.toString(), headBlock: headAt(T0) });
@@ -123,17 +129,27 @@ function build(name, { statusTimes, heartbeatTimes, extraStatuses = [], wsLossAt
   const host = "synthetic-host";
   const meta = (tool, extra) => ({ type: "meta", phase: "start", tool, clock: "process.hrtime.bigint", hrNs: (T0 - 10n * S).toString(), wallMs: 0, host, platform: "synthetic", node: "synthetic", ...extra });
   const stop = { type: "meta", phase: "stop", hrNs: (T1 + 10n * S).toString(), wallMs: 0 };
+  const cs = (x) => (checksum && typeof x === "string" && x.toLowerCase() === POOL_MANAGER.toLowerCase() ? PM_CHECKSUMMED : x);
+  const metaFilters = buildFilters(cfg).map((f) => ({ ...f, address: f.address.map(cs) }));
+  const ackRows = acks.map((id) => ({ type: "ack", hrNs: (T0 - 9n * S + BigInt(id) * MS).toString(), wallMs: 0, id, result: `0x5ub${id}` }));
+  const directMeta = meta("capture-direct", { wsUrl: cfg.wsUrl, filterDigest: DIGEST, filters: metaFilters });
+  const directBody = deadCapture
+    ? [{ type: "direct_ws_closed", hrNs: (BigInt(directMeta.hrNs) + 1n).toString(), wallMs: 0 }]
+    : [...ackRows, ...direct.map((r) => (r.type === "log" ? { ...r, address: cs(r.address) } : r))].sort((a, b) => (BigInt(a.hrNs) < BigInt(b.hrNs) ? -1 : 1));
   const dir = path.join(outDir, name);
   fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(path.join(dir, "measure.json"), `${JSON.stringify(report, null, 2)}\n`);
   const jsonl = (rows) => rows.map((r) => JSON.stringify(r)).join("\n") + "\n";
   fs.writeFileSync(path.join(dir, "nats.jsonl"), jsonl([meta("capture-nats", { subject: `${P}.>` }), ...nats, stop]));
-  fs.writeFileSync(path.join(dir, "direct.jsonl"), jsonl([meta("capture-direct", { wsUrl: cfg.wsUrl, filterDigest: DIGEST, filters: buildFilters(cfg) }), ...direct.sort((a, b) => (BigInt(a.hrNs) < BigInt(b.hrNs) ? -1 : 1)), stop]));
+  fs.writeFileSync(path.join(dir, "direct.jsonl"), jsonl([directMeta, ...directBody, stop]));
+  fs.writeFileSync(path.join(dir, "base-collector.env"), ENV);
   process.stdout.write(`${name}: sourceValidationWindow=${report.scope.sourceValidationWindow} dat011.pass=${report.dat011.pass} notCovered=[${report.scope.notCovered}]\n`);
 }
 
 const dense = { statusTimes: every5s(1), heartbeatTimes: every5s(3) };
 build("control", dense);
+// Positive: capture filters and log addresses in EIP-55 checksum case; the checker normalizes.
+build("checksummed-filter", { ...dense, checksum: true });
 // Codex/A7 G1 pattern (their window was 30 min; 5 min here keeps the set small): statusIntervalMs 5000,
 // good statuses at 0 s and 10 s, one heartbeat at 10 s, nothing else in the window.
 build("g1", { statusTimes: [W0, W0 + 10n * S], heartbeatTimes: [W0 + 10n * S] });
@@ -144,3 +160,10 @@ build("malformed-status", { ...dense, extraStatuses: [[badT, { v: 1, type: "stat
 build("ws-loss", { ...dense, wsLossAt: W0 + 150n * S });
 // A clean, dense window in which no factory log and no reorg removal occur (the usual case).
 build("factory-reorg-not-observed", { ...dense, kinds: (e) => e[5] !== "factory" && e[4] === false });
+// A7 reproductions at 3026725 (all returned NO_REJECT_FOUND/0 there):
+// an in-window Initialize on the direct capture that the report never counted;
+build("extra-direct-initialize", { ...dense, directOnly: [EXTRA_INIT] });
+// the direct capture socket closed 1 ns after capture start (before warmup), no ACKs and no logs;
+build("direct-ws-closed-before-warmup", { ...dense, deadCapture: true });
+// only the PoolManager filter subscription was acknowledged.
+build("direct-filter-ack-missing", { ...dense, acks: [1] });

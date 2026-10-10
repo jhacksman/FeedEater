@@ -21,6 +21,7 @@ ws.on("message", (d) => {
   if (stopping) return;
   const msg = JSON.parse(d.toString());
   if (msg.error !== undefined) line({ type: "rpc_error", hrNs, wallMs: Date.now(), id: msg.id ?? null, error: msg.error });
+  else if (msg.id !== undefined && msg.result !== undefined) line({ type: "ack", hrNs, wallMs: Date.now(), id: msg.id, result: msg.result });
   else if (msg.method === "eth_subscription") line({ type: "log", hrNs, wallMs: Date.now(), ...msg.params.result });
 });
 ws.on("error", (e) => {
