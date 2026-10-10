@@ -23,7 +23,7 @@
       "rawRefState": "DURABLE_ACKED",
       "rawRef": "ack fields (segment_id, ack_epoch, file, offset, length, rawOffset, rawLength, sha256, metaSha256)",
       "t_ingest": "unknown",
-      "receiveProvenance": "fixture_supplied (fixture.mjs:45-47); clock offset/uncertainty unknown",
+      "receiveProvenance": "receive metadata fixture_supplied (fixture.mjs:45-47); clock offset/uncertainty unknown; prototype's hrtime/Date.now/event-loop clocks are timing-only and not provenance",
       "invariant": "ack only after fsync with own-sha binding",
       "support": "code+test@pin",
       "policyStatus": "UNADOPTED"
@@ -39,7 +39,7 @@
       "rawRefState": "UNKNOWN_ABORTED",
       "rawRef": "unknown",
       "t_ingest": "unknown",
-      "receiveProvenance": "fixture_supplied (fixture.mjs:45-47); clock offset/uncertainty unknown",
+      "receiveProvenance": "receive metadata fixture_supplied (fixture.mjs:45-47); clock offset/uncertainty unknown; prototype's hrtime/Date.now/event-loop clocks are timing-only and not provenance",
       "invariant": "unacked record never claimed compliant; raw_ref stays unknown",
       "support": "code+test@pin",
       "policyStatus": "UNADOPTED"
@@ -55,7 +55,7 @@
       "rawRefState": "PUBLISHED_UNREFERENCED",
       "rawRef": "unknown",
       "t_ingest": "unknown",
-      "receiveProvenance": "fixture_supplied (fixture.mjs:45-47); clock offset/uncertainty unknown",
+      "receiveProvenance": "receive metadata fixture_supplied (fixture.mjs:45-47); clock offset/uncertainty unknown; prototype's hrtime/Date.now/event-loop clocks are timing-only and not provenance",
       "invariant": "every-record raw_ref with 0 missing",
       "support": "requires_owner_Q1",
       "policyStatus": "UNADOPTED"
@@ -68,15 +68,19 @@
         "1bbabb2ce72bb21c48d885f181a3455462923378:measurements/raw-tier0-prototype/writer.mjs:42-50",
         "1bbabb2ce72bb21c48d885f181a3455462923378:measurements/raw-tier0-prototype/producer.mjs:113"
       ],
-      "currentBehaviorAtPin": "exit 3, bytes untouched; producer writerFailed, no timeout",
+      "currentBehaviorAtPin": "symlink/foreign/identity mismatch and bad sha/magic/out-of-bounds length: exit 3, bytes untouched; BUT length corruption within MAX_META/MAX_RAW whose declared length runs past EOF is misclassified as torn: exit 0, segment truncated, intact later records moved to quarantine",
       "testAtPin": "A7 small3/P1/P2a/symlink/P4",
       "rawRefState": "UNKNOWN_WRITER_FAILED",
       "rawRef": "unknown",
       "t_ingest": "unknown",
-      "receiveProvenance": "fixture_supplied (fixture.mjs:45-47); clock offset/uncertainty unknown",
+      "receiveProvenance": "receive metadata fixture_supplied (fixture.mjs:45-47); clock offset/uncertainty unknown; prototype's hrtime/Date.now/event-loop clocks are timing-only and not provenance",
       "invariant": "refusal explicit and distinct from timeout; no segment mutation",
-      "support": "code+test@pin",
-      "policyStatus": "UNADOPTED"
+      "support": "partial: code+test@pin for symlink/foreign/identity/bad_sha/bad_magic/out-of-bounds length; contradicted_at_pin for in-bounds length corruption",
+      "policyStatus": "UNADOPTED",
+      "contradictedAtPin": {
+        "codex_2026-10-10T06:27:31Z": "118 B header + three 56 B records; middle rawLen 3->1000 (< MAX_RAW); scan torn_body recoverable=true; writer exit 0; active 286->174 B; 112 B quarantined incl. intact later seq 3",
+        "a7_10k_probe": "rawLen 15 MiB at record 5000 and separately 9990: corrupt record and all later intact records cut to quarantine"
+      }
     },
     {
       "id": "F5",
@@ -91,7 +95,7 @@
       "rawRefState": "DURABLE_ACKED",
       "rawRef": "ack fields (segment_id, ack_epoch, file, offset, length, rawOffset, rawLength, sha256, metaSha256)",
       "t_ingest": "unknown",
-      "receiveProvenance": "fixture_supplied (fixture.mjs:45-47); clock offset/uncertainty unknown",
+      "receiveProvenance": "receive metadata fixture_supplied (fixture.mjs:45-47); clock offset/uncertainty unknown; prototype's hrtime/Date.now/event-loop clocks are timing-only and not provenance",
       "invariant": "no lost or duplicated durable record across restart",
       "support": "code+test@pin",
       "policyStatus": "UNADOPTED"
@@ -103,15 +107,19 @@
         "1bbabb2ce72bb21c48d885f181a3455462923378:measurements/raw-tier0-prototype/tier0.mjs:59-87",
         "1bbabb2ce72bb21c48d885f181a3455462923378:measurements/raw-tier0-prototype/writer.mjs:56-64"
       ],
-      "currentBehaviorAtPin": "exact tail bytes quarantined (O_EXCL, fsync, sha) before ftruncate",
+      "currentBehaviorAtPin": "any magic-matching, in-bounds record running past EOF is treated as a torn tail and cut after quarantine; not proof of a torn final write",
       "testAtPin": "torn",
-      "rawRefState": "SENT->requeued",
-      "rawRef": "unknown",
+      "rawRefState": "DURABLE_ACKED->INVALIDATED for acked records at/after the corrupt offset",
+      "rawRef": "INVALIDATED: bytes preserved in quarantine file, ref (file, offset) unresolvable in active segment",
       "t_ingest": "unknown",
-      "receiveProvenance": "fixture_supplied (fixture.mjs:45-47); clock offset/uncertainty unknown",
-      "invariant": "only proven torn tail cut; bytes preserved",
-      "support": "code+test@pin",
-      "policyStatus": "UNADOPTED"
+      "receiveProvenance": "receive metadata fixture_supplied (fixture.mjs:45-47); clock offset/uncertainty unknown; prototype's hrtime/Date.now/event-loop clocks are timing-only and not provenance",
+      "invariant": "only a proven torn final write is cut; no acked record leaves the active file",
+      "support": "contradicted_at_pin",
+      "policyStatus": "UNADOPTED",
+      "contradictedAtPin": {
+        "codex_2026-10-10T06:27:31Z": "118 B header + three 56 B records; middle rawLen 3->1000 (< MAX_RAW); scan torn_body recoverable=true; writer exit 0; active 286->174 B; 112 B quarantined incl. intact later seq 3",
+        "a7_10k_probe": "rawLen 15 MiB at record 5000 and separately 9990: corrupt record and all later intact records cut to quarantine"
+      }
     },
     {
       "id": "F7",
@@ -125,7 +133,7 @@
       "rawRefState": "LOST_OVERFLOW",
       "rawRef": "unknown",
       "t_ingest": "unknown",
-      "receiveProvenance": "fixture_supplied (fixture.mjs:45-47); clock offset/uncertainty unknown",
+      "receiveProvenance": "receive metadata fixture_supplied (fixture.mjs:45-47); clock offset/uncertainty unknown; prototype's hrtime/Date.now/event-loop clocks are timing-only and not provenance",
       "invariant": "coverage loss explicit, gaps explained by lost ranges",
       "support": "code+test@pin",
       "policyStatus": "UNADOPTED"
@@ -141,7 +149,7 @@
       "rawRefState": "DURABLE_ACKED",
       "rawRef": "ack fields (segment_id, ack_epoch, file, offset, length, rawOffset, rawLength, sha256, metaSha256)",
       "t_ingest": "unknown",
-      "receiveProvenance": "fixture_supplied (fixture.mjs:45-47); clock offset/uncertainty unknown",
+      "receiveProvenance": "receive metadata fixture_supplied (fixture.mjs:45-47); clock offset/uncertainty unknown; prototype's hrtime/Date.now/event-loop clocks are timing-only and not provenance",
       "invariant": "idempotent resend",
       "support": "code+test@pin",
       "policyStatus": "UNADOPTED"
@@ -158,7 +166,7 @@
       "rawRefState": "REJECTED",
       "rawRef": "unknown",
       "t_ingest": "unknown",
-      "receiveProvenance": "fixture_supplied (fixture.mjs:45-47); clock offset/uncertainty unknown",
+      "receiveProvenance": "receive metadata fixture_supplied (fixture.mjs:45-47); clock offset/uncertainty unknown; prototype's hrtime/Date.now/event-loop clocks are timing-only and not provenance",
       "invariant": "no wrong-sha ack accepted",
       "support": "code+test@pin",
       "policyStatus": "UNADOPTED"
@@ -174,7 +182,7 @@
       "rawRefState": "DURABLE_ACKED",
       "rawRef": "ack fields (segment_id, ack_epoch, file, offset, length, rawOffset, rawLength, sha256, metaSha256)",
       "t_ingest": "unknown",
-      "receiveProvenance": "fixture_supplied (fixture.mjs:45-47); clock offset/uncertainty unknown",
+      "receiveProvenance": "receive metadata fixture_supplied (fixture.mjs:45-47); clock offset/uncertainty unknown; prototype's hrtime/Date.now/event-loop clocks are timing-only and not provenance",
       "invariant": "dedup key",
       "support": "requires_owner_Q1",
       "policyStatus": "UNADOPTED"
@@ -190,7 +198,7 @@
       "rawRefState": "unknown",
       "rawRef": "unknown",
       "t_ingest": "unknown",
-      "receiveProvenance": "fixture_supplied (fixture.mjs:45-47); clock offset/uncertainty unknown",
+      "receiveProvenance": "receive metadata fixture_supplied (fixture.mjs:45-47); clock offset/uncertainty unknown; prototype's hrtime/Date.now/event-loop clocks are timing-only and not provenance",
       "invariant": "connection-scoped seq continuity and per-connection gap accounting",
       "support": "requires_future_impl",
       "policyStatus": "UNADOPTED"
@@ -207,20 +215,61 @@
       "rawRefState": "unknown",
       "rawRef": "unknown",
       "t_ingest": "unknown",
-      "receiveProvenance": "fixture_supplied (fixture.mjs:45-47); clock offset/uncertainty unknown",
+      "receiveProvenance": "receive metadata fixture_supplied (fixture.mjs:45-47); clock offset/uncertainty unknown; prototype's hrtime/Date.now/event-loop clocks are timing-only and not provenance",
       "invariant": "single-writer fencing (lock/lease + epoch)",
       "support": "requires_future_impl",
       "policyStatus": "UNADOPTED"
     }
   ],
   "replayLookup": {
-    "semantics": "open O_NOFOLLOW, verify header segment_id, read length at offset, verify magic/record sha/raw sha256/metaSha256; absent/foreign/corrupt -> unresolvable; quarantine never resolvable",
-    "support": "format+tests; no API (requires_future_impl)"
+    "semantics": "open O_NOFOLLOW, verify header segment_id, read length at offset, verify magic/record sha/raw sha256/metaSha256; absent/foreign/corrupt -> unresolvable; quarantine not resolvable via ref",
+    "support": "format+tests; no API (requires_future_impl)",
+    "quarantine": "contradicted_at_pin: quarantine may contain acked records (F6); such refs are INVALIDATED, bytes recoverable only from quarantine, no ref mapping"
   },
   "t_ingestCandidates": [
     "writer wall at append",
     "writer wall at fsync",
     "producer ack receipt"
   ],
-  "t_ingestChosen": null
+  "t_ingestChosen": null,
+  "correction": {
+    "of": "63abd0c571ce7c4a6f836efe8f627c6fd2318912",
+    "round": 1,
+    "review": "A7 84999201b0d87534c32e5b69d69b1ba283a77722 (1 MED, 2 LOW)",
+    "sourcePinUnchanged": true,
+    "notRepinnedTo": "94a0ae0e2a7e96c8ba21b3d609adbdfb156eb14d (frozen, under review, not accepted)"
+  },
+  "clocksAtPin": {
+    "receiveMetadata": "fixture_supplied (fixture.mjs:45-47); no clock read for receive metadata",
+    "callbackTiming": "process.hrtime.bigint producer.mjs:15, used l.146,149",
+    "eventLoopDelay": "monitorEventLoopDelay producer.mjs:50",
+    "drainTimeout": "Date.now producer.mjs:178,180",
+    "writerStallTimer": "Atomics.wait timeout writer.mjs:103",
+    "feedsProvenance": false
+  },
+  "rawRefStates": [
+    "PUBLISHED_UNREFERENCED",
+    "QUEUED",
+    "SENT",
+    "DURABLE_ACKED",
+    "INVALIDATED",
+    "LOST_OVERFLOW",
+    "REJECTED",
+    "UNKNOWN_WRITER_FAILED",
+    "UNKNOWN_ABORTED"
+  ],
+  "rawRefTransitions": [
+    [
+      "DURABLE_ACKED",
+      "INVALIDATED",
+      "recovery cut at pin (F6 contradiction); bytes preserved, ref unresolvable, producer not notified"
+    ]
+  ],
+  "bytesPreservedVsRefAccessible": "distinct: preserved bytes do not imply an accessible raw_ref",
+  "verificationOfPin": {
+    "a7_linux": "52 PASS / 0 FAIL root-verified (8cc61d3)",
+    "codex_macos": "52 PASS / 0 FAIL, 17 owned PIDs, 0 survivors",
+    "high": "OPEN at pin",
+    "acceptance": "none"
+  }
 }
