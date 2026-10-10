@@ -1,5 +1,5 @@
 {
-  "schema": "native-path-readiness/1",
+  "schema": "native-path-readiness/2",
   "executed": false,
   "sources": {
     "pr173": "5206f9035ad1c057d78990b294941221e936f895",
@@ -7,101 +7,133 @@
     "kit": "e2a4cd9661f3cd560eeb8c657a3e5b8d6b04134c",
     "root": "modules/base-collector"
   },
+  "paths": {
+    "mainNative": "ABSENT (no modules/base-collector on main)",
+    "isolatedCandidateMeasurement": "AVAILABLE_TO_ROOT (authorized read-only diagnostic; report actual FAIL/latency with provenance)"
+  },
   "rows": [
     {
-      "item": "launcher",
+      "requirement": "launcher",
       "source": "src/main.ts:238-244",
-      "pr173": "IMPLEMENTED",
+      "pr173": "SATISFIED",
       "main": "ABSENT",
-      "note": null
+      "gap": "process/T7 UNKNOWN (root-owned)"
     },
     {
-      "item": "poolmanager_initialize_swap_filter",
-      "source": "src/subjects.ts:36; src/collector.ts:227-228",
-      "pr173": "IMPLEMENTED",
+      "requirement": "poolmanager_initialize_swap_filter",
+      "source": "src/subjects.ts:36; src/constants.ts:4,7,9; src/collector.ts:227-228; src/main.ts:159-163",
+      "pr173": "SATISFIED",
       "main": "ABSENT",
-      "note": "topic order [[INITIALIZE,SWAP]] differs from kit [[SWAP,INITIALIZE]]; d568aee byte compare -> FILTER_MISMATCH"
+      "gap": "set only; topic order [[INITIALIZE,SWAP]] vs kit [[SWAP,INITIALIZE]] -> d568aee FILTER_MISMATCH verbatim"
     },
     {
-      "item": "six_factory_all_topics_filter",
-      "source": "src/subjects.ts:37; src/constants.ts:26-56; src/decode.ts:83",
-      "pr173": "IMPLEMENTED",
+      "requirement": "six_factory_all_topics_filter",
+      "source": "src/subjects.ts:37; src/decode.ts:83; src/constants.ts:25-56",
+      "pr173": "SATISFIED",
       "main": "ABSENT",
-      "note": "same six addresses; byte-equal to manifest filtersets[1].filter with default settings.suites"
+      "gap": "byte-equal to manifest filtersets[1].filter with default settings.suites"
     },
     {
-      "item": "raw_publication",
-      "source": "src/collector.ts:322-326,340-347,387-391",
-      "pr173": "IMPLEMENTED",
+      "requirement": "identical_filter_delivery_100pct",
+      "source": "src/measure.ts:107,110-128,116,164,188,256; src/collector.ts:340-347",
+      "pr173": "PARTIAL",
       "main": "ABSENT",
-      "note": "Swap publication gated on tracked o1-hook pool"
+      "gap": "tracked-subset delivery only; subset equality UNKNOWN; needs declared permitted subset or raw-all path"
     },
     {
-      "item": "blockhash_logindex_dedup_removal_readd",
+      "requirement": "blockhash_logindex_dedup_removal_readd",
       "source": "src/collector.ts:331,357-358; src/ledger.ts:8-45; src/persister.ts:17-25,170-172; src/pgStore.ts:83-84",
-      "pr173": "IMPLEMENTED",
+      "pr173": "SATISFIED",
       "main": "ABSENT",
-      "note": null
+      "gap": "code only; runtime UNKNOWN"
     },
     {
-      "item": "live_backfill_subjects",
-      "source": "src/subjects.ts:7-27; src/collector.ts:350-355",
-      "pr173": "IMPLEMENTED",
+      "requirement": "live_backfill_subjects",
+      "source": "src/subjects.ts:7-27; src/collector.ts:350-355; src/measure.ts:149-150",
+      "pr173": "SATISFIED",
       "main": "ABSENT",
-      "note": "kit subjects are unmapped caller labels"
+      "gap": "kit subjects unmapped"
     },
     {
-      "item": "durable_checkpoint",
-      "source": "src/checkpoint.ts:7-41; src/collector.ts:183,201,521",
-      "pr173": "IMPLEMENTED",
+      "requirement": "durable_checkpoint",
+      "source": "src/checkpoint.ts:33-49; src/collector.ts:183,201,519-531",
+      "pr173": "PARTIAL",
       "main": "ABSENT",
-      "note": "atomicity/fsync not traced; stateDir root-supplied"
+      "gap": "tmp+rename atomic replace; no file/dir fsync; no tmp cleanup; interval errors counted and continue; crash durability UNKNOWN"
     },
     {
-      "item": "reconnect_backfill",
+      "requirement": "reconnect_backfill",
       "source": "src/collector.ts:257-260,538-575; settings.ts:36-37",
-      "pr173": "IMPLEMENTED",
+      "pr173": "SATISFIED",
       "main": "ABSENT",
-      "note": "does not use kit plan"
+      "gap": "no kit plan; no byte cap"
     },
     {
-      "item": "volume_coverage_caps",
+      "requirement": "volume_coverage_caps",
       "source": "settings.ts:44; src/tracker.ts:10-11,54-57; src/collector.ts:421",
       "pr173": "PARTIAL",
       "main": "ABSENT",
-      "note": "no maxBytes/maxRawEvents natively"
+      "gap": "no maxBytes/maxRawEvents"
     },
     {
-      "item": "clock_window_identity",
-      "source": "src/measure.ts:21,74,175-176; src/main.ts:166-175",
-      "pr173": "IMPLEMENTED",
+      "requirement": "identical_observation_window",
+      "source": "src/main.ts:166-181; src/measure.ts:176-177,187,224,237",
+      "pr173": "PARTIAL",
       "main": "ABSENT",
-      "note": "hrtime only; no clockId/UTC window"
+      "gap": "events by block range, samples by clock marks; head null -> fromBlock 1; retained clock-window blocker"
     },
     {
-      "item": "direct_comparator",
-      "source": "src/main.ts:159-163,205-215; src/measure.ts:84; src/subjects.ts:48-55",
-      "pr173": "IMPLEMENTED",
+      "requirement": "event_latency_denominators",
+      "source": "src/measure.ts:188,193,199,256-259,272,324,340",
+      "pr173": "SATISFIED",
       "main": "ABSENT",
-      "note": "filterDigest preimage differs from kit filterSha256"
+      "gap": "as defined, over the tracked subset; latency = collector->NATS->observer vs direct arrival"
     },
     {
-      "item": "kit_to_native_wiring",
+      "requirement": "comparable_filter_identity",
+      "source": "src/subjects.ts:48-55",
+      "pr173": "PARTIAL",
+      "main": "ABSENT",
+      "gap": "filterDigest preimage != kit filterSha256"
+    },
+    {
+      "requirement": "kit_to_native_wiring",
       "source": null,
       "pr173": "ABSENT",
       "main": "ABSENT",
-      "note": "no manifest/plan/contract reader in modules/base-collector"
+      "gap": "no manifest/plan/contract reader"
     }
   ],
-  "blockedBy": {
-    "nativeRunFromMain": "owner decision on #170-173",
-    "contractConsistentWithNativeFilters": "byte alignment vs set comparison (decision)",
-    "oneClockAndSubjects": "kit observationClock/subjects to native mapping (decision)",
-    "admissionLatency": "source admission NOT_ESTABLISHED"
-  },
+  "decisions": [
+    {
+      "decision": "owner merge #170-173",
+      "blocks": "main-native path",
+      "doesNotBlock": "isolated root run of 5206f90 and reporting its result"
+    },
+    {
+      "decision": "D8 source admission NOT_ESTABLISHED",
+      "blocks": "admission, deployment, acceptance",
+      "doesNotBlock": "reporting observed raw measurements with provenance"
+    },
+    {
+      "decision": "retained clock-window blocker",
+      "blocks": "identical observation window claim",
+      "doesNotBlock": "reporting observed block-range/clock-mark results"
+    },
+    {
+      "decision": "row-4 permitted subset",
+      "blocks": "100% identical-filter delivery claim",
+      "doesNotBlock": "reporting tracked-subset delivery as such"
+    },
+    {
+      "decision": "byte alignment vs set comparison",
+      "blocks": "CONTRACT_CONSISTENT with native filters verbatim",
+      "doesNotBlock": "the native run"
+    }
+  ],
   "claims": {
     "sourceAdmission": "NOT_ESTABLISHED",
-    "latency": "NONE",
-    "q1q2": "UNADOPTED"
+    "q1q2": "UNADOPTED",
+    "t7": "NOT_INFERRED"
   }
 }
