@@ -1,0 +1,1 @@
+{"transport":"http","reason":"method_not_allowed","rseq":8,"hrNs":"10768571648623","preLatch":{"httpInflight":0,"httpQueued":2,"wsInflightSends":0,"wsInflightBytes":0,"wsUserspaceBufferedBytes":0,"wsPreopenQueued":0},"seq":216}

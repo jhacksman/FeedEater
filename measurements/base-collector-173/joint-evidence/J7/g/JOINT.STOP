@@ -1,0 +1,1 @@
+{"transport":"ws","reason":"preopen_cap","c":1,"dir":"up","hrNs":"10780077910050","preLatch":{"httpInflight":1,"httpQueued":19,"wsInflightSends":0,"wsInflightBytes":0,"wsUserspaceBufferedBytes":0,"wsPreopenQueued":4},"seq":57}

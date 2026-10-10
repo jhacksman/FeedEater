@@ -1,0 +1,1 @@
+{"transport":"ws","reason":"upstream_closed","c":1,"dir":"down","hrNs":"10778904979573","preLatch":{"httpInflight":0,"httpQueued":20,"wsInflightSends":0,"wsInflightBytes":0,"wsUserspaceBufferedBytes":0,"wsPreopenQueued":0},"seq":1334}

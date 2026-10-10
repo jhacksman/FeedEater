@@ -1,0 +1,1 @@
+{"transport":"ws","reason":"duration_cap","hrNs":"10774631480489","preLatch":{"httpInflight":0,"httpQueued":24,"wsInflightSends":0,"wsInflightBytes":0,"wsUserspaceBufferedBytes":0,"wsPreopenQueued":0},"seq":1612}

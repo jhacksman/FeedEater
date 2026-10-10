@@ -1,0 +1,72 @@
+{
+  "heads": {
+    "http": {
+      "commit": "4df26b2bc2f90efd25e7dd3fb8f50ea4b3fa62a6",
+      "tree": "e773035b2579770727ace91b78195de99a7f546c",
+      "manifestSha256": "127b0978a049da5b934896ebe170a9e8302f6725a60b883a6cd17a092990fcd5"
+    },
+    "ws": {
+      "commit": "f694290cce356eb65a56e29b59a2abe6557767e8",
+      "tree": "cf30de331bb31605ad7c4d9c4abc1a29c806a10c",
+      "manifestSha256": "ea1f954fd62689aecbc6e55c8b4115f89bd94e5691cd96a9795e4b492a914f61"
+    }
+  },
+  "files": [
+    {
+      "name": "rpc-guard.mjs",
+      "sha256": "53f794d541aba08af6a9f4f72729a63ec0a2d74a9369f2bafe31e2a43afcec30",
+      "head": "4df26b2bc2f90efd25e7dd3fb8f50ea4b3fa62a6",
+      "mode": "100755"
+    },
+    {
+      "name": "guard-run.sh",
+      "sha256": "eb7646dc78c5744d724cc748a79feb2316f1e370183bdcea41fff6e1ab030e3b",
+      "head": "4df26b2bc2f90efd25e7dd3fb8f50ea4b3fa62a6",
+      "mode": "100755"
+    },
+    {
+      "name": "lib-run.sh",
+      "sha256": "f1fdcbe1ec2ae7f71640e8f746af4b9b6896c99e5c48ca070f6c7ff1ce3bb7fb",
+      "head": "4df26b2bc2f90efd25e7dd3fb8f50ea4b3fa62a6",
+      "mode": "100644"
+    },
+    {
+      "name": "fake-upstream.mjs",
+      "sha256": "a1ce598acf977341a41dc02888730f39692f6dff2057876c3bac08ad4de45cd2",
+      "head": "4df26b2bc2f90efd25e7dd3fb8f50ea4b3fa62a6",
+      "mode": "100755"
+    },
+    {
+      "name": "ws-guard.mjs",
+      "sha256": "a31f71b2b4a3637262687b44c554d12239ad9f840d13224dfc983d11159762d6",
+      "head": "f694290cce356eb65a56e29b59a2abe6557767e8",
+      "mode": "100755"
+    },
+    {
+      "name": "fake-ws-upstream.mjs",
+      "sha256": "cc93ebdbc239660823827a0156fbe13bc257c5c264e8a3ce1f0922de4f587bbe",
+      "head": "f694290cce356eb65a56e29b59a2abe6557767e8",
+      "mode": "100755"
+    },
+    {
+      "name": "ws-contract-2026-10-10.json",
+      "sha256": "4b26d0e914c8893f0c4b7723d621e4044ae33d706ac98407deecc6b66393c938",
+      "head": "f694290cce356eb65a56e29b59a2abe6557767e8",
+      "mode": "100644"
+    },
+    {
+      "name": "lib-run.sh",
+      "sha256": "f1fdcbe1ec2ae7f71640e8f746af4b9b6896c99e5c48ca070f6c7ff1ce3bb7fb",
+      "head": "f694290cce356eb65a56e29b59a2abe6557767e8",
+      "mode": "100644"
+    }
+  ],
+  "ws": {
+    "version": "8.19.0",
+    "dir": "/home/ubuntu/repos/FeedEater/node_modules/ws",
+    "nodePath": "/home/ubuntu/repos/FeedEater/node_modules",
+    "treeSha256": "455bceb1466d4a4afc24c447e598d8c9957b97ec0afeb356574ee1f67b6b534b",
+    "source": "REPO node_modules (not a git object)"
+  },
+  "node": "v24.19.0"
+}

@@ -364,3 +364,12 @@ dirty or mismatched inputs). It then runs one finite drill on fake loopback.
 - They do not compose into a joint stop: 8 GAP lines, with expected/actual in `COMPOSE-DRILL.md`
   and `compose-drill.out`.
 - No repair was made, and no readiness is claimed.
+
+## Joint HTTP + WS guard prototype (preparation, parent 4006b724)
+
+`joint-guard.mjs` + `joint-run.sh` implement the single-process shared latch from
+`JOINT-STOP-PROPOSAL.md`; details, J1-J13 results and limits are in `JOINT-GUARD.md`.
+
+- `verify-joint.sh` ran J1-J13 once on fake loopback: 139/139 PASS (`joint-verify.out`,
+  raw evidence in `joint-evidence/`). 0 decisions after the latch seq in both directions in every case.
+- Not wired into `run-native.sh`; no node, latency, readiness or admission claim.

@@ -1,0 +1,1 @@
+{"transport":"signal","reason":"signal_INT","hrNs":"10815315014358","preLatch":{"httpInflight":0,"httpQueued":38,"wsInflightSends":0,"wsInflightBytes":0,"wsUserspaceBufferedBytes":0,"wsPreopenQueued":0},"seq":2536}

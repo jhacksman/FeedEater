@@ -1,0 +1,1 @@
+{"transport":"ws","reason":"messages_cap","c":1,"dir":"down","hrNs":"10771712285502","preLatch":{"httpInflight":0,"httpQueued":2,"wsInflightSends":0,"wsInflightBytes":0,"wsUserspaceBufferedBytes":0,"wsPreopenQueued":0},"seq":144}

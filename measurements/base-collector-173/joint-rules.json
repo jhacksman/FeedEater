@@ -1,0 +1,103 @@
+{
+  "note": "Copied-rule provenance for joint-guard.mjs/joint-run.sh (preparation only). verbatim: byte-identical line blocks; adapted: same rule re-expressed against the one latch (reviewed by diff, not hash).",
+  "verbatim": [
+    {
+      "name": "http_validate_idOf_reply",
+      "head": "4df26b2bc2f90efd25e7dd3fb8f50ea4b3fa62a6",
+      "file": "measurements/base-collector-173/rpc-guard.mjs",
+      "lines": [
+        88,
+        134
+      ],
+      "target": "joint-guard.mjs",
+      "sha256": "3baa01b263e0bd4726b139ce3e6fd81fbf9d70967f03c9808adfcf6164808d84"
+    },
+    {
+      "name": "http_paced_pump",
+      "head": "4df26b2bc2f90efd25e7dd3fb8f50ea4b3fa62a6",
+      "file": "measurements/base-collector-173/rpc-guard.mjs",
+      "lines": [
+        183,
+        201
+      ],
+      "target": "joint-guard.mjs",
+      "sha256": "86a33772c5850e816103c890952098c5316b994c93909674e4f4fa6242772174"
+    },
+    {
+      "name": "ws_lc",
+      "head": "f694290cce356eb65a56e29b59a2abe6557767e8",
+      "file": "measurements/base-collector-173/ws-guard.mjs",
+      "lines": [
+        54,
+        54
+      ],
+      "target": "joint-guard.mjs",
+      "sha256": "83b0bad1642cd07c88236081661ce2fb87e30a04f20d8ac63c2aaff92529020a"
+    },
+    {
+      "name": "ws_okFilter",
+      "head": "f694290cce356eb65a56e29b59a2abe6557767e8",
+      "file": "measurements/base-collector-173/ws-guard.mjs",
+      "lines": [
+        61,
+        61
+      ],
+      "target": "joint-guard.mjs",
+      "sha256": "864e9a6482df07a96240a22799d8b00dc2b98003ba5ac0cdf2a0b5f7f4e88c54"
+    },
+    {
+      "name": "ws_canon",
+      "head": "f694290cce356eb65a56e29b59a2abe6557767e8",
+      "file": "measurements/base-collector-173/ws-guard.mjs",
+      "lines": [
+        63,
+        63
+      ],
+      "target": "joint-guard.mjs",
+      "sha256": "177eeb8c5ead4eb8110bd930b4976b66d54bc782a415f092b88112fbcc786c44"
+    },
+    {
+      "name": "ws_validate",
+      "head": "f694290cce356eb65a56e29b59a2abe6557767e8",
+      "file": "measurements/base-collector-173/ws-guard.mjs",
+      "lines": [
+        130,
+        151
+      ],
+      "target": "joint-guard.mjs",
+      "sha256": "19e9981e0cdc02ec48d3829aa1fdd8575135cfc0e7c1787c5746f43b4e5ffd4b"
+    }
+  ],
+  "adapted": [
+    {
+      "what": "HTTP option bounds cap 0..100000, min-interval-ms 0..60000, timeout-ms 1..60000, max-log-span 1..10000, read-only methods allowlist",
+      "from": "4df26b2:rpc-guard.mjs:38-60",
+      "change": "all options required (no defaults)"
+    },
+    {
+      "what": "HTTP refuse/handle/halt/forward/server (MAX_BODY 65536, MAX_RESPONSE 64 MiB, POST only, cap check after stop check, explicit 503 drops)",
+      "from": "4df26b2:rpc-guard.mjs:140-182,203-298",
+      "change": "first non-'stopped' refusal sets the joint latch instead of guard.STOP; 'stopped' refusals answer 429; aborted bodies counted"
+    },
+    {
+      "what": "WS option bounds concurrent 1..64, connections 1..1024, messages 1..1e9, bytes 1..1e12, frame 1..64 MiB, duration 1..86400 s; plain ws:// upstream",
+      "from": "f694290:ws-guard.mjs:32-53",
+      "change": "none beyond shared parser"
+    },
+    {
+      "what": "WS closeConn/admit/refuse/send/connection handlers, no upstream reconnect",
+      "from": "f694290:ws-guard.mjs:83-129,153-233",
+      "change": "STOP sets the joint latch; per-connection pre-open queue capped by --max-preopen-frames (new, refusal preopen_cap)"
+    },
+    {
+      "what": "finish: wait up to 2000 ms for in-flight then summary",
+      "from": "f694290:ws-guard.mjs:241-260",
+      "change": "waits for HTTP and WS in-flight; one combined census"
+    }
+  ],
+  "jointRun": {
+    "head": "4df26b2bc2f90efd25e7dd3fb8f50ea4b3fa62a6",
+    "file": "measurements/base-collector-173/guard-run.sh",
+    "changedOldLines": "2,6c 15c 17,18c 23c 30c 40a 44,47c 118,119c 123,124c 128c 133,134c 139c 143c"
+  }
+}

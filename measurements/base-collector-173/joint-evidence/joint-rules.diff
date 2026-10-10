@@ -1,0 +1,122 @@
+--- 4df26b2bc2f90efd25e7dd3fb8f50ea4b3fa62a6:measurements/base-collector-173/guard-run.sh	2026-10-10 04:53:08.522963509 +0000
++++ /home/ubuntu/repos/FeedEater/measurements/base-collector-173/joint-run.sh	2026-10-10 04:52:13.132095367 +0000
+@@ -1,9 +1,10 @@
+ #!/usr/bin/env bash
+-# Owned run controller for rpc-guard.mjs (preparation only; not wired into run-native.sh).
+-#   guard-run.sh RUN_DIR UPSTREAM CAP MIN_INTERVAL_MS TIMEOUT_MS MAX_LOG_SPAN DEADLINE_S GRACE_S CLIENT_REGISTRY -- CMD...
+-# Starts the guard and one client (FE173_GUARD_URL and BASE_COLLECTOR_HTTP_URL set to the guard), both
+-# registered in RUN_DIR/registry via lib-run.sh. On guard.STOP, the deadline or client exit it:
+-#   1. stops the guard first (no new admission; queued requests dropped, summary written);
++# Owned run controller for joint-guard.mjs: HTTP JSON-RPC and WS behind one latch (preparation only;
++# not wired into run-native.sh). WS options come from JOINT_WS_ARGS (word-split; see joint-guard.mjs).
++#   joint-run.sh RUN_DIR UPSTREAM CAP MIN_INTERVAL_MS TIMEOUT_MS MAX_LOG_SPAN DEADLINE_S GRACE_S CLIENT_REGISTRY -- CMD...
++# Starts the joint guard and one client (FE173_GUARD_URL/BASE_COLLECTOR_HTTP_URL = guard HTTP, FE173_WS_URL = guard WS), both
++# registered in RUN_DIR/registry via lib-run.sh. On JOINT.STOP, the deadline or client exit it:
++#   1. stops the joint guard first (both transports latched; queued HTTP/WS dropped, summary written);
+ #   2. sends TERM to the client and waits up to GRACE_S (1..900) for it to exit, then KILLs it;
+ #   3. verifies the client's own registry: CLIENT_REGISTRY is an absolute glob containing {pid}
+ #      (replaced by the client PID) that must match exactly one directory with lib-run.sh `pids` and
+@@ -12,22 +13,23 @@
+ #      is an owned survivor: it is stopped (TERM, 10 s, KILL / docker rm -f) and reported.
+ #      Unregistered processes, reused PIDs (different lstart) and foreign containers are never touched.
+ #      CLIENT_REGISTRY=none skips step 3; refused (exit 2) when CMD mentions run-native.sh.
+-# External TERM/INT to guard-run runs the same steps 1-3 (reason external_TERM/INT) and exits 143/130.
++# External TERM/INT to joint-run: the trap records trapNs on the monotonic clock and relays the same signal to the
++# joint guard at once (latch), then the loop runs steps 1-3 (external_TERM/INT), exits 143/130, reports trapToLatchNs.
+ # Exit: 14 client ownership not verifiable; 13 owned survivors found (both override every other code);
+-#       else 143/130 external signal; 10 guard.STOP; 11 deadline; 12 guard not ready or died; the
+-#       client's exit code; 2 usage. Outcome in RUN_DIR/guard-run.json. A second signal is not escalated.
++#       else 143/130 external signal; 10 JOINT.STOP; 11 deadline; 12 guard not ready or died; the
++#       client's exit code; 2 usage. Outcome in RUN_DIR/joint-run.json. A second signal is not escalated.
+ # Wall time <= DEADLINE_S + 10 (guard stop) + GRACE_S + 10 (survivor stop) + a few seconds.
+ set -u
+ H=$(cd "$(dirname "$0")" && pwd)
+ usage() {
+-  echo "usage: guard-run.sh RUN_DIR UPSTREAM CAP MIN_INTERVAL_MS TIMEOUT_MS MAX_LOG_SPAN DEADLINE_S GRACE_S CLIENT_REGISTRY -- CMD... ($1)" >&2
++  echo "usage: JOINT_WS_ARGS=... joint-run.sh RUN_DIR UPSTREAM CAP MIN_INTERVAL_MS TIMEOUT_MS MAX_LOG_SPAN DEADLINE_S GRACE_S CLIENT_REGISTRY -- CMD... ($1)" >&2
+   exit 2
+ }
+ [ $# -ge 11 ] && [ "${10}" = "--" ] || usage arguments
+ RUN=$1 UP=$2 CAP=$3 GAP=$4 TMO=$5 SPAN=$6 DL=$7 GRACE=$8 CREG=$9
+ shift 10
+ case "$RUN" in /*) ;; *) usage "RUN_DIR not absolute" ;; esac
+-[ -d "$RUN" ] && [ ! -e "$RUN/guard.jsonl" ] || usage "RUN_DIR missing or used"
++[ -d "$RUN" ] && [ ! -e "$RUN/joint.jsonl" ] || usage "RUN_DIR missing or used"
+ case "$DL" in '' | *[!0-9]* | 0) usage DEADLINE_S ;; esac
+ case "$GRACE" in '' | *[!0-9]* | 0) usage GRACE_S ;; esac
+ [ "$GRACE" -le 900 ] || usage GRACE_S
+@@ -38,13 +40,19 @@
+   case "$CREG" in *'{pid}'*) ;; *) usage "CLIENT_REGISTRY lacks {pid}" ;; esac
+   case "$CREG" in *[[:space:]]*) usage "CLIENT_REGISTRY has whitespace" ;; esac
+ fi
++[ -n "${JOINT_WS_ARGS:-}" ] || usage JOINT_WS_ARGS
+ RUNID=$(basename "$RUN")
+ . "$H/lib-run.sh"
+ trap fe_cleanup EXIT
+-# External TERM/INT only set a flag; the loop then runs the same guard-first outcome path (fix2).
+-SIG=""
+-trap 'SIG=INT' INT
+-trap 'SIG=TERM' TERM
++# External TERM/INT: record trapNs on the guard's clock, latch the joint guard at once and set a flag; the
++# loop then runs the same guard-first outcome path.
++SIG="" SIG_NS=null GPID=""
++onsig() {
++  [ -n "$SIG" ] || { SIG=$1; SIG_NS=$(node -p 'String(process.hrtime.bigint())'); }
++  [ -n "$GPID" ] && fe_owned "$GPID" && kill -"$1" "$GPID" 2>/dev/null
++}
++trap 'onsig INT' INT
++trap 'onsig TERM' TERM
+ now() { node -p 'Date.now()'; }
+ T0=$(now)
+ CPID="" GPID="" CRC=""
+@@ -115,32 +123,41 @@
+   [ "$vrc" = 0 ] || rc=$vrc
+   s=$(printf '%s' "$SURV" | sed 's/^ //; s/ /","/g')
+   [ -n "$s" ] && s="\"$s\""
+-  printf '{"rc":%s,"reason":"%s","externalSignal":"%s","clientExit":%s,"guardStoppedMs":%s,"clientTermMs":%s,"clientExitMs":%s,"clientKilled":%s,"graceS":%s,"ownership":"%s","survivors":[%s]}\n' \
+-    "$rc" "$2" "${SIG:-none}" "${CRC:-null}" "$g_ms" "$C_TERM_MS" "$C_EXIT_MS" "$C_KILLED" "$GRACE" "$OWN" "$s" >"$RUN/guard-run.json"
++  TL=null TN=null
++  if [ "$SIG_NS" != null ]; then
++    TN="\"$SIG_NS\""
++    [ -s "$RUN/JOINT.STOP" ] && TL=$(node -pe 'String(BigInt(JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).hrNs) - BigInt(process.argv[2]))' "$RUN/JOINT.STOP" "$SIG_NS")
++  fi
++  LJ=null
++  [ -s "$RUN/JOINT.STOP" ] && LJ=$(cat "$RUN/JOINT.STOP")
++  printf '{"rc":%s,"reason":"%s","externalSignal":"%s","clientExit":%s,"guardStoppedMs":%s,"clientTermMs":%s,"clientExitMs":%s,"clientKilled":%s,"graceS":%s,"ownership":"%s","survivors":[%s],"trapNs":%s,"trapToLatchNs":%s,"latch":%s}\n' \
++    "$rc" "$2" "${SIG:-none}" "${CRC:-null}" "$g_ms" "$C_TERM_MS" "$C_EXIT_MS" "$C_KILLED" "$GRACE" "$OWN" "$s" "$TN" "$TL" "$LJ" >"$RUN/joint-run.json"
+   exit "$rc"
+ }
+ external() { outcome "$([ "$SIG" = INT ] && echo 130 || echo 143)" "external_$SIG"; }
+-fe_start guard "$RUN/guard.out" node "$H/rpc-guard.mjs" --run-dir "$RUN" --upstream "$UP" --cap "$CAP" \
+-  --min-interval-ms "$GAP" --timeout-ms "$TMO" --max-log-span "$SPAN" || exit 12
++# shellcheck disable=SC2086 # JOINT_WS_ARGS is word-split on purpose
++fe_start guard "$RUN/guard.out" node "$H/joint-guard.mjs" --run-dir "$RUN" --http-upstream "$UP" --cap "$CAP" \
++  --min-interval-ms "$GAP" --timeout-ms "$TMO" --max-log-span "$SPAN" --methods eth_blockNumber,eth_getBlockByNumber,eth_getLogs $JOINT_WS_ARGS || exit 12
+ GPID=$(fe_pid guard)
+ ready() {
+   [ -n "$SIG" ] && return 3
+-  [ -s "$RUN/guard.ready.json" ] && return 0
++  [ -s "$RUN/joint-guard.ready.json" ] && return 0
+   fe_owned "$GPID" && return 1 || return 3
+ }
+ fe_wait_until 10 0.1 "guard ready" ready || { [ -n "$SIG" ] && external; outcome 12 guard_not_ready; }
+ [ -n "$SIG" ] && external
+-URL=$(node -pe 'JSON.parse(require("fs").readFileSync(process.argv[1])).url' "$RUN/guard.ready.json")
+-fe_start client "$RUN/client.out" env FE173_GUARD_URL="$URL" BASE_COLLECTOR_HTTP_URL="$URL" "$@" || outcome 12 client_not_started
++URL=$(node -pe 'JSON.parse(require("fs").readFileSync(process.argv[1])).httpUrl' "$RUN/joint-guard.ready.json")
++WSURL=$(node -pe 'JSON.parse(require("fs").readFileSync(process.argv[1])).wsUrl' "$RUN/joint-guard.ready.json")
++fe_start client "$RUN/client.out" env FE173_GUARD_URL="$URL" BASE_COLLECTOR_HTTP_URL="$URL" FE173_WS_URL="$WSURL" "$@" || outcome 12 client_not_started
+ CPID=$(fe_pid client)
+ END=$((SECONDS + DL))
+ while :; do
+   [ -n "$SIG" ] && external
+-  [ -e "$RUN/guard.STOP" ] && outcome 10 guard_stop
++  [ -e "$RUN/JOINT.STOP" ] && outcome 10 joint_stop
+   if ! fe_owned "$CPID"; then
+     wait "$CPID" 2>/dev/null
+     CRC=$?
+-    [ -e "$RUN/guard.STOP" ] && outcome 10 guard_stop
++    [ -e "$RUN/JOINT.STOP" ] && outcome 10 joint_stop
+     outcome "$CRC" client_exit
+   fi
+   fe_owned "$GPID" || outcome 12 guard_died

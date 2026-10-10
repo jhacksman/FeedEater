@@ -1,0 +1,1 @@
+{"transport":"http","reason":"cap_exceeded","rseq":21,"hrNs":"10770349992062","preLatch":{"httpInflight":0,"httpQueued":8,"wsInflightSends":0,"wsInflightBytes":0,"wsUserspaceBufferedBytes":0,"wsPreopenQueued":0},"seq":558}

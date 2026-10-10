@@ -1,0 +1,80 @@
+{
+  "latch": {
+    "transport": "ws",
+    "reason": "upstream_closed",
+    "c": 1,
+    "dir": "down",
+    "hrNs": "10778904979573",
+    "preLatch": {
+      "httpInflight": 0,
+      "httpQueued": 20,
+      "wsInflightSends": 0,
+      "wsInflightBytes": 0,
+      "wsUserspaceBufferedBytes": 0,
+      "wsPreopenQueued": 0
+    },
+    "seq": 1334
+  },
+  "exitCode": 10,
+  "cap": 100000,
+  "minIntervalMs": 50,
+  "timeoutMs": 2000,
+  "maxLogSpan": 500,
+  "limits": {
+    "concurrent": 3,
+    "connections": 3,
+    "messages": 100000,
+    "bytes": 100000000,
+    "frameBytes": 65536,
+    "durationS": 60,
+    "preopen": 8
+  },
+  "httpUpstreamHost": "127.0.0.1:33867",
+  "wsUpstreamHost": "127.0.0.1:46077",
+  "decisions": {
+    "httpAdmit": 50,
+    "httpForward": 30,
+    "wsUp": 2,
+    "wsDown": 581,
+    "afterLatch": 0
+  },
+  "http": {
+    "received": 50,
+    "admitted": 50,
+    "refused": 0,
+    "aborted": 0,
+    "forwarded": 30,
+    "completed": 30,
+    "dropped": 20,
+    "upstreamErrors": 0,
+    "refusedReasons": {},
+    "upstreamErrorReasons": {},
+    "respondedAfterLatch": 0,
+    "pendingAtExit": 0,
+    "queuedAtExit": 0,
+    "inflightAtExit": 0
+  },
+  "ws": {
+    "connectionsAccepted": 1,
+    "connectionsRefused": 0,
+    "upstreamOpened": 1,
+    "received": 583,
+    "admitted": 583,
+    "refused": 0,
+    "dropped": 0,
+    "forwarded": 583,
+    "sendErrors": 0,
+    "bytesAdmitted": 66805,
+    "refusedReasons": {
+      "upstream_closed": 1
+    },
+    "droppedReasons": {},
+    "inflightAtExit": 0
+  },
+  "reconciled": {
+    "http": true,
+    "ws": true,
+    "decisionsAfterLatch": true
+  },
+  "allReconciled": true
+}
