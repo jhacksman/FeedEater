@@ -1,0 +1,653 @@
+{
+  "fixtureSha": "e0bca11d2aa6bb747dea06c91a0b29dc2aa1a1037fae05269c1ffb61decf14c2",
+  "frames": 10000,
+  "summaries": {
+    "roundtrip": {
+      "n": 10000,
+      "published": 10000,
+      "enqueued": 10000,
+      "lost": 0,
+      "lostRanges": [],
+      "acked": 10000,
+      "unackedPublished": 0,
+      "ackStatViolations": 0,
+      "writerStarts": 1,
+      "recovered": [
+        {
+          "type": "recovered",
+          "records": 0,
+          "lastSeq": 0,
+          "truncatedTailBytes": 0,
+          "tailReason": null
+        }
+      ],
+      "exits": [
+        {
+          "pid": 164759,
+          "code": 0,
+          "sig": null
+        }
+      ],
+      "pids": [
+        164759
+      ],
+      "survivors": [],
+      "endMsg": {
+        "type": "end",
+        "lastSeq": 10000,
+        "size": 10500111
+      },
+      "aborted": false,
+      "cleanup": {
+        "term": false,
+        "kill": false
+      },
+      "stall": {
+        "observed": false,
+        "ms": null,
+        "decisionsDuringStall": 0
+      },
+      "decisionNs": {
+        "p50": 12347,
+        "p99": 43186,
+        "max": 3100406
+      }
+    },
+    "redecode": {
+      "decisionPathSha": "f8771d6496997b797aa85f5554b157d29eb0afe299eac1c8649009816ef03e60",
+      "redecodedSha": "f8771d6496997b797aa85f5554b157d29eb0afe299eac1c8649009816ef03e60",
+      "identical": true,
+      "partitionBytes": 6720995
+    },
+    "p99-rep0-control": {
+      "n": 10000,
+      "published": 10000,
+      "enqueued": 10000,
+      "lost": 0,
+      "lostRanges": [],
+      "acked": 10000,
+      "unackedPublished": 0,
+      "ackStatViolations": 0,
+      "writerStarts": 1,
+      "recovered": [
+        {
+          "type": "recovered",
+          "records": 0,
+          "lastSeq": 0,
+          "truncatedTailBytes": 0,
+          "tailReason": null
+        }
+      ],
+      "exits": [
+        {
+          "pid": 164802,
+          "code": 0,
+          "sig": null
+        }
+      ],
+      "pids": [
+        164802
+      ],
+      "survivors": [],
+      "endMsg": {
+        "type": "end",
+        "lastSeq": 10000,
+        "size": 10500111
+      },
+      "aborted": false,
+      "cleanup": {
+        "term": false,
+        "kill": false
+      },
+      "stall": {
+        "observed": false,
+        "ms": null,
+        "decisionsDuringStall": 0
+      },
+      "decisionNs": {
+        "p50": 11859,
+        "p99": 40253,
+        "max": 969761
+      }
+    },
+    "p99-rep0-stalled": {
+      "n": 10000,
+      "published": 10000,
+      "enqueued": 10000,
+      "lost": 0,
+      "lostRanges": [],
+      "acked": 10000,
+      "unackedPublished": 0,
+      "ackStatViolations": 0,
+      "writerStarts": 1,
+      "recovered": [
+        {
+          "type": "recovered",
+          "records": 0,
+          "lastSeq": 0,
+          "truncatedTailBytes": 0,
+          "tailReason": null
+        }
+      ],
+      "exits": [
+        {
+          "pid": 164819,
+          "code": 0,
+          "sig": null
+        }
+      ],
+      "pids": [
+        164819
+      ],
+      "survivors": [],
+      "endMsg": {
+        "type": "end",
+        "lastSeq": 10000,
+        "size": 10500111
+      },
+      "aborted": false,
+      "cleanup": {
+        "term": false,
+        "kill": false
+      },
+      "stall": {
+        "observed": true,
+        "ms": 2000.225483,
+        "decisionsDuringStall": 3470
+      },
+      "decisionNs": {
+        "p50": 10500,
+        "p99": 38618,
+        "max": 790781
+      }
+    },
+    "p99-rep1-stalled": {
+      "n": 10000,
+      "published": 10000,
+      "enqueued": 10000,
+      "lost": 0,
+      "lostRanges": [],
+      "acked": 10000,
+      "unackedPublished": 0,
+      "ackStatViolations": 0,
+      "writerStarts": 1,
+      "recovered": [
+        {
+          "type": "recovered",
+          "records": 0,
+          "lastSeq": 0,
+          "truncatedTailBytes": 0,
+          "tailReason": null
+        }
+      ],
+      "exits": [
+        {
+          "pid": 164869,
+          "code": 0,
+          "sig": null
+        }
+      ],
+      "pids": [
+        164869
+      ],
+      "survivors": [],
+      "endMsg": {
+        "type": "end",
+        "lastSeq": 10000,
+        "size": 10500111
+      },
+      "aborted": false,
+      "cleanup": {
+        "term": false,
+        "kill": false
+      },
+      "stall": {
+        "observed": true,
+        "ms": 2000.254166,
+        "decisionsDuringStall": 3414
+      },
+      "decisionNs": {
+        "p50": 10709,
+        "p99": 41058,
+        "max": 2116232
+      }
+    },
+    "p99-rep1-control": {
+      "n": 10000,
+      "published": 10000,
+      "enqueued": 10000,
+      "lost": 0,
+      "lostRanges": [],
+      "acked": 10000,
+      "unackedPublished": 0,
+      "ackStatViolations": 0,
+      "writerStarts": 1,
+      "recovered": [
+        {
+          "type": "recovered",
+          "records": 0,
+          "lastSeq": 0,
+          "truncatedTailBytes": 0,
+          "tailReason": null
+        }
+      ],
+      "exits": [
+        {
+          "pid": 164914,
+          "code": 0,
+          "sig": null
+        }
+      ],
+      "pids": [
+        164914
+      ],
+      "survivors": [],
+      "endMsg": {
+        "type": "end",
+        "lastSeq": 10000,
+        "size": 10500111
+      },
+      "aborted": false,
+      "cleanup": {
+        "term": false,
+        "kill": false
+      },
+      "stall": {
+        "observed": false,
+        "ms": null,
+        "decisionsDuringStall": 0
+      },
+      "decisionNs": {
+        "p50": 11759,
+        "p99": 40565,
+        "max": 2133752
+      }
+    },
+    "p99-rep2-control": {
+      "n": 10000,
+      "published": 10000,
+      "enqueued": 10000,
+      "lost": 0,
+      "lostRanges": [],
+      "acked": 10000,
+      "unackedPublished": 0,
+      "ackStatViolations": 0,
+      "writerStarts": 1,
+      "recovered": [
+        {
+          "type": "recovered",
+          "records": 0,
+          "lastSeq": 0,
+          "truncatedTailBytes": 0,
+          "tailReason": null
+        }
+      ],
+      "exits": [
+        {
+          "pid": 164921,
+          "code": 0,
+          "sig": null
+        }
+      ],
+      "pids": [
+        164921
+      ],
+      "survivors": [],
+      "endMsg": {
+        "type": "end",
+        "lastSeq": 10000,
+        "size": 10500111
+      },
+      "aborted": false,
+      "cleanup": {
+        "term": false,
+        "kill": false
+      },
+      "stall": {
+        "observed": false,
+        "ms": null,
+        "decisionsDuringStall": 0
+      },
+      "decisionNs": {
+        "p50": 11626,
+        "p99": 39027,
+        "max": 1957547
+      }
+    },
+    "p99-rep2-stalled": {
+      "n": 10000,
+      "published": 10000,
+      "enqueued": 10000,
+      "lost": 0,
+      "lostRanges": [],
+      "acked": 10000,
+      "unackedPublished": 0,
+      "ackStatViolations": 0,
+      "writerStarts": 1,
+      "recovered": [
+        {
+          "type": "recovered",
+          "records": 0,
+          "lastSeq": 0,
+          "truncatedTailBytes": 0,
+          "tailReason": null
+        }
+      ],
+      "exits": [
+        {
+          "pid": 164970,
+          "code": 0,
+          "sig": null
+        }
+      ],
+      "pids": [
+        164970
+      ],
+      "survivors": [],
+      "endMsg": {
+        "type": "end",
+        "lastSeq": 10000,
+        "size": 10500111
+      },
+      "aborted": false,
+      "cleanup": {
+        "term": false,
+        "kill": false
+      },
+      "stall": {
+        "observed": true,
+        "ms": 2000.305541,
+        "decisionsDuringStall": 3600
+      },
+      "decisionNs": {
+        "p50": 12297,
+        "p99": 44100,
+        "max": 2171062
+      }
+    },
+    "p99": [
+      {
+        "rep": 0,
+        "order": [
+          "control",
+          "stalled"
+        ],
+        "controlP99Ns": 40253,
+        "stalledP99Ns": 38618,
+        "boundNs": 1040253,
+        "withinBound": true,
+        "stallMs": 2000.225483,
+        "decisionsDuringStall": 3470
+      },
+      {
+        "rep": 1,
+        "order": [
+          "stalled",
+          "control"
+        ],
+        "controlP99Ns": 40565,
+        "stalledP99Ns": 41058,
+        "boundNs": 1040565,
+        "withinBound": true,
+        "stallMs": 2000.254166,
+        "decisionsDuringStall": 3414
+      },
+      {
+        "rep": 2,
+        "order": [
+          "control",
+          "stalled"
+        ],
+        "controlP99Ns": 39027,
+        "stalledP99Ns": 44100,
+        "boundNs": 1039027,
+        "withinBound": true,
+        "stallMs": 2000.305541,
+        "decisionsDuringStall": 3600
+      }
+    ],
+    "crash": {
+      "n": 10000,
+      "published": 10000,
+      "enqueued": 10000,
+      "lost": 0,
+      "lostRanges": [],
+      "acked": 10000,
+      "unackedPublished": 0,
+      "ackStatViolations": 0,
+      "writerStarts": 2,
+      "recovered": [
+        {
+          "type": "recovered",
+          "records": 0,
+          "lastSeq": 0,
+          "truncatedTailBytes": 0,
+          "tailReason": null
+        },
+        {
+          "type": "recovered",
+          "records": 2998,
+          "lastSeq": 2998,
+          "truncatedTailBytes": 0,
+          "tailReason": null
+        }
+      ],
+      "exits": [
+        {
+          "pid": 164980,
+          "code": null,
+          "sig": "SIGKILL"
+        },
+        {
+          "pid": 164987,
+          "code": 0,
+          "sig": null
+        }
+      ],
+      "pids": [
+        164980,
+        164987
+      ],
+      "survivors": [],
+      "endMsg": {
+        "type": "end",
+        "lastSeq": 10000,
+        "size": 10500111
+      },
+      "aborted": false,
+      "cleanup": {
+        "term": false,
+        "kill": false
+      },
+      "stall": {
+        "observed": false,
+        "ms": null,
+        "decisionsDuringStall": 0
+      },
+      "decisionNs": {
+        "p50": 11602,
+        "p99": 39112,
+        "max": 3108315
+      }
+    },
+    "torn": {
+      "n": 10000,
+      "published": 10000,
+      "enqueued": 10000,
+      "lost": 0,
+      "lostRanges": [],
+      "acked": 10000,
+      "unackedPublished": 0,
+      "ackStatViolations": 0,
+      "writerStarts": 2,
+      "recovered": [
+        {
+          "type": "recovered",
+          "records": 0,
+          "lastSeq": 0,
+          "truncatedTailBytes": 0,
+          "tailReason": null
+        },
+        {
+          "type": "recovered",
+          "records": 2998,
+          "lastSeq": 2998,
+          "truncatedTailBytes": 521,
+          "tailReason": "torn_body"
+        }
+      ],
+      "exits": [
+        {
+          "pid": 165032,
+          "code": null,
+          "sig": "SIGKILL"
+        },
+        {
+          "pid": 165039,
+          "code": 0,
+          "sig": null
+        }
+      ],
+      "pids": [
+        165032,
+        165039
+      ],
+      "survivors": [],
+      "endMsg": {
+        "type": "end",
+        "lastSeq": 10000,
+        "size": 10500111
+      },
+      "aborted": false,
+      "cleanup": {
+        "term": false,
+        "kill": false
+      },
+      "stall": {
+        "observed": false,
+        "ms": null,
+        "decisionsDuringStall": 0
+      },
+      "decisionNs": {
+        "p50": 11442,
+        "p99": 38498,
+        "max": 1962194
+      }
+    },
+    "overflow": {
+      "n": 10000,
+      "published": 10000,
+      "enqueued": 6763,
+      "lost": 3237,
+      "lostRanges": [
+        [
+          1380,
+          4616
+        ]
+      ],
+      "acked": 6763,
+      "unackedPublished": 0,
+      "ackStatViolations": 0,
+      "writerStarts": 1,
+      "recovered": [
+        {
+          "type": "recovered",
+          "records": 0,
+          "lastSeq": 0,
+          "truncatedTailBytes": 0,
+          "tailReason": null
+        }
+      ],
+      "exits": [
+        {
+          "pid": 165046,
+          "code": 0,
+          "sig": null
+        }
+      ],
+      "pids": [
+        165046
+      ],
+      "survivors": [],
+      "endMsg": {
+        "type": "end",
+        "lastSeq": 10000,
+        "size": 7100529
+      },
+      "aborted": false,
+      "cleanup": {
+        "term": false,
+        "kill": false
+      },
+      "stall": {
+        "observed": true,
+        "ms": 2000.314096,
+        "decisionsDuringStall": 3614
+      },
+      "decisionNs": {
+        "p50": 11145,
+        "p99": 39880,
+        "max": 328245
+      },
+      "coverage": {
+        "published": 10000,
+        "durable": 6763,
+        "lost": 3237,
+        "lostRanges": [
+          [
+            1380,
+            4616
+          ]
+        ],
+        "complete": false
+      }
+    },
+    "abort": {
+      "n": 2000,
+      "published": 818,
+      "enqueued": 2000,
+      "lost": 0,
+      "lostRanges": [],
+      "acked": 9,
+      "unackedPublished": 809,
+      "ackStatViolations": 0,
+      "writerStarts": 1,
+      "recovered": [
+        {
+          "type": "recovered",
+          "records": 0,
+          "lastSeq": 0,
+          "truncatedTailBytes": 0,
+          "tailReason": null
+        }
+      ],
+      "exits": [
+        {
+          "pid": 165094,
+          "code": null,
+          "sig": "SIGKILL"
+        }
+      ],
+      "pids": [
+        165094
+      ],
+      "survivors": [],
+      "endMsg": null,
+      "aborted": true,
+      "cleanup": {
+        "term": true,
+        "kill": true
+      },
+      "stall": {
+        "observed": false,
+        "ms": null,
+        "decisionsDuringStall": 0
+      },
+      "decisionNs": {
+        "p50": 10284,
+        "p99": 35680,
+        "max": 121835
+      }
+    }
+  }
+}

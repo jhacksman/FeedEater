@@ -1,0 +1,42 @@
+PASS tier0.mjs imports node:crypto
+PASS tier0.mjs: no network/env/t_ingest value
+PASS tier1.mjs imports 
+PASS tier1.mjs: no network/env/t_ingest value
+PASS fixture.mjs imports node:crypto
+PASS fixture.mjs: no network/env/t_ingest value
+PASS writer.mjs imports node:fs,./tier0.mjs
+PASS writer.mjs: no network/env/t_ingest value
+PASS producer.mjs imports node:fs,node:path,node:child_process,node:url,./tier0.mjs,./tier1.mjs
+PASS producer.mjs: no network/env/t_ingest value
+PASS fixture deterministic sha e0bca11d2aa6bb747dea06c91a0b29dc2aa1a1037fae05269c1ffb61decf14c2
+PASS 5154 frames whose bytes differ from parse+re-serialize
+PASS roundtrip lost=0 acked=10000
+PASS every ack arrived with offset+length inside the file
+PASS segment 10000 records, tail 0
+PASS every Tier-0 raw byte-equal to the received frame
+PASS every Tier-0 metadata equal to supplied metadata
+PASS every ack file/offset/sha resolves to the received bytes
+PASS re-decoded Tier-1 partition byte-identical f8771d6496997b797aa85f5554b157d29eb0afe299eac1c8649009816ef03e60
+PASS rep 0: writer stall observed 2000.2 ms
+PASS rep 0: 3470 decisions completed while writer stalled
+PASS rep 0: both arms 10000 acked, 0 lost
+MEASURED rep 0 (control then stalled): control p99 40253 ns, stalled p99 38618 ns, bound 1040253 ns -> within max(1 ms, 10%)
+PASS rep 1: writer stall observed 2000.3 ms
+PASS rep 1: 3414 decisions completed while writer stalled
+PASS rep 1: both arms 10000 acked, 0 lost
+MEASURED rep 1 (stalled then control): control p99 40565 ns, stalled p99 41058 ns, bound 1040565 ns -> within max(1 ms, 10%)
+PASS rep 2: writer stall observed 2000.3 ms
+PASS rep 2: 3600 decisions completed while writer stalled
+PASS rep 2: both arms 10000 acked, 0 lost
+MEASURED rep 2 (control then stalled): control p99 39027 ns, stalled p99 44100 ns, bound 1039027 ns -> within max(1 ms, 10%)
+PASS crash: writer SIGKILLed and restarted (2 starts)
+PASS crash: every seq exactly once, in order, byte-equal
+PASS torn: recovery truncated 521 bytes (torn_body)
+PASS torn: final segment 10000 valid records
+PASS overflow: 3237 lost in 1 ranges
+PASS overflow: durable + lost = published; no lost seq in Tier-0; acked = durable
+PASS overflow: re-decode equals decision-path Tier-1 for durable seqs
+PASS abort: TERM then KILL escalation
+PASS abort: 809 published records never acked (no raw_ref; not compliant)
+PASS no owned writer survives (13 pids checked)
+38 PASS, 0 FAIL
