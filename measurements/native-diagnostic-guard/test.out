@@ -1,5 +1,5 @@
 PASS vendor capture.mjs is byte-identical to 56f8f3b (sha256 + blob)
-PASS static: no env, child process, fetch, WebSocket, LAN bind; one listen on LOOPBACK; transport only via vendor httpTransport
+PASS static: no env, child process, fetch, WebSocket, LAN bind; one listen on LOOPBACK; upstream only via transport.mjs (one mod.request)
 PASS runplan deterministic, self-hash, secrets hashed only
 PASS CLI plan by path from cwd=/ with empty env equals evidence
 PASS unresolved checkpoint/head/window/filters/env -> root_inputs_unresolved exit 2
@@ -39,7 +39,7 @@ PASS refused before upstream: eth_call; later allowed call also refused; STOPPED
 PASS refused before upstream: eth_getLogs latest; later allowed call also refused; STOPPED
 PASS refused before upstream: oversize body; later allowed call also refused; STOPPED
 PASS repeat of consumed entry -> call_already_consumed, upstream 1
-PASS budget 1 with 2 concurrent -> upstream 1, other refused
+PASS budget 1 with 2 concurrent -> over-budget refused, STOP latched, no 200 forwarded, upstream <= 1
 PASS upstream response over maxResponseBytes -> response_oversize, STOPPED, upstream 1, no retry, queued call not sent
 PASS upstream total bytes cap -> total_bytes_cap, STOPPED, upstream 1, no retry, queued call not sent
 PASS upstream deadline -> timeout, STOPPED, upstream 1, no retry, queued call not sent
@@ -49,5 +49,20 @@ PASS upstream id mismatch -> response_malformed, STOPPED, upstream 1, no retry, 
 PASS maxDurationMs with no calls -> STOPPED duration_exhausted, notUsed all, upstream 0
 PASS EIO on response file -> WRITE_FAILED, client 502, partial disclosed, next call not sent
 PASS 7-byte short writes -> COMPLETE, files byte-exact
+PASS derived transport == vendor httpTransport: complete
+PASS derived transport == vendor httpTransport: oversize
+PASS derived transport == vendor httpTransport: http500
+PASS derived transport == vendor httpTransport: timeout
+PASS derived transport: pre-aborted signal creates no request
+PASS D1 maxDuration 300 / upstream 1500: in-flight aborted at deadline, 502 not 200, stop sent:true inFlightCall 0, < 800 ms
+PASS D1b timeout 8000 / upstream 3000 / maxDuration 500: bounded by remaining duration, < 1000 ms
+PASS per-call timeout = min(timeoutMs, remaining maxDuration)
+PASS D2 root stop at 100 ms during in-flight: aborted, 502 not 200, stop sent:true, < 500 ms
+PASS D4 stop during 600000 ms pace: pacing interrupted, second call never sent, done < 1000 ms
+PASS D3 queued client disconnects: refused before upstream, STOPPED (not COMPLETE), first still forwarded, upstream 1
+PASS in-flight client disconnect: upstream aborted, outcome client_disconnected_in_flight, STOPPED, < 500 ms
+PASS STOP after a sent call: no retry, no new upstream, counts admitted/sent/responded/persisted/forwarded distinguished
 PASS CLI serve from cwd=/: loopback listener, 1 call, exit 0 COMPLETE
-52 PASS, 0 FAIL
+PASS CLI SIGTERM during in-flight: exit 3 STOPPED root_signal sent:true, upstream aborted, 502, < 1000 ms
+PASS CLI SIGINT during 600000 ms pace: exit 3 root_signal sent:false, second not sent, < 1000 ms
+67 PASS, 0 FAIL

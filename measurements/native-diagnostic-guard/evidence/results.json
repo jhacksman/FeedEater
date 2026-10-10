@@ -7,7 +7,7 @@
    "pass": true
   },
   {
-   "case": "static: no env, child process, fetch, WebSocket, LAN bind; one listen on LOOPBACK; transport only via vendor httpTransport",
+   "case": "static: no env, child process, fetch, WebSocket, LAN bind; one listen on LOOPBACK; upstream only via transport.mjs (one mod.request)",
    "pass": true
   },
   {
@@ -167,7 +167,7 @@
    "pass": true
   },
   {
-   "case": "budget 1 with 2 concurrent -> upstream 1, other refused",
+   "case": "budget 1 with 2 concurrent -> over-budget refused, STOP latched, no 200 forwarded, upstream <= 1",
    "pass": true
   },
   {
@@ -207,7 +207,67 @@
    "pass": true
   },
   {
+   "case": "derived transport == vendor httpTransport: complete",
+   "pass": true
+  },
+  {
+   "case": "derived transport == vendor httpTransport: oversize",
+   "pass": true
+  },
+  {
+   "case": "derived transport == vendor httpTransport: http500",
+   "pass": true
+  },
+  {
+   "case": "derived transport == vendor httpTransport: timeout",
+   "pass": true
+  },
+  {
+   "case": "derived transport: pre-aborted signal creates no request",
+   "pass": true
+  },
+  {
+   "case": "D1 maxDuration 300 / upstream 1500: in-flight aborted at deadline, 502 not 200, stop sent:true inFlightCall 0, < 800 ms",
+   "pass": true
+  },
+  {
+   "case": "D1b timeout 8000 / upstream 3000 / maxDuration 500: bounded by remaining duration, < 1000 ms",
+   "pass": true
+  },
+  {
+   "case": "per-call timeout = min(timeoutMs, remaining maxDuration)",
+   "pass": true
+  },
+  {
+   "case": "D2 root stop at 100 ms during in-flight: aborted, 502 not 200, stop sent:true, < 500 ms",
+   "pass": true
+  },
+  {
+   "case": "D4 stop during 600000 ms pace: pacing interrupted, second call never sent, done < 1000 ms",
+   "pass": true
+  },
+  {
+   "case": "D3 queued client disconnects: refused before upstream, STOPPED (not COMPLETE), first still forwarded, upstream 1",
+   "pass": true
+  },
+  {
+   "case": "in-flight client disconnect: upstream aborted, outcome client_disconnected_in_flight, STOPPED, < 500 ms",
+   "pass": true
+  },
+  {
+   "case": "STOP after a sent call: no retry, no new upstream, counts admitted/sent/responded/persisted/forwarded distinguished",
+   "pass": true
+  },
+  {
    "case": "CLI serve from cwd=/: loopback listener, 1 call, exit 0 COMPLETE",
+   "pass": true
+  },
+  {
+   "case": "CLI SIGTERM during in-flight: exit 3 STOPPED root_signal sent:true, upstream aborted, 502, < 1000 ms",
+   "pass": true
+  },
+  {
+   "case": "CLI SIGINT during 600000 ms pace: exit 3 root_signal sent:false, second not sent, < 1000 ms",
    "pass": true
   }
  ]

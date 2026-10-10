@@ -7,7 +7,8 @@ import crypto from "node:crypto";
 import { spawn, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { preflight, serve, validateSpec, runplan, VENDOR } from "./guard.mjs";
-import { canonical, strictParse } from "./vendor/capture.mjs";
+import { canonical, strictParse, httpTransport } from "./vendor/capture.mjs";
+import { abortableTransport } from "./transport.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const GUARD = path.join(HERE, "guard.mjs");
@@ -29,7 +30,9 @@ function fake(handler) {
   const s = http.createServer((q, r) => {
     const ch = []; q.on("data", (c) => ch.push(c)); q.on("end", async () => {
       const c = { body: Buffer.concat(ch), start: process.hrtime.bigint(), end: null }; calls.push(c); inflight++; maxInflight = Math.max(maxInflight, inflight);
+      r.on("close", () => { if (!r.writableFinished) { c.aborted = true; if (c.end === null) { inflight--; c.end = process.hrtime.bigint(); } } });
       const out = await handler(c.body, calls.length - 1);
+      if (c.aborted) return;
       inflight--; c.end = process.hrtime.bigint();
       if (out === "HANG") return;
       r.writeHead(out.status ?? 200, { "content-type": "application/json" }); r.end(out.body);
@@ -38,11 +41,13 @@ function fake(handler) {
   return new Promise((res) => s.listen(0, "127.0.0.1", () => res({ url: `http://127.0.0.1:${s.address().port}/`, calls, max: () => maxInflight, close: () => { s.closeAllConnections(); s.close(); } })));
 }
 const echo = (body) => { const j = JSON.parse(body); return { body: Buffer.from(JSON.stringify({ jsonrpc: "2.0", id: j.id, result: j.method === "eth_blockNumber" ? "0x6d" : [] })) }; };
-function post(url, body) {
+function post(url, body, abortAfterMs = null) {
   return new Promise((res) => {
+    const t0 = process.hrtime.bigint(); const done = (x) => res({ ...x, ms: Number(process.hrtime.bigint() - t0) / 1e6 });
     const u = new URL(url);
-    const r = http.request({ host: u.hostname, port: u.port, path: "/", method: "POST", agent: false, headers: { "content-type": "application/json", "content-length": body.length } }, (s) => { const ch = []; s.on("data", (c) => ch.push(c)); s.on("end", () => res({ status: s.statusCode, body: Buffer.concat(ch) })); });
-    r.on("error", (e) => res({ error: e.code })); r.end(body);
+    const r = http.request({ host: u.hostname, port: u.port, path: "/", method: "POST", agent: false, headers: { "content-type": "application/json", "content-length": body.length } }, (s) => { const ch = []; s.on("data", (c) => ch.push(c)); s.on("end", () => done({ status: s.statusCode, body: Buffer.concat(ch) })); });
+    r.on("error", (e) => done({ error: e.code === "ECONNRESET" && abortAfterMs !== null ? "CLIENT_ABORTED" : e.code })); r.end(body);
+    if (abortAfterMs !== null) setTimeout(() => r.destroy(), abortAfterMs);
   });
 }
 async function run(specMut, handler, client, opts = {}) {
@@ -53,14 +58,16 @@ async function run(specMut, handler, client, opts = {}) {
   let listen; const ready = new Promise((r) => { listen = r; });
   const g = serve(pre, { onListening: (l) => listen(l), transport: opts.transport });
   const l = await Promise.race([ready, g.done.then(() => null)]);
+  const t0 = process.hrtime.bigint();
   const replies = l === null ? [] : await client(l.listening, g);
   const sum = await g.done;
+  const doneMs = Number(process.hrtime.bigint() - t0) / 1e6;
+  for (let i = 0; i < 100 && !up.calls.every((c) => c.end !== null); i++) await new Promise((r) => setTimeout(r, 10));
   const after = l === null ? null : await post(l.listening, A0());
   up.close();
   const log = fs.existsSync(path.join(out, "guard-log.json")) ? JSON.parse(fs.readFileSync(path.join(out, "guard-log.json"))) : null;
-  return { sum, replies, up, out, log, after, pre };
+  return { sum, replies, up, out, log, after, pre, doneMs };
 }
-const code = (r) => r.status ?? r.error;
 const msg = (r) => (r.body ? JSON.parse(r.body).error?.message?.replace("native-diagnostic-guard: ", "") : r.error);
 
 // vendor and static
@@ -68,8 +75,10 @@ const vb = fs.readFileSync(path.join(HERE, VENDOR.file));
 const gb = spawnSync("/usr/bin/git", ["hash-object", path.join(HERE, VENDOR.file)], { encoding: "utf8" }).stdout.trim();
 check("vendor capture.mjs is byte-identical to 56f8f3b (sha256 + blob)", sha(vb) === VENDOR.sha256 && gb === VENDOR.blob, { sha256: sha(vb), blob: gb });
 const src = fs.readFileSync(GUARD, "utf8");
-check("static: no env, child process, fetch, WebSocket, LAN bind; one listen on LOOPBACK; transport only via vendor httpTransport",
-  !/process\.env[.[]|child_process|fetch\(|new WebSocket|from "ws"|0\.0\.0\.0|"::"/.test(src) && (src.match(/\.listen\(/g) ?? []).length === 1 && /server\.listen\(0, LOOPBACK/.test(src) && !/http\.request|https\.request|node:https/.test(src), null);
+const tsrc = fs.readFileSync(path.join(HERE, "transport.mjs"), "utf8");
+check("static: no env, child process, fetch, WebSocket, LAN bind; one listen on LOOPBACK; upstream only via transport.mjs (one mod.request)",
+  !/process\.env[.[]|child_process|fetch\(|new WebSocket|from "ws"|0\.0\.0\.0|"::"/.test(src + tsrc) && (src.match(/\.listen\(/g) ?? []).length === 1 && /server\.listen\(0, LOOPBACK/.test(src) && !/http\.request|https\.request|node:https/.test(src)
+  && (tsrc.match(/\.request\(/g) ?? []).length === 1 && !/\.listen\(/.test(tsrc), null);
 
 // plan
 const p1 = runplan(validateSpec(clone(base)));
@@ -154,7 +163,7 @@ for (const [n, body, want] of bad) {
 }
 {
   const r = await run((s) => { s.limits.maxCalls = 1; }, echo, (u) => Promise.all([post(u, A0()), post(u, A1())]));
-  check("budget 1 with 2 concurrent -> upstream 1, other refused", r.up.calls.length === 1 && r.replies.filter((x) => x.status === 200).length === 1, { up: r.up.calls.length });
+  check("budget 1 with 2 concurrent -> over-budget refused, STOP latched, no 200 forwarded, upstream <= 1", r.sum.status === "STOPPED" && r.up.calls.length <= 1 && r.replies.every((x) => x.status !== 200) && r.log.refusals.some((x) => x.reason === "call_budget_exhausted") && r.sum.counts.forwarded === 0, { up: r.up.calls.length });
 }
 
 // upstream failures: STOP on first error, no retry, queued not sent
@@ -171,7 +180,7 @@ for (const [n, mut, h, want] of upf) {
   const a = r.log.attempts[0];
   const part = want === "response_oversize" ? fs.readFileSync(path.join(r.out, a.response.file)) : null;
   check(`upstream ${n} -> ${want}, STOPPED, upstream 1, no retry, queued call not sent`, r.sum.status === "STOPPED" && r.up.calls.length === 1 && a.outcome === want && r.log.retries === 0 && r.log.refusals.some((x) => x.reason === "guard_stopped_before_send" || x.reason === "guard_stopped")
-    && (part === null || (part.length === 64 && a.response.file.endsWith(".partial") && a.response.partialSentinel.truncatedAtBytes === 64)), { outcome: a?.outcome, up: r.up.calls.length });
+    && (part === null || (part.length === 64 && a.response.file.endsWith(".partial") && a.response.partialSentinel.receivedBytes === 64)), { outcome: a?.outcome, up: r.up.calls.length });
 }
 {
   const r = await run((s) => { s.limits.maxDurationMs = 300; }, echo, async () => []);
@@ -191,6 +200,63 @@ for (const [n, mut, h, want] of upf) {
   check("7-byte short writes -> COMPLETE, files byte-exact", r2.sum.status === "COMPLETE" && sha(fs.readFileSync(path.join(r2.out, "call-0.response.json"))) === r2.log.attempts[0].response.receivedSha256, r2.sum.status);
 }
 
+// C1: derived transport parity with pinned vendor httpTransport (same fake responses)
+{
+  const modes = [["complete", () => ({ body: Buffer.from('{"jsonrpc":"2.0","id":1,"result":"0x1"}') })], ["oversize", () => ({ body: Buffer.alloc(300, 0x62) })], ["http500", () => ({ status: 500, body: Buffer.from("err") })], ["timeout", () => new Promise((r) => setTimeout(() => r("HANG"), 400))]];
+  for (const [n, h] of modes) {
+    const up = await fake(h); const u = new URL(up.url); const o = { timeoutMs: 150, maxBytes: 100 };
+    const v = await httpTransport(u, A0(), o); const d = await abortableTransport(u, A0(), { ...o, signal: new AbortController().signal }); up.close();
+    const norm = (x) => ({ kind: x.kind, httpStatus: x.httpStatus, bytes: x.bytes.toString("hex"), error: x.error });
+    check(`derived transport == vendor httpTransport: ${n}`, canonical(norm(v)) === canonical(norm(d)) && d.created === true, { v: norm(v).kind, d: norm(d).kind });
+  }
+  const up = await fake(echo); const ac = new AbortController(); ac.abort();
+  const d = await abortableTransport(new URL(up.url), A0(), { timeoutMs: 150, maxBytes: 100, signal: ac.signal }); await new Promise((r) => setTimeout(r, 100)); up.close();
+  check("derived transport: pre-aborted signal creates no request", d.kind === "aborted" && d.created === false && up.calls.length === 0, d.kind);
+}
+
+// C1: STOP latch, interruptible pacing, remaining-duration-bounded calls, disconnects (root/A7 D1-D4)
+const slow = (ms) => (b) => new Promise((r) => setTimeout(() => r(echo(b)), ms));
+const inflightStopped = (r, outcome, maxMs) => r.sum.status === "STOPPED" && r.sum.stop.outcome === outcome && r.sum.stop.sent === true && r.sum.stop.inFlightCall === 0
+  && r.log.attempts[0].outcome === "stopped_in_flight" && r.log.attempts[0].forwarded === false && r.up.calls.length === 1 && r.up.calls[0].aborted === true
+  && r.replies[0].status === 502 && msg(r.replies[0]) === "stopped_in_flight" && r.sum.counts.forwarded === 0 && r.replies[0].ms < maxMs && r.doneMs < maxMs;
+{
+  const r = await run((s) => { s.limits.maxDurationMs = 300; }, slow(1500), async (u) => [await post(u, A0())]);
+  check("D1 maxDuration 300 / upstream 1500: in-flight aborted at deadline, 502 not 200, stop sent:true inFlightCall 0, < 800 ms", inflightStopped(r, "duration_exhausted", 800), { stop: r.sum.stop, ms: Math.round(r.replies[0].ms) > 800 });
+}
+{
+  const r = await run((s) => { s.limits.maxDurationMs = 500; s.limits.timeoutMs = 8000; }, slow(3000), async (u) => [await post(u, A0())]);
+  check("D1b timeout 8000 / upstream 3000 / maxDuration 500: bounded by remaining duration, < 1000 ms", inflightStopped(r, "duration_exhausted", 1000), { stop: r.sum.stop });
+}
+{
+  const seen = [];
+  const r = await run((s) => { s.limits.maxDurationMs = 400; }, slow(50), async (u) => [await post(u, A0())], { transport: (u, b, o) => { seen.push(o.timeoutMs); return abortableTransport(u, b, o); } });
+  check("per-call timeout = min(timeoutMs, remaining maxDuration)", seen.length === 1 && seen[0] <= 400 && seen[0] > 0 && r.log.attempts[0].effTimeoutMs === seen[0], seen);
+}
+{
+  const r = await run(null, slow(1000), async (u, g) => { setTimeout(() => g.stop(), 100); return [await post(u, A0())]; });
+  check("D2 root stop at 100 ms during in-flight: aborted, 502 not 200, stop sent:true, < 500 ms", inflightStopped(r, "root_stop", 500), { stop: r.sum.stop });
+}
+{
+  const r = await run((s) => { s.limits.paceMs = 600000; s.limits.maxCalls = 2; }, echo, async (u, g) => { const a = await post(u, A0()); const p = post(u, A1()); setTimeout(() => g.stop(), 100); return [a, await p]; });
+  check("D4 stop during 600000 ms pace: pacing interrupted, second call never sent, done < 1000 ms", r.sum.status === "STOPPED" && r.sum.stop.outcome === "root_stop" && r.sum.stop.sent === false && r.up.calls.length === 1
+    && r.replies[0].status === 200 && r.replies[1].status === 403 && r.log.refusals.some((x) => x.reason === "guard_stopped_before_send") && r.doneMs < 1000 && r.sum.counts.forwarded === 1, { stop: r.sum.stop, up: r.up.calls.length });
+}
+{
+  const r = await run((s) => { s.limits.maxCalls = 2; }, slow(500), (u) => Promise.all([post(u, A0()), new Promise((res) => setTimeout(res, 20)).then(() => post(u, A1(), 100))]));
+  check("D3 queued client disconnects: refused before upstream, STOPPED (not COMPLETE), first still forwarded, upstream 1", r.sum.status === "STOPPED" && r.sum.stop.outcome === "client_disconnected_before_send" && r.sum.stop.sent === false
+    && r.up.calls.length === 1 && r.replies[0].status === 200 && r.replies[1].error === "CLIENT_ABORTED" && canonical(r.sum.counts) === canonical({ admitted: 2, forwarded: 1, persisted: 1, received: 2, responded: 1, sent: 1 }), { stop: r.sum.stop, counts: r.sum.counts });
+}
+{
+  const r = await run(null, slow(1000), async (u) => [await post(u, A0(), 100)]);
+  check("in-flight client disconnect: upstream aborted, outcome client_disconnected_in_flight, STOPPED, < 500 ms", r.sum.status === "STOPPED" && r.sum.stop.outcome === "client_disconnected_in_flight" && r.up.calls[0].aborted === true
+    && r.log.attempts[0].outcome === "client_disconnected_in_flight" && r.sum.counts.forwarded === 0 && r.doneMs < 500, { stop: r.sum.stop, up: r.up.calls.map((c) => !!c.aborted), at: r.log.attempts.map((x) => x.outcome), ms: r.doneMs > 500 });
+}
+{
+  const r = await run(null, (b) => new Promise((res) => setTimeout(() => res({ body: Buffer.alloc(10, 0x63) }), 10)), async (u) => [await post(u, A0())]);
+  check("STOP after a sent call: no retry, no new upstream, counts admitted/sent/responded/persisted/forwarded distinguished", r.sum.status === "STOPPED" && r.up.calls.length === 1 && r.log.retries === 0
+    && canonical(r.sum.counts) === canonical({ admitted: 1, forwarded: 0, persisted: 1, received: 1, responded: 1, sent: 1 }) && r.after.error === "ECONNREFUSED", r.sum.counts);
+}
+
 // CLI serve by path from cwd=/, empty env
 {
   const root = tmpRoot(); const up = await fake(echo); const s = clone(base); s.projectAromer = root; s.native.measure.out = path.join(root, "m/r.json"); s.limits.maxCalls = 1;
@@ -202,6 +268,29 @@ for (const [n, mut, h, want] of upf) {
   const exit = await new Promise((r) => ch.on("exit", r)); up.close();
   const last = JSON.parse(lines[lines.length - 1]);
   check("CLI serve from cwd=/: loopback listener, 1 call, exit 0 COMPLETE", /^http:\/\/127\.0\.0\.1:\d+\/$/.test(l.listening) && rr.status === 200 && exit === 0 && last.status === "COMPLETE" && up.calls.length === 1, { exit, status: last.status });
+}
+
+async function cliServe(mut, handler, act) {
+  const root = tmpRoot(); const up = await fake(handler); const s = clone(base); s.projectAromer = root; s.native.measure.out = path.join(root, "m/r.json"); mut(s);
+  const sp = path.join(root, "spec.json"); fs.writeFileSync(sp, JSON.stringify(s));
+  const ch = spawn(process.execPath, [GUARD, "serve", "--spec", sp, "--upstream", up.url, "--out", path.join(root, "g")], { cwd: "/", env: {} });
+  let buf = ""; const lines = []; ch.stdout.on("data", (d) => { buf += d; let i; while ((i = buf.indexOf("\n")) >= 0) { lines.push(buf.slice(0, i)); buf = buf.slice(i + 1); } });
+  while (lines.length === 0) await new Promise((r) => setTimeout(r, 20));
+  const t0 = process.hrtime.bigint(); const replies = await act(JSON.parse(lines[0]).listening, ch);
+  const exit = await new Promise((r) => ch.on("exit", r)); const ms = Number(process.hrtime.bigint() - t0) / 1e6;
+  for (let i = 0; i < 100 && !up.calls.every((c) => c.end !== null); i++) await new Promise((r) => setTimeout(r, 10));
+  up.close();
+  return { exit, last: JSON.parse(lines[lines.length - 1]), replies, up, ms, log: JSON.parse(fs.readFileSync(path.join(root, "g/guard-log.json"))) };
+}
+{
+  const r = await cliServe(() => {}, slow(3000), async (u, ch) => { setTimeout(() => ch.kill("SIGTERM"), 150); return [await post(u, A0())]; });
+  check("CLI SIGTERM during in-flight: exit 3 STOPPED root_signal sent:true, upstream aborted, 502, < 1000 ms", r.exit === 3 && r.last.status === "STOPPED" && r.last.stop.outcome === "root_signal" && r.last.stop.sent === true
+    && r.up.calls.length === 1 && r.up.calls[0].aborted === true && r.replies[0].status === 502 && r.log.attempts[0].outcome === "stopped_in_flight" && r.ms < 1000, { exit: r.exit, stop: r.last.stop });
+}
+{
+  const r = await cliServe((s) => { s.limits.paceMs = 600000; s.limits.maxCalls = 2; }, echo, async (u, ch) => { const a = await post(u, A0()); const p = post(u, A1()); setTimeout(() => ch.kill("SIGINT"), 150); return [a, await p]; });
+  check("CLI SIGINT during 600000 ms pace: exit 3 root_signal sent:false, second not sent, < 1000 ms", r.exit === 3 && r.last.stop.outcome === "root_signal" && r.last.stop.sent === false && r.up.calls.length === 1
+    && r.replies[0].status === 200 && r.replies[1].status === 403 && r.ms < 1000, { exit: r.exit, stop: r.last.stop });
 }
 
 fs.writeFileSync(path.join(HERE, "evidence/results.json"), `${JSON.stringify({ schema: "native-diagnostic-guard-results/1", runplanSha256: p1.runplanSha256, cases: results.map((r) => ({ case: r.case, pass: r.pass })) }, null, 1)}\n`);

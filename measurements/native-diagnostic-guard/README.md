@@ -15,7 +15,7 @@ node guard.mjs serve --spec <ROOT_SPEC> --upstream <ROOT_UPSTREAM_HTTP> --out <n
 
 All inputs are explicit arguments; no env, PATH or cwd defaults. `serve` prints one line
 `{"listening":"http://127.0.0.1:<port>/","runplanSha256":...}`; root sets `BASE_COLLECTOR_HTTP_URL` to that URL.
-Exit: 0 `COMPLETE` (every budgeted call served ok), 3 `STOPPED`, 5 `WRITE_FAILED`, 2 refused (no output), 4 internal.
+Exit: 0 `COMPLETE` (every budgeted response actually forwarded), 3 `STOPPED` (incl. SIGINT/SIGTERM → `root_signal`), 5 `WRITE_FAILED`, 2 refused (no output), 4 internal.
 
 ## Contract
 
@@ -35,11 +35,18 @@ Exit: 0 `COMPLETE` (every budgeted call served ok), 3 `STOPPED`, 5 `WRITE_FAILED
 - **Before upstream:** non-POST/non-`/`, oversize, malformed (strict parser: duplicate keys, batch, extra keys,
   non-integer id), other methods, unlisted or already-consumed calls, and budget overrun are refused (HTTP 403) and
   STOP the guard; the request bytes are kept as `refused-N.request.bin`.
-- **Upstream:** one call in flight (FIFO), next send ≥ `paceMs` after the previous completion, whole-call deadline,
-  byte cap, original request bytes forwarded unchanged and the exact response bytes returned. First error (timeout,
-  transport, HTTP status, oversize, total cap, RPC error, malformed or id-mismatched response, write failure) STOPs:
-  no retry, queued calls are not sent. Oversize keeps the received prefix as `call-N.response.partial` with
-  `partialSentinel {truncatedAtBytes, complete:false}`.
+- **Upstream:** one call in flight (FIFO), next send ≥ `paceMs` after the previous completion, per-call deadline
+  `min(timeoutMs, remaining maxDurationMs)`, byte cap, original request bytes forwarded unchanged and the exact
+  response bytes returned. First error (timeout, transport, HTTP status, oversize, total cap, RPC error, malformed or
+  id-mismatched response, write failure, client disconnect) STOPs: no retry, queued calls are not sent.
+- **STOP latch:** set by the first error/refusal, `maxDurationMs`, `stop()` or SIGINT/SIGTERM. It aborts the in-flight
+  upstream call and any pacing wait; a response that completes after the latch is persisted but answered 502
+  `stopped_in_flight`, never as an ordinary 200. `stop` records `outcome`, `sent` (the trigger reached upstream) and
+  `inFlightCall`. A queued client that disconnects is refused before upstream (`client_disconnected_before_send`);
+  an in-flight disconnect aborts the upstream call (`client_disconnected_in_flight`). Any non-complete response keeps
+  the received bytes as `call-N.response.partial` with `partialSentinel {receivedBytes, complete:false, reason}`.
+- **Counts:** `received` (HTTP requests), `admitted` (allowlisted), `sent` (upstream requests created), `responded`
+  (complete HTTP 200 bodies), `persisted` (response files written), `forwarded` (reply fully handed to the client).
 - **Output** (`--out`, new 0700 dir under `projectAromer`): `runplan.json` first, `call-N.request.json`,
   `call-N.response.json|partial`, `refused-N.request.bin`, `guard-log.json` last. Files are `O_EXCL|O_NOFOLLOW`, 0600,
   looped writes, fsync, readback. A failed write is disclosed (`writeFailures`, possibly a zero-byte or partial file);
@@ -51,17 +58,21 @@ Exit: 0 `COMPLETE` (every budgeted call served ok), 3 `STOPPED`, 5 `WRITE_FAILED
 ## Reuse
 
 `vendor/capture.mjs` is byte-identical to capture C1 `56f8f3b` (blob `b9f0aaa9…`, sha256 `d2c13953…`); the guard
-refuses to load if it differs and uses its `strictParse`, `canonical`, `httpTransport`, `Refusal` and `CEIL`. The
-exclusive writer is a copy of capture C1's (not exported there).
+refuses to load if it differs and uses its `strictParse`, `canonical`, `Refusal` and `CEIL`. The pinned
+`httpTransport` cannot be aborted, so `transport.mjs` is a derived copy whose only change is an `AbortSignal`; a
+test asserts identical results to the vendor function for complete/oversize/HTTP 500/timeout. The exclusive writer
+is a copy of capture C1's (not exported there).
 
 ## Limits (stated, not fixed)
 
 - **Only HTTP is guarded.** At `5206f90` HTTP is used by `collect` (`src/main.ts:70`: `eth_blockNumber`, reconnect
   backfill `eth_getLogs`) and `verify-persist` (`:201`). `measure` uses no HTTP: its direct comparator is the WebSocket
   subscription (`:159-164`). WebSocket `eth_subscribe` load, NATS and PostgreSQL are outside the guard.
-- **Exact params vs runtime ranges.** Native backfill ranges come from the checkpoint and the head at connect, in
-  `backfillChunkBlocks` chunks; any call root did not predeclare exactly is refused and STOPs the guard, which the
-  native process sees as an RPC failure. This is the intended fail-closed behaviour, not a retrofit.
+- **Live COMPLETE cannot be guaranteed (material).** Native backfill ranges are derived at runtime from the
+  checkpoint and the head returned at connect, in `backfillChunkBlocks` chunks. Root can predeclare only what it can
+  know in advance; any call it did not predeclare exactly is refused and STOPs the guard, which the native process
+  sees as an RPC failure. The allowlist is never widened dynamically; this is fail-closed by design, not a retrofit.
+- STOP after a refusal or disconnect also aborts an unrelated in-flight call (fail-closed).
 - No clock/window repair: `rootInputs.window` is declared and hashed only; `5206f90` consumes none of the root inputs.
 - Directories are not fsynced; readback proves bytes through the same fd.
 - Synthetic, loopback-only tests: `node test.mjs` (needs `/usr/bin/git` for the vendor blob check).
