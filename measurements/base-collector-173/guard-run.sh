@@ -12,8 +12,10 @@
 #      is an owned survivor: it is stopped (TERM, 10 s, KILL / docker rm -f) and reported.
 #      Unregistered processes, reused PIDs (different lstart) and foreign containers are never touched.
 #      CLIENT_REGISTRY=none skips step 3; refused (exit 2) when CMD mentions run-native.sh.
-# Exit: 14 client ownership not verifiable; 13 owned survivors found; else 10 guard.STOP; 11 deadline;
-#       12 guard not ready or died; the client's exit code; 2 usage. Outcome in RUN_DIR/guard-run.json.
+# External TERM/INT to guard-run runs the same steps 1-3 (reason external_TERM/INT) and exits 143/130.
+# Exit: 14 client ownership not verifiable; 13 owned survivors found (both override every other code);
+#       else 143/130 external signal; 10 guard.STOP; 11 deadline; 12 guard not ready or died; the
+#       client's exit code; 2 usage. Outcome in RUN_DIR/guard-run.json. A second signal is not escalated.
 # Wall time <= DEADLINE_S + 10 (guard stop) + GRACE_S + 10 (survivor stop) + a few seconds.
 set -u
 H=$(cd "$(dirname "$0")" && pwd)
@@ -39,8 +41,10 @@ fi
 RUNID=$(basename "$RUN")
 . "$H/lib-run.sh"
 trap fe_cleanup EXIT
-trap 'exit 130' INT
-trap 'exit 143' TERM
+# External TERM/INT only set a flag; the loop then runs the same guard-first outcome path (fix2).
+SIG=""
+trap 'SIG=INT' INT
+trap 'SIG=TERM' TERM
 now() { node -p 'Date.now()'; }
 T0=$(now)
 CPID="" GPID="" CRC=""
@@ -111,23 +115,27 @@ outcome() { # rc reason
   [ "$vrc" = 0 ] || rc=$vrc
   s=$(printf '%s' "$SURV" | sed 's/^ //; s/ /","/g')
   [ -n "$s" ] && s="\"$s\""
-  printf '{"rc":%s,"reason":"%s","clientExit":%s,"guardStoppedMs":%s,"clientTermMs":%s,"clientExitMs":%s,"clientKilled":%s,"graceS":%s,"ownership":"%s","survivors":[%s]}\n' \
-    "$rc" "$2" "${CRC:-null}" "$g_ms" "$C_TERM_MS" "$C_EXIT_MS" "$C_KILLED" "$GRACE" "$OWN" "$s" >"$RUN/guard-run.json"
+  printf '{"rc":%s,"reason":"%s","externalSignal":"%s","clientExit":%s,"guardStoppedMs":%s,"clientTermMs":%s,"clientExitMs":%s,"clientKilled":%s,"graceS":%s,"ownership":"%s","survivors":[%s]}\n' \
+    "$rc" "$2" "${SIG:-none}" "${CRC:-null}" "$g_ms" "$C_TERM_MS" "$C_EXIT_MS" "$C_KILLED" "$GRACE" "$OWN" "$s" >"$RUN/guard-run.json"
   exit "$rc"
 }
+external() { outcome "$([ "$SIG" = INT ] && echo 130 || echo 143)" "external_$SIG"; }
 fe_start guard "$RUN/guard.out" node "$H/rpc-guard.mjs" --run-dir "$RUN" --upstream "$UP" --cap "$CAP" \
   --min-interval-ms "$GAP" --timeout-ms "$TMO" --max-log-span "$SPAN" || exit 12
 GPID=$(fe_pid guard)
 ready() {
+  [ -n "$SIG" ] && return 3
   [ -s "$RUN/guard.ready.json" ] && return 0
   fe_owned "$GPID" && return 1 || return 3
 }
-fe_wait_until 10 0.1 "guard ready" ready || outcome 12 guard_not_ready
+fe_wait_until 10 0.1 "guard ready" ready || { [ -n "$SIG" ] && external; outcome 12 guard_not_ready; }
+[ -n "$SIG" ] && external
 URL=$(node -pe 'JSON.parse(require("fs").readFileSync(process.argv[1])).url' "$RUN/guard.ready.json")
 fe_start client "$RUN/client.out" env FE173_GUARD_URL="$URL" BASE_COLLECTOR_HTTP_URL="$URL" "$@" || outcome 12 client_not_started
 CPID=$(fe_pid client)
 END=$((SECONDS + DL))
 while :; do
+  [ -n "$SIG" ] && external
   [ -e "$RUN/guard.STOP" ] && outcome 10 guard_stop
   if ! fe_owned "$CPID"; then
     wait "$CPID" 2>/dev/null

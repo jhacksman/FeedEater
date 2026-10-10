@@ -396,7 +396,7 @@ RUNID=inner-$$ RUN=$1/inner-$$ MODE=$2 N=$3
 trap fe_cleanup EXIT
 trap 'exit 143' TERM
 for i in $(seq 1 "$N"); do fe_start "child$i" "$RUN/child$i.out" node "$CHILD" "$MODE"; done
-[ "$(wc -l <"$FE173_REG/pids")" = "$N" ] || exit 70
+[ "$(wc -l <"$FE173_REG/pids" | tr -d ' ')" = "$N" ] || exit 70
 if [ "${4:-}" = extra ]; then
   printf 'cid-own\town\ncid-foreign\tforeign\n' >>"$FE173_REG/containers"
   echo "$RUNID" >"$SHIM/labels/cid-own"
@@ -451,6 +451,33 @@ expect "$([ -f "$T/shim/labels/cid-own" ] && echo present || echo removed)/$([ -
 mkdir -p "$T/n-none/g"
 ./guard-run.sh "$T/n-none/g" "$UC" 0 0 1000 500 5 5 "$T/n-none/nomatch-{pid}/registry" -- true 2>/dev/null
 expect "$?/$(jget "$T/n-none/g/guard-run.json" j.ownership)" "14/unverifiable:registry_matches=0" "nested: registry not found -> exit 14"
+
+# 11. External TERM/INT to guard-run 3 s after start (fix2): guard stopped first, client stopped with
+# the declared grace, registry verified, guard-run.json written; survivors 13 instead of 143.
+nestx() { # name mode n grace sig [extra] -> NR NRC; perl restores default INT (bash background ignores it)
+  NR="$T/x-$1"
+  mkdir -p "$NR/g" "$NR/c"
+  PATH="$T/shim:$PATH" perl -e '$SIG{INT} = "DEFAULT"; exec @ARGV or exit 127' ./guard-run.sh "$NR/g" "$UC" 0 0 1000 500 60 "$4" "$NR/c/inner-{pid}/registry" -- bash "$T/inner.sh" "$NR/c" "$2" "$3" ${6:-} 2>"$NR/ctl.err" &
+  local gp=$!
+  sleep 3
+  kill -"$5" "$gp"
+  wait "$gp"
+  NRC=$?
+}
+xj() { jget "$NR/g/guard-run.json" "$1" 2>/dev/null || echo no_guard_run_json; }
+XQ='[j.reason,j.externalSignal,j.survivors.length,j.ownership.split(":")[0],j.guardStoppedMs<=j.clientTermMs].join("/")'
+nestx prompt prompt 3 20 TERM
+expect "$NRC/$(xj "$XQ")/$([ -s "$NR/g/guard.summary.json" ] && echo guard_summary)" "143/external_TERM/TERM/0/verified/true/guard_summary" "external TERM, prompt x3: exit/reason/signal/survivors/ownership/guard-before-client, guard summary"
+expect "$(left "$(echo "$NR"/c/inner-*/registry)")" 0 "external TERM prompt: registered children left"
+nestx delayed delay:3000 3 20 TERM
+expect "$NRC/$(xj "$XQ")/$(xj j.clientKilled)" "143/external_TERM/TERM/0/verified/true/false" "external TERM, delayed 3 s x3, grace 20: exit/.../clientKilled"
+expect "$(left "$(echo "$NR"/c/inner-*/registry)")" 0 "external TERM delayed: registered children left"
+nestx ignore ignore 3 5 TERM extra
+expect "$NRC/$(xj 'j.reason+"/"+j.clientKilled+"/"+j.survivors.join(" ").replace(/pid:[0-9]+:/g,"")')" "13/external_TERM/true/child1 child2 child3 container:own" "external TERM, TERM-ignoring x3, grace 5: survivors -> exit 13 (not 143)"
+expect "$(left "$(echo "$NR"/c/inner-*/registry)")" 0 "external TERM ignore: registered children alive after sweep"
+expect "$([ "$(ps -o lstart= -p "$DECOY")" = "$DECOY_ST" ] && echo untouched || echo SIGNALLED)/$([ -f "$T/shim/labels/cid-foreign" ] && echo present || echo removed)" untouched/present "external TERM: reused-PID decoy and foreign container untouched"
+nestx int prompt 3 20 INT
+expect "$NRC/$(xj "$XQ")" "130/external_INT/INT/0/verified/true" "external INT, prompt x3: exit/reason/signal/survivors/ownership/guard-before-client"
 ustop
 kill "$DECOY" 2>/dev/null
 

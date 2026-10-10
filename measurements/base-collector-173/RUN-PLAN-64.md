@@ -97,7 +97,9 @@ mode's planned `websocket disconnected` count (r1/r2 0, r3 1) or any `connect/re
 guard-run: 10 `guard.STOP` (takes precedence over the client's code), 11 deadline, 12 guard not ready
 or died, 2 usage; otherwise run-native's code: 0 checker NO_REJECT_FOUND, 1 checker REJECT, 2 usage,
 3 input refused, 5 not fresh, 6 dependencies, 7 reconcile deadline, 8 measure failed, 9
-verify-persist failed, 130/143 signal.
+verify-persist failed. External TERM/INT to guard-run (fix2): guard stopped first, client TERM + GRACE_S,
+registry verified, `guard-run.json` written, exit 143/130 — or 13/14 when owned survivors are found or
+ownership is unverifiable.
 
 ## 9. Stop and cleanup evidence
 

@@ -327,3 +327,29 @@ Remaining limits:
 - `ps lstart` has 1 s resolution, so a PID reused within the same second is indistinguishable.
 - The guard forces its exit 2 s after SIGTERM (`inflightAtExit` records an unfinished request).
 - Checked on Linux only.
+
+## Second (final) guard correction (preparation, parent b1edbfd)
+
+A7's review of the whole b1edbfd head (d99e493) found that an external TERM/INT to `guard-run.sh` exited
+143/130 straight through the EXIT trap (`fe_cleanup`). That path skipped the guard-first stop, the
+declared grace, `verify_client` and `guard-run.json`.
+
+Changes:
+- TERM/INT now only set a flag. The control loop then runs the normal outcome path:
+  1. stop the guard (no new admissions; queued requests dropped; summary written);
+  2. TERM the client, wait up to GRACE_S, then KILL;
+  3. verify the client's registry (PID + `ps lstart`, labelled containers);
+  4. write `guard-run.json` (`reason: external_TERM|external_INT`, `externalSignal`);
+  5. exit 143/130, or 13 for owned survivors, or 14 when ownership is unverifiable.
+- A second signal during cleanup is recorded but does not escalate.
+- The nested fixture's `wc -l` comparison is whitespace-normalized, because BSD `wc` pads its output.
+
+Checks: `verify-guard.sh` adds external TERM 3 s after start for prompt, delayed (3 s) and
+TERM-ignoring children (grace 5 s, exit 13), plus an INT case, a reused-PID decoy and a foreign
+container. The suite was run on Linux; macOS bash 3.2 was not run here.
+
+Limits that still apply:
+- WS traffic is outside rpc-guard.
+- Unregistered grandchildren are not covered.
+- `ps lstart` has 1 s resolution.
+- A SIGKILL to guard-run itself cannot be handled.
