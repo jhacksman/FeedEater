@@ -1,0 +1,48 @@
+PASS build: exit 0 BUILT, kitPersisted true, exactly 14 files (12 pinned + SHA256SUMS + KIT.json)
+PASS build: each of the 12 files equals `git show <commit>:<repoPath>` bytes and its pinned sha256 + blob id
+PASS build: every pinned commit resolves to its pinned tree in this repo
+PASS build: the six component shas equal compose C1 COMPONENTS pins; compose bytes equal 7d06dde; component bytes equal 7ee6ead's pins
+PASS build: stdout shas equal bytes on disk; KIT.json sha reported
+PASS build: rebuild is byte-identical
+PASS build: no machine path in KIT.json or SHA256SUMS
+PASS build: KIT.json inventory lists each file once with commit/tree/repoPath/blob/sha256/bytes
+PASS deploy: copy has no .git and is not inside a git work tree
+PASS deploy: check-kit (empty env, cwd=/) -> KIT_VERIFIED 14 files, same KIT.json sha
+PASS deploy: KIT.json use.checkKitNoTools (sha256sum -c + exact count + no symlinks) exits 0
+PASS deploy: KIT.json use.compose (by path, cwd=/, no .git) -> exit 0 COMPOSED, handoffPersisted true, transportExecuted false
+PASS deploy: all 8 composed files byte-identical to compose 7ee6ead/7d06dde evidence/composed (emitted hashes preserved)
+PASS deploy: manifest sha 3a5431c2 (42185f2 evidence); six-factory ALL-topics lane and Initialize/Swap OR retained
+PASS deploy: handoff rebuildManifest with COMPONENTS=$KIT -> cmp exit 0
+PASS deploy: handoff rebuildPlan with COMPONENTS=$KIT -> cmp exit 0
+PASS deploy: handoff checkContract with COMPONENTS=$KIT -> CONTRACT_CONSISTENT 22/22, reportSha256 == handoff
+PASS deploy: unresolved root inputs through the kit -> exit 2 root_inputs_unresolved (2 paths), no output
+PASS deploy: kit files unchanged after use (check-kit still KIT_VERIFIED)
+PASS check-kit: missing pinned file -> kit_inventory_mismatch missing
+PASS check-kit: missing KIT.json (e.g. partial build) -> kit_inventory_mismatch
+PASS check-kit: extra file (case-colliding Compile.mjs) -> kit_inventory_mismatch extra
+PASS check-kit: extra .git directory -> kit_inventory_mismatch extra
+PASS check-kit: one dirty byte in capture.mjs -> kit_file_mismatch
+PASS check-kit: dirty source declaration constants.py -> kit_file_mismatch
+PASS check-kit: modified KIT.json / SHA256SUMS -> kit_file_mismatch
+PASS check-kit: pinned file replaced by a symlink to identical bytes -> kit_symlink
+PASS check-kit: sources directory replaced by a symlink -> kit_symlink
+PASS check-kit: kit root is a symlink -> kit_symlink; missing kit -> kit_missing; bad CLI -> cli_usage
+PASS compose in a dirty kit (compile.mjs) refuses component_hash_mismatch before import
+PASS compose in a dirty kit (constants.py) refuses via pinned compiler source_hash_mismatch
+PASS build CLI: missing --out, duplicate --git, unknown --fetch, empty value, relative --git -> refused, no output
+PASS build --out: existing directory -> out_exists (left empty); symlinked parent -> out_parent_symlink; missing parent -> out_parent_missing
+PASS build --out: existing file and existing symlink -> out_exists
+PASS build: git dir without the pinned objects -> object_missing, no output (never fetches)
+PASS build: nonexistent git binary -> git_exec_failed, no output
+PASS build: git replace ref on compile.mjs blob is ignored (--no-replace-objects): BUILT with pinned bytes
+PASS build: git returning a flipped byte for a pinned blob -> object_hash_mismatch, no output
+PASS build: git returning a truncated pinned tree -> object_hash_mismatch, no output
+PASS build: git returning a corrupted pinned commit -> object_hash_mismatch, no output
+PASS writes: every writeSync capped at 7 B -> BUILT, kit byte-identical to normal build
+PASS writes: EIO on final KIT.json -> exit 5 WRITE_FAILED, kitPersisted false, 13 persisted, zero-byte KIT.json disclosed
+PASS writes: check-kit on that WRITE_FAILED kit (KIT.json exists, zero bytes) -> refused kit_file_mismatch
+PASS writes: EIO on compose.mjs -> exit 5, persisted list stops before it, no SHA256SUMS/KIT.json
+PASS static: build-kit has exactly one spawnSync (git cat-file, shell:false, literal env, --no-replace-objects), no process.env/fetch/clone/remote/http/net/clock
+PASS static: check-kit and kit.mjs have no child_process, env, network, clock or writes
+PASS static: build-kit opens outputs only with O_EXCL|O_NOFOLLOW
+47 PASS, 0 FAIL
