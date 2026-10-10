@@ -42,8 +42,12 @@ Exit: 0 `COMPLETE` (every budgeted response actually forwarded), 3 `STOPPED` (in
 - **STOP latch:** set by the first error/refusal, `maxDurationMs`, `stop()` or SIGINT/SIGTERM. It aborts the in-flight
   upstream call and any pacing wait; a response that completes after the latch is persisted but answered 502
   `stopped_in_flight`, never as an ordinary 200. `stop` records `outcome`, `sent` (the trigger reached upstream) and
-  `inFlightCall`. A queued client that disconnects is refused before upstream (`client_disconnected_before_send`);
-  an in-flight disconnect aborts the upstream call (`client_disconnected_in_flight`). Any non-complete response keeps
+  `inFlightCall`. A request refusal (malformed, unlisted, consumed, over budget) latches STOP at once and aborts any
+  in-flight call. A disconnect by the client whose call is in flight aborts that upstream call
+  (`client_disconnected_in_flight`). A disconnect by a queued client is only detected when its call is dequeued
+  (when the earlier call has finished, or at once if the guard is waiting out the pace); it is then refused before
+  upstream (`client_disconnected_before_send`) and STOP latches. An earlier, unrelated call that is already in flight
+  is not aborted by it and may finish and be forwarded normally first. Any non-complete response keeps
   the received bytes as `call-N.response.partial` with `partialSentinel {receivedBytes, complete:false, reason}`.
 - **Counts:** `received` (HTTP requests), `admitted` (allowlisted), `sent` (upstream requests created), `responded`
   (complete HTTP 200 bodies), `persisted` (response files written), `forwarded` (reply fully handed to the client).
@@ -72,7 +76,8 @@ is a copy of capture C1's (not exported there).
   checkpoint and the head returned at connect, in `backfillChunkBlocks` chunks. Root can predeclare only what it can
   know in advance; any call it did not predeclare exactly is refused and STOPs the guard, which the native process
   sees as an RPC failure. The allowlist is never widened dynamically; this is fail-closed by design, not a retrofit.
-- STOP after a refusal or disconnect also aborts an unrelated in-flight call (fail-closed).
+- STOP after a request refusal also aborts an unrelated in-flight call (fail-closed). A queued client's disconnect
+  does not: it is acted on at dequeue, after any earlier in-flight call has finished.
 - No clock/window repair: `rootInputs.window` is declared and hashed only; `5206f90` consumes none of the root inputs.
 - Directories are not fsynced; readback proves bytes through the same fd.
 - Synthetic, loopback-only tests: `node test.mjs` (needs `/usr/bin/git` for the vendor blob check).
