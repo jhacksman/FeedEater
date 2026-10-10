@@ -183,11 +183,67 @@
    "ok": true
   },
   {
+   "name": "B1 exact exhaustion: 36 B cap, first body exactly 36 B -> exit 3 STOPPED total_bytes_exhausted at call 1 sent:false; exactly 1 POST; no call-1 request file; notAttempted [1,2,3]",
+   "ok": true
+  },
+  {
+   "name": "B1 exact exhaustion: verifier -> UNKNOWN, call 0 VERIFIED_EMPTY, missingCalls [1,2,3]",
+   "ok": true
+  },
+  {
+   "name": "B1 cap == exact sum of 4 bodies (144 B): exit 0 CAPTURED_ALL_PLANNED, exactly 4 POSTs, no extra call",
+   "ok": true
+  },
+  {
+   "name": "B1 cap == sum-1 (143 B): exit 3 STOPPED total_bytes_cap at call 3, server saw 4, receipted 3, exact partial bytes kept as .unreceipted",
+   "ok": true
+  },
+  {
+   "name": "B2 first writeSync returns 16 B (looped to completion): exit 0, every request/response file full and byte-equal to the wire, sizes and shas equal sidecar and index; sidecars parse; verifier ALL_CALLS_RECEIPTED",
+   "ok": true
+  },
+  {
+   "name": "B2 every writeSync capped at 7 B: exit 0, every request/response file full and byte-equal to the wire, sizes and shas equal sidecar and index; sidecars parse; verifier ALL_CALLS_RECEIPTED",
+   "ok": true
+  },
+  {
+   "name": "B2 request write returns 0: exit 5 WRITE_FAILED, request_write_failed write_no_progress, bytesWritten 0, exactly 0 POSTs, 0 receipted, no retry",
+   "ok": true
+  },
+  {
+   "name": "B2 request write EIO on call 2: exit 5 WRITE_FAILED, request_write_failed write, bytesWritten 0, exactly 2 POSTs, 2 receipted, no retry",
+   "ok": true
+  },
+  {
+   "name": "B2 request bytes corrupted on disk (call 2): exit 5 WRITE_FAILED, request_write_failed readback_mismatch, bytesWritten 306, exactly 2 POSTs, 2 receipted, no retry",
+   "ok": true
+  },
+  {
+   "name": "B2 response write EIO on call 1: exit 5 WRITE_FAILED, response_write_failed write, bytesWritten 0, exactly 2 POSTs, 1 receipted, no retry",
+   "ok": true
+  },
+  {
+   "name": "B2 response partial 5 B then EIO (call 0): exit 5 WRITE_FAILED, response_write_failed write, bytesWritten 5, exactly 1 POSTs, 0 receipted, no retry",
+   "ok": true
+  },
+  {
+   "name": "B2 response fsync EIO (call 0): exit 5 WRITE_FAILED, response_write_failed fsync, bytesWritten 47, exactly 1 POSTs, 0 receipted, no retry",
+   "ok": true
+  },
+  {
+   "name": "B2 receipts.json write EIO: exit 5 WRITE_FAILED, sidecar write, bytesWritten 0, exactly 4 POSTs, 4 receipted, no retry",
+   "ok": true
+  },
+  {
+   "name": "B2 attempts.json short-then-EIO: exit 5 WRITE_FAILED, sidecar write, bytesWritten 5, exactly 4 POSTs, 4 receipted, no retry",
+   "ok": true
+  },
+  {
    "name": "static: no child_process/env/dir-scan/non-exclusive writes/deletes/wall clock/hardcoded paths/fetch/retry in capture.mjs",
    "ok": true
   },
   {
-   "name": "static: every output write goes through O_CREAT|O_EXCL|O_NOFOLLOW; the only network call is one http(s).request per call",
+   "name": "static: every output write goes through one O_CREAT|O_EXCL|O_NOFOLLOW open with a single looped writeSync + fsync + readback; the only network call is one http(s).request per call",
    "ok": true
   },
   {

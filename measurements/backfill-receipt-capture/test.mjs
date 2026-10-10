@@ -4,6 +4,7 @@ import path from "node:path";
 import http from "node:http";
 import crypto from "node:crypto";
 import { spawn, spawnSync } from "node:child_process";
+import { pathToFileURL } from "node:url";
 
 const HERE = path.resolve(".");
 const W = path.join(HERE, "work");
@@ -59,14 +60,33 @@ function server(behave) {
   return new Promise((r) => srv.listen(0, "127.0.0.1", () => r({ url: `http://127.0.0.1:${srv.address().port}/rpc`, log, maxInflight: () => maxInflight, close: () => new Promise((c) => { srv.closeAllConnections(); srv.close(c); }) })));
 }
 const okBody = (body) => { const id = JSON.parse(body).id; return Buffer.from(`{ "jsonrpc": "2.0", "id": ${id},\n  "result": [] }\r\n`); };
-const run = (args) => new Promise((resolve) => {
-  const ch = spawn(process.execPath, ["capture.mjs", ...args], { cwd: HERE });
+// Test-only fault injector, preloaded with --import into the CLI child; capture.mjs itself reads no environment.
+const INJ = path.join(W, "inject.mjs");
+fs.writeFileSync(INJ, `import fs from "node:fs";
+const f = JSON.parse(process.env.CAPTURE_TEST_FAULT);
+const names = new Map(); const o = fs.openSync, w = fs.writeSync, s = fs.fsyncSync; let first = true;
+const eio = () => { const e = new Error("EIO"); e.code = "EIO"; return e; };
+fs.openSync = (p, ...a) => { const fd = o(p, ...a); names.set(fd, String(p).split("/").pop()); return fd; };
+fs.writeSync = (fd, buf, off, len, pos) => {
+  if (f.file !== "*" && names.get(fd) !== f.file) return w(fd, buf, off, len, pos);
+  if (f.mode === "short_first") { if (first) { first = false; return w(fd, buf, off, Math.min(len, 16), pos); } return w(fd, buf, off, len, pos); }
+  if (f.mode === "short_all") return w(fd, buf, off, Math.min(len, 7), pos);
+  if (f.mode === "zero") return 0;
+  if (f.mode === "eio") throw eio();
+  if (f.mode === "eio_after_partial") { if (first) { first = false; return w(fd, buf, off, Math.min(len, 5), pos); } throw eio(); }
+  if (f.mode === "corrupt") { const b = Buffer.from(buf.subarray(off, off + len)); b[0] ^= 0xff; return w(fd, b, 0, b.length, pos); }
+  return w(fd, buf, off, len, pos);
+};
+fs.fsyncSync = (fd) => { if (f.mode === "fsync_eio" && names.get(fd) === f.file) throw eio(); return s(fd); };
+`);
+const run = (args, fault = null) => new Promise((resolve) => {
+  const ch = spawn(process.execPath, [...(fault ? ["--import", pathToFileURL(INJ).href] : []), "capture.mjs", ...args], { cwd: HERE, env: fault ? { ...process.env, CAPTURE_TEST_FAULT: JSON.stringify(fault) } : process.env });
   const out = []; const err = [];
   ch.stdout.on("data", (d) => out.push(d)); ch.stderr.on("data", (d) => err.push(d));
   ch.on("close", (rc) => { const s = Buffer.concat(out).toString(); let j = null; try { j = JSON.parse(s); } catch {} resolve({ rc, stdout: s, stderr: Buffer.concat(err).toString(), j }); });
 });
 const outDir = () => path.join(W, `out-${++n}`);
-const cap = (srv, { spec = specWith(), plan = PLAN, out = outDir(), extra = [] } = {}) => run(["--spec", spec, "--manifest", MAN, "--plan", plan, "--endpoint", srv.url, "--out", out, ...extra]).then((r) => ({ ...r, out }));
+const cap = (srv, { spec = specWith(), plan = PLAN, out = outDir(), extra = [], fault = null } = {}) => run(["--spec", spec, "--manifest", MAN, "--plan", plan, "--endpoint", srv.url, "--out", out, ...extra], fault).then((r) => ({ ...r, out }));
 const rd = (out, f) => fs.readFileSync(path.join(out, f));
 const att = (out) => JSON.parse(rd(out, "attempts.json"));
 const verify = (out, planFile = PLAN) => {
@@ -77,6 +97,8 @@ const verify = (out, planFile = PLAN) => {
   return JSON.parse(r.stdout);
 };
 
+const srv0len = (i) => Buffer.from(JSON.stringify({ jsonrpc: "2.0", id: i + 1, method: "eth_getLogs", params: [planObj.calls[i].request.params[0]] })).length;
+const okLen = (id) => okBody(JSON.stringify({ id })).length;
 // 1. complete capture
 {
   const srv = await server((i, b) => ({ body: okBody(b) }));
@@ -100,7 +122,7 @@ const verify = (out, planFile = PLAN) => {
   const srv = await server((i, b) => ({ body: i === 1 ? errBody(b) : okBody(b) }));
   const r = await cap(srv);
   const a = att(r.out);
-  check("rpc error: exit 3 STOPPED at call 1 rpc_error; server saw 2 requests; notAttempted [2,3]", r.rc === 3 && r.j.status === "STOPPED" && JSON.stringify(r.j.stop) === '{"callIndex":1,"outcome":"rpc_error"}' && srv.log.length === 2 && JSON.stringify(r.j.notAttempted) === "[2,3]", r.j);
+  check("rpc error: exit 3 STOPPED at call 1 rpc_error; server saw 2 requests; notAttempted [2,3]", r.rc === 3 && r.j.status === "STOPPED" && JSON.stringify(r.j.stop) === '{"callIndex":1,"outcome":"rpc_error","sent":true}' && srv.log.length === 2 && JSON.stringify(r.j.notAttempted) === "[2,3]", r.j);
   check("rpc error: error bytes kept verbatim as call-1.response.json and receipted; no call-2/3 files", Buffer.compare(rd(r.out, "call-1.response.json"), errBody(srv.log[1].body)) === 0 && a.attempts[1].receipted === true && !fs.existsSync(path.join(r.out, "call-2.request.json")));
   const v = verify(r.out);
   check("rpc error: verifier -> UNKNOWN, call 1 RPC_ERROR, missingCalls [2,3] (no fabricated empty)", v.verdict === "UNKNOWN" && v.calls[1].status === "RPC_ERROR" && JSON.stringify(v.missingCalls) === "[2,3]", { verdict: v.verdict, m: v.missingCalls });
@@ -179,11 +201,57 @@ for (const [name, args, reason] of [
   const r = await run(["--spec", specWith(), "--manifest", MAN, "--plan", PLAN, "--out", out, ...args]);
   check(`refuse ${name}: exit 2 ${reason}, no output created`, r.rc === 2 && r.j?.refused === reason && !fs.existsSync(out), r.j);
 }
+// C1-B1: exhausted total byte budget sends nothing more
+const tight = (b) => Buffer.from(`{"jsonrpc":"2.0","id":${JSON.parse(b).id},"result":[]}`);
+{
+  const srv = await server((i, b) => ({ body: tight(b) }));
+  const r = await cap(srv, { spec: specWith({ maxTotalBytes: 36 }) });
+  const a = att(r.out);
+  check("B1 exact exhaustion: 36 B cap, first body exactly 36 B -> exit 3 STOPPED total_bytes_exhausted at call 1 sent:false; exactly 1 POST; no call-1 request file; notAttempted [1,2,3]",
+    tight(srv.log[0].body).length === 36 && r.rc === 3 && r.j.status === "STOPPED" && JSON.stringify(r.j.stop) === '{"callIndex":1,"outcome":"total_bytes_exhausted","sent":false}' && srv.log.length === 1 && !fs.existsSync(path.join(r.out, "call-1.request.json")) && JSON.stringify(r.j.notAttempted) === "[1,2,3]" && r.j.totalResponseBytes === 36 && a.attempts.length === 1 && r.j.receipted === 1, { j: r.j, posts: srv.log.length });
+  const v = verify(r.out);
+  check("B1 exact exhaustion: verifier -> UNKNOWN, call 0 VERIFIED_EMPTY, missingCalls [1,2,3]", v.verdict === "UNKNOWN" && v.calls[0].status === "VERIFIED_EMPTY" && JSON.stringify(v.missingCalls) === "[1,2,3]", v.missingCalls);
+  await srv.close();
+}
+{
+  const srv = await server((i, b) => ({ body: tight(b) }));
+  const r = await cap(srv, { spec: specWith({ maxTotalBytes: 144 }) });
+  check("B1 cap == exact sum of 4 bodies (144 B): exit 0 CAPTURED_ALL_PLANNED, exactly 4 POSTs, no extra call", r.rc === 0 && r.j.status === "CAPTURED_ALL_PLANNED" && srv.log.length === 4 && r.j.totalResponseBytes === 144, r.j);
+  await srv.close();
+}
+await stopCase("B1 cap == sum-1 (143 B)", (i, b) => ({ body: tight(b) }), { limits: { maxTotalBytes: 143 }, at: 3, receipted: 3, expect: "total_bytes_cap", partial: (s) => tight(s.log[3].body).subarray(0, 35), extraCheck: (r) => r.j.totalResponseBytes === 143 });
+// C1-B2: short / zero / failed writes
+const allExact = (out, srv) => { const a = att(out); return a.attempts.every((x, i) => { const q = rd(out, x.request.file); const p = rd(out, x.response.file); return Buffer.compare(q, srv.log[i].body) === 0 && q.length === x.request.bytes && sha(q) === x.request.sha256 && Buffer.compare(p, okBody(srv.log[i].body)) === 0 && p.length === x.response.bytes && sha(p) === x.response.sha256 && x.response.persisted; }) && JSON.parse(rd(out, "receipts.json")).receipts.every((e) => sha(rd(out, e.request.file)) === e.request.sha256 && sha(rd(out, e.response.file)) === e.response.sha256); };
+for (const [name, fault] of [["B2 first writeSync returns 16 B (looped to completion)", { file: "*", mode: "short_first" }], ["B2 every writeSync capped at 7 B", { file: "*", mode: "short_all" }]]) {
+  const srv = await server((i, b) => ({ body: okBody(b) }));
+  const r = await cap(srv, { fault });
+  const v = r.rc === 0 ? verify(r.out) : {};
+  check(`${name}: exit 0, every request/response file full and byte-equal to the wire, sizes and shas equal sidecar and index; sidecars parse; verifier ALL_CALLS_RECEIPTED`,
+    r.rc === 0 && r.j.status === "CAPTURED_ALL_PLANNED" && srv.log.length === 4 && rd(r.out, "call-0.request.json").length === srv.log[0].body.length && allExact(r.out, srv) && r.j.attempts.sha256 === sha(rd(r.out, "attempts.json")) && r.j.receiptsIndex.sha256 === sha(rd(r.out, "receipts.json")) && v.verdict === "ALL_CALLS_RECEIPTED", { j: r.j, v: v.verdict });
+  await srv.close();
+}
+const failCase = async (name, fault, { posts, stopAt, outcome, stage, written, receipted, extraCheck }) => {
+  const srv = await server((i, b) => ({ body: okBody(b) }));
+  const r = await cap(srv, { fault });
+  let a = null; try { a = att(r.out); } catch {}
+  const w = r.j?.writeFailures?.[0];
+  check(`${name}: exit 5 WRITE_FAILED, ${outcome ?? "sidecar"} ${stage}, bytesWritten ${written}, exactly ${posts} POSTs, ${receipted} receipted, no retry`,
+    r.rc === 5 && r.j.status === "WRITE_FAILED" && srv.log.length === posts && w?.file === fault.file && w?.stage === stage && w?.bytesWritten === written && r.j.receipted === receipted && (outcome === undefined || (r.j.stop?.outcome === outcome && r.j.stop.callIndex === stopAt)) && (extraCheck ? extraCheck(r, a, srv) : true), { j: r.j, posts: srv.log.length });
+  await srv.close();
+};
+await failCase("B2 request write returns 0", { file: "call-0.request.json", mode: "zero" }, { posts: 0, stopAt: 0, outcome: "request_write_failed", stage: "write_no_progress", written: 0, receipted: 0, extraCheck: (r, a) => r.j.stop.sent === false && a.attempts.length === 0 && JSON.stringify(a.notAttempted) === "[0,1,2,3]" && JSON.parse(rd(r.out, "receipts.json")).receipts.length === 0 });
+await failCase("B2 request write EIO on call 2", { file: "call-2.request.json", mode: "eio" }, { posts: 2, stopAt: 2, outcome: "request_write_failed", stage: "write", written: 0, receipted: 2, extraCheck: (r, a) => JSON.stringify(a.notAttempted) === "[2,3]" });
+await failCase("B2 request bytes corrupted on disk (call 2)", { file: "call-2.request.json", mode: "corrupt" }, { posts: 2, stopAt: 2, outcome: "request_write_failed", stage: "readback_mismatch", written: srv0len(2), receipted: 2 });
+await failCase("B2 response write EIO on call 1", { file: "call-1.response.json", mode: "eio" }, { posts: 2, stopAt: 1, outcome: "response_write_failed", stage: "write", written: 0, receipted: 1, extraCheck: (r, a) => a.attempts[1].response.persisted === false && a.attempts[1].response.sha256 === null && a.attempts[1].receipted === false && r.j.stop.sent === true && JSON.stringify(JSON.parse(rd(r.out, "receipts.json")).receipts.map((e) => e.callIndex)) === "[0]" && JSON.stringify(verify(r.out).missingCalls) === "[1,2,3]" });
+await failCase("B2 response partial 5 B then EIO (call 0)", { file: "call-0.response.json", mode: "eio_after_partial" }, { posts: 1, stopAt: 0, outcome: "response_write_failed", stage: "write", written: 5, receipted: 0, extraCheck: (r, a, s) => a.attempts[0].response.receivedSha256 === sha(okBody(s.log[0].body)) && a.attempts[0].response.write.bytesWritten === 5 });
+await failCase("B2 response fsync EIO (call 0)", { file: "call-0.response.json", mode: "fsync_eio" }, { posts: 1, stopAt: 0, outcome: "response_write_failed", stage: "fsync", written: okLen(1), receipted: 0 });
+await failCase("B2 receipts.json write EIO", { file: "receipts.json", mode: "eio" }, { posts: 4, stage: "write", written: 0, receipted: 4, extraCheck: (r, a) => r.j.stop === null && r.j.receiptsIndex.persisted === false && r.j.receiptsIndex.sha256 === null && a.receiptsIndex.persisted === false && a.writeFailures[0].file === "receipts.json" });
+await failCase("B2 attempts.json short-then-EIO", { file: "attempts.json", mode: "eio_after_partial" }, { posts: 4, stage: "write", written: 5, receipted: 4, extraCheck: (r) => r.j.attempts.persisted === false && r.j.attempts.sha256 === null && r.j.receiptsIndex.sha256 === sha(rd(r.out, "receipts.json")) });
 // 5. static
 const src = fs.readFileSync("capture.mjs", "utf8");
 const banned = ["child_process", "process.env", "readdir", "writeFileSync", "appendFile", "rmSync", "unlink", "rename", "Date.now", "new Date", "/Volumes", "T7", "/Users", "fetch(", "WebSocket", "retry"];
 check("static: no child_process/env/dir-scan/non-exclusive writes/deletes/wall clock/hardcoded paths/fetch/retry in capture.mjs", banned.every((b) => !src.includes(b)), banned.filter((b) => src.includes(b)));
-check("static: every output write goes through O_CREAT|O_EXCL|O_NOFOLLOW; the only network call is one http(s).request per call", (src.match(/fs\.openSync\(/g) ?? []).length === 2 && src.includes("O_EXCL | fs.constants.O_NOFOLLOW") && (src.match(/\.request\(/g) ?? []).length === 1);
+check("static: every output write goes through one O_CREAT|O_EXCL|O_NOFOLLOW open with a single looped writeSync + fsync + readback; the only network call is one http(s).request per call", (src.match(/fs\.openSync\(/g) ?? []).length === 2 && src.includes("O_EXCL | fs.constants.O_NOFOLLOW") && (src.match(/fs\.writeSync\(/g) ?? []).length === 1 && (src.match(/fs\.fsyncSync\(/g) ?? []).length === 1 && src.includes("readback_mismatch") && (src.match(/\.request\(/g) ?? []).length === 1);
 check("static: fixtures unchanged", spawnSync("git", ["diff", "--quiet", "HEAD", "--", "fixtures"]).status === 0);
 fs.rmSync(W, { recursive: true, force: true });
 const pass = results.filter((x) => x.ok).length;

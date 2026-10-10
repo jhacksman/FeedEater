@@ -223,11 +223,32 @@ export function httpTransport(url, body, { timeoutMs, maxBytes }) {
   });
 }
 
+export class WriteFailure extends Error {
+  constructor(file, stage, written, code) { super(stage); this.file = file; this.stage = stage; this.written = written; this.code = code; }
+}
+const wf = (e) => ({ file: e.file, stage: e.stage, bytesWritten: e.written, code: e.code });
+
+// Exclusive create, full write (short writes looped, zero/no progress refused), fsync, then read back through the same fd.
 function writeExclusive(dir, name, buf) {
-  const fd = fs.openSync(path.join(dir, name), fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_EXCL | fs.constants.O_NOFOLLOW, 0o600);
-  try { fs.writeSync(fd, buf); fs.fsyncSync(fd); } finally { fs.closeSync(fd); }
+  let fd;
+  try { fd = fs.openSync(path.join(dir, name), fs.constants.O_RDWR | fs.constants.O_CREAT | fs.constants.O_EXCL | fs.constants.O_NOFOLLOW, 0o600); } catch (e) { throw new WriteFailure(name, "open", 0, e.code ?? "error"); }
+  let off = 0;
+  try {
+    while (off < buf.length) {
+      let w;
+      try { w = fs.writeSync(fd, buf, off, buf.length - off, off); } catch (e) { throw new WriteFailure(name, "write", off, e.code ?? "error"); }
+      if (!Number.isSafeInteger(w) || w <= 0 || w > buf.length - off) throw new WriteFailure(name, "write_no_progress", off, null);
+      off += w;
+    }
+    try { fs.fsyncSync(fd); } catch (e) { throw new WriteFailure(name, "fsync", off, e.code ?? "error"); }
+    const back = Buffer.alloc(buf.length + 1);
+    let got = 0;
+    try { for (let r; got < back.length && (r = fs.readSync(fd, back, got, back.length - got, got)) > 0;) got += r; } catch (e) { throw new WriteFailure(name, "readback", off, e.code ?? "error"); }
+    if (got !== buf.length || Buffer.compare(back.subarray(0, got), buf) !== 0) throw new WriteFailure(name, "readback_mismatch", off, null);
+  } finally { fs.closeSync(fd); }
   return sha256(buf);
 }
+const tryWrite = (dir, name, buf) => { try { return { sha256: writeExclusive(dir, name, buf), write: null }; } catch (e) { if (!(e instanceof WriteFailure)) throw e; return { sha256: null, write: wf(e) }; } };
 
 export async function capture(pre, transport = httpTransport) {
   const { spec, plan, url, out } = pre;
@@ -237,12 +258,15 @@ export async function capture(pre, transport = httpTransport) {
   const receipts = [];
   let total = 0;
   let stop = null;
+  const writeFailures = [];
   for (const c of plan.calls) {
+    if (L.maxTotalBytes - total <= 0) { stop = { callIndex: c.index, outcome: "total_bytes_exhausted", sent: false }; break; }
     if (c.index > 0) await sleep(L.paceMs);
     const reqBuf = Buffer.from(JSON.stringify({ jsonrpc: "2.0", id: c.index + 1, method: "eth_getLogs", params: [c.request.params[0]] }));
     const reqFile = `call-${c.index}.request.json`;
-    const reqSha = writeExclusive(out, reqFile, reqBuf);
-    const room = Math.min(L.maxResponseBytes, L.maxTotalBytes - total);
+    const rq = tryWrite(out, reqFile, reqBuf);
+    if (rq.write !== null) { writeFailures.push(rq.write); stop = { callIndex: c.index, outcome: "request_write_failed", sent: false, write: rq.write }; break; }
+    const room = L.maxTotalBytes - total < L.maxResponseBytes ? L.maxTotalBytes - total : L.maxResponseBytes;
     const r = await transport(url, reqBuf, { timeoutMs: L.timeoutMs, maxBytes: room });
     total += r.bytes.length;
     let outcome;
@@ -254,24 +278,31 @@ export async function capture(pre, transport = httpTransport) {
       try { j = JSON.parse(r.bytes.toString("utf8")); } catch {}
       outcome = j !== null && typeof j === "object" && Object.hasOwn(j, "error") ? "rpc_error" : j !== null && typeof j === "object" && Array.isArray(j.result) ? "ok" : "response_unparsed";
     }
-    const receipted = r.kind === "complete" && r.httpStatus === 200;
+    const complete200 = r.kind === "complete" && r.httpStatus === 200;
     let respFile = null;
-    let respSha = null;
-    if (receipted) { respFile = `call-${c.index}.response.json`; respSha = writeExclusive(out, respFile, r.bytes); receipts.push({ callIndex: c.index, request: { file: reqFile, sha256: reqSha }, response: { file: respFile, sha256: respSha } }); }
-    else if (r.bytes.length > 0) { respFile = `call-${c.index}.response.unreceipted`; respSha = writeExclusive(out, respFile, r.bytes); }
-    attempts.push({ attempt: attempts.length + 1, callIndex: c.index, request: { file: reqFile, sha256: reqSha, bytes: reqBuf.length }, outcome, transport: r.kind, httpStatus: r.httpStatus, error: r.error, response: { file: respFile, sha256: respSha, bytes: r.bytes.length, complete: r.kind === "complete" }, receipted });
-    if (outcome !== "ok") { stop = { callIndex: c.index, outcome }; break; }
+    let rs = { sha256: null, write: null };
+    if (complete200 || r.bytes.length > 0) { respFile = complete200 ? `call-${c.index}.response.json` : `call-${c.index}.response.unreceipted`; rs = tryWrite(out, respFile, r.bytes); }
+    const persisted = respFile !== null && rs.write === null;
+    const receipted = complete200 && persisted;
+    if (receipted) receipts.push({ callIndex: c.index, request: { file: reqFile, sha256: rq.sha256 }, response: { file: respFile, sha256: rs.sha256 } });
+    attempts.push({ attempt: attempts.length + 1, callIndex: c.index, request: { file: reqFile, sha256: rq.sha256, bytes: reqBuf.length, persisted: true }, outcome, transport: r.kind, httpStatus: r.httpStatus, error: r.error,
+      response: { file: respFile, sha256: persisted ? rs.sha256 : null, receivedSha256: sha256(r.bytes), bytes: r.bytes.length, complete: r.kind === "complete", persisted, write: rs.write }, receipted });
+    if (rs.write !== null) { writeFailures.push(rs.write); stop = { callIndex: c.index, outcome: "response_write_failed", sent: true, transportOutcome: outcome, write: rs.write }; break; }
+    if (outcome !== "ok") { stop = { callIndex: c.index, outcome, sent: true }; break; }
   }
   const attempted = new Set(attempts.map((a) => a.callIndex));
   const notAttempted = plan.calls.map((c) => c.index).filter((i) => !attempted.has(i));
-  const receiptsSha = writeExclusive(out, "receipts.json", Buffer.from(`${JSON.stringify({ schema: RECEIPTS_SCHEMA, planSha256: plan.planSha256, receipts }, null, 1)}\n`));
+  const ri = tryWrite(out, "receipts.json", Buffer.from(`${JSON.stringify({ schema: RECEIPTS_SCHEMA, planSha256: plan.planSha256, receipts }, null, 1)}\n`));
+  if (ri.write !== null) writeFailures.push(ri.write);
   const provenance = { backfill: true, live: false };
   const sidecar = { schema: ATTEMPTS_SCHEMA, pins: { manifest: spec.manifest, plan: spec.plan }, limits: L, endpointSha256: pre.endpointSha256, attempts, stop, notAttempted, totalResponseBytes: total,
-    receiptsIndex: { file: "receipts.json", sha256: receiptsSha, receipted: receipts.length }, retries: 0, publicationProvenance: provenance, resumeLive: { permitted: false },
+    receiptsIndex: { file: "receipts.json", sha256: ri.sha256, persisted: ri.write === null, write: ri.write, receipted: receipts.length }, writeFailures: [...writeFailures], retries: 0, publicationProvenance: provenance, resumeLive: { permitted: false },
     notClaimed: "capture only: the verifier was not run; no completeness, canonicality, latency or source-admission claim; Q1/Q2 UNADOPTED" };
-  const attemptsSha = writeExclusive(out, "attempts.json", Buffer.from(`${JSON.stringify(sidecar, null, 1)}\n`));
-  return { status: stop === null ? "CAPTURED_ALL_PLANNED" : "STOPPED", stop, attempted: attempts.length, receipted: receipts.length, notAttempted, totalResponseBytes: total,
-    receiptsIndex: { file: "receipts.json", sha256: receiptsSha }, attempts: { file: "attempts.json", sha256: attemptsSha }, verifierRun: false, publicationProvenance: provenance, resumeLive: { permitted: false } };
+  const as = tryWrite(out, "attempts.json", Buffer.from(`${JSON.stringify(sidecar, null, 1)}\n`));
+  if (as.write !== null) writeFailures.push(as.write);
+  const status = writeFailures.length > 0 ? "WRITE_FAILED" : stop === null ? "CAPTURED_ALL_PLANNED" : "STOPPED";
+  return { status, stop, attempted: attempts.length, receipted: receipts.length, notAttempted, totalResponseBytes: total, writeFailures,
+    receiptsIndex: { file: "receipts.json", sha256: ri.sha256, persisted: ri.write === null }, attempts: { file: "attempts.json", sha256: as.sha256, persisted: as.write === null }, verifierRun: false, publicationProvenance: provenance, resumeLive: { permitted: false } };
 }
 
 async function main(argv) {
@@ -289,7 +320,7 @@ async function main(argv) {
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  main(process.argv.slice(2)).then((s) => { process.stdout.write(`${canonical(s)}\n`); process.exitCode = s.status === "STOPPED" ? 3 : 0; }, (e) => {
+  main(process.argv.slice(2)).then((s) => { process.stdout.write(`${canonical(s)}\n`); process.exitCode = s.status === "WRITE_FAILED" ? 5 : s.status === "STOPPED" ? 3 : 0; }, (e) => {
     if (!(e instanceof Refusal)) { process.stdout.write(`${canonical({ refused: "internal_error", detail: { m: String(e?.code ?? e?.name ?? "error") } })}\n`); process.exitCode = 4; return; }
     process.stdout.write(`${canonical({ refused: e.reason, detail: e.detail })}\n`); process.exitCode = 2;
   });

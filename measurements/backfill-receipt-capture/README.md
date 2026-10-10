@@ -48,6 +48,8 @@ node capture.mjs --spec <spec.json> --manifest <manifest.json> --plan <plan.json
 - Each body is `{"jsonrpc":"2.0","id":<index+1>,"method":"eth_getLogs","params":[plan.calls[i].request.params[0]]}`.
 - Each call is a single POST under a whole-call deadline of `timeoutMs`. Response bytes are capped at `min(maxResponseBytes, maxTotalBytes − bytes so far)`.
 
+**Before each call**, if `maxTotalBytes − bytes so far` is 0, the run stops with `total_bytes_exhausted` (`sent:false`). No request file is written, no POST is sent, and that call and every later one are listed in `notAttempted`.
+
 **Stop on the first** of the following. There is no retry, and later calls are not attempted:
 
 | Outcome | Meaning |
@@ -59,8 +61,21 @@ node capture.mjs --spec <spec.json> --manifest <manifest.json> --plan <plan.json
 | `total_bytes_cap` | the total cap was hit |
 | `rpc_error` | the response has an `error` member |
 | `response_unparsed` | a 200 response that isn't a JSON object with a `result` array |
+| `request_write_failed` | the request file couldn't be fully persisted; nothing is sent (`sent:false`) |
+| `response_write_failed` | the response bytes couldn't be fully persisted; the call isn't receipted (`sent:true`) |
 
-### Output (every file created with `O_CREAT|O_EXCL|O_NOFOLLOW`, mode 0600, fsynced, inside `--out` only)
+### Output (every file created with `O_CREAT|O_EXCL|O_NOFOLLOW`, mode 0600, inside `--out` only)
+
+Each file is persisted in four steps, and its sha is recorded only after the readback matches:
+1. Short writes are looped by offset until the whole buffer is written. A zero, negative or over-long return gives `write_no_progress`.
+2. The file is fsynced.
+3. It is read back through the same fd.
+4. The readback must be byte-equal to the buffer, otherwise `readback_mismatch`.
+
+A failure at any stage (`open`, `write`, `write_no_progress`, `fsync`, `readback`, `readback_mismatch`) is recorded as `{file, stage, bytesWritten, code}`. Then:
+- that file isn't listed in the index;
+- the run stops;
+- the status becomes `WRITE_FAILED` (exit 5). This includes failures of `receipts.json` or `attempts.json` themselves; the summary then reports `persisted:false` and `sha256:null`.
 
 | File | Content |
 |---|---|
@@ -68,12 +83,13 @@ node capture.mjs --spec <spec.json> --manifest <manifest.json> --plan <plan.json
 | `call-<i>.response.json` | exact bytes of a complete HTTP 200 body, including `rpc_error` and `response_unparsed`; listed in `receipts.json` |
 | `call-<i>.response.unreceipted` | exact partial or non-200 bytes (timeout, reset, oversize, total cap, HTTP status); **never** in `receipts.json` |
 | `receipts.json` | `backfill-receipts/1` index for `83aec5d`; only the complete-200 receipts |
-| `attempts.json` | `backfill-receipt-capture-attempts/1`: pins, limits, `endpointSha256`, and per-attempt `{callIndex, request{file, sha256, bytes}, outcome, transport, httpStatus, error, response{file, sha256, bytes, complete}, receipted}`, plus `stop`, `notAttempted`, `totalResponseBytes`, `retries: 0`, `backfill:true/live:false`, `resumeLive.permitted:false` |
+| `attempts.json` | `backfill-receipt-capture-attempts/1`: pins, limits, `endpointSha256`, and per-attempt `{callIndex, request{file, sha256, bytes, persisted}, outcome, transport, httpStatus, error, response{file, sha256 (null unless persisted), receivedSha256, bytes, complete, persisted, write}, receipted}`, plus `stop{callIndex, outcome, sent, write?}`, `writeFailures`, `receiptsIndex{sha256, persisted}`, `notAttempted`, `totalResponseBytes`, `retries: 0`, `backfill:true/live:false`, `resumeLive.permitted:false` |
 
 - **stdout:** a canonical summary only: status, stop, counts, file shas, `verifierRun:false`. It carries no payload and no endpoint.
 - **Exit codes:**
   - 0: `CAPTURED_ALL_PLANNED`;
   - 3: `STOPPED`, with partial output kept;
+  - 5: `WRITE_FAILED`;
   - 2: refused;
   - 4: internal error.
 - **Verifying the result:** for `83aec5d`, write a `backfill-receipt-verify-input/1` spec that pins `receipts.json`'s sha, then run the verifier separately. Any call that wasn't attempted stays `MISSING`, giving UNKNOWN; an empty result is never fabricated.
@@ -81,7 +97,7 @@ node capture.mjs --spec <spec.json> --manifest <manifest.json> --plan <plan.json
 ## Tests
 
 ```
-cd measurements/backfill-receipt-capture && node test.mjs     # 48 PASS on Linux node v24
+cd measurements/backfill-receipt-capture && node test.mjs     # 62 PASS on Linux node v24
 ```
 
 - **Requirements:** git with `a345d48` and `83aec5d`.
@@ -99,9 +115,16 @@ Coverage:
 - **RPC error on call 1:** stops; the error bytes are receipted; calls 2 and 3 are not attempted; the verifier gives `UNKNOWN` with `RPC_ERROR` plus `MISSING [2,3]`.
 - **Each stop outcome:** exact preservation of partial bytes, and the attempt accounting.
 - **Refusals (24):** each with zero requests reaching the server.
+- **B1 (byte budget):**
+  - a 36 B cap with a 36 B first body gives exactly 1 POST, `total_bytes_exhausted`, and the verifier reports `MISSING [1,2,3]`;
+  - a cap equal to the exact sum gives 4 POSTs and success;
+  - a cap of sum − 1 gives `total_bytes_cap` on call 3.
+- **B2 (write faults):** test-only `--import` fault injector.
+  - These complete exactly: a first write of 16 B, or every write capped at 7 B.
+  - These give `WRITE_FAILED` with exact POST counts: a zero return; request EIO; corrupted request bytes; response EIO; a 5 B partial write then EIO; response fsync EIO; `receipts.json` EIO; `attempts.json` partial then EIO.
 - **Static checks:**
   - none of: child_process, env, directory scans, non-exclusive writes, deletes, wall clock, hardcoded paths, fetch, retry;
-  - exactly one `.request(` call.
+  - exactly one `.request(` call, one `writeSync`, one `fsyncSync`, and a readback.
 
 ## Limitations
 
