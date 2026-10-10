@@ -1,4 +1,4 @@
-# Raw Tier-0 writer prototype (DAT-PRV-001 primitive, standalone)
+# Raw Tier-0 writer prototype (DAT-PRV-001 primitive, standalone) — correction 1 of `320dcfc`
 
 This is a hermetic prototype of the primitive missing from DAT-PRV-001 (audit `b9dd122` P3, proposal `861bb80` S3a).
 - It is **not** integrated with #173 (collector, measure or persister), run-native, the joint guard, deploy or production.
@@ -27,6 +27,31 @@ This is a hermetic prototype of the primitive missing from DAT-PRV-001 (audit `b
   - The test asserts that the stall was observed and that decisions kept completing during it. It does not assert the p99 bound; the bound result is reported as measured.
 - SIGKILL crash and restart; torn tail; overflow with the coverage gap accounted for; TERM-to-KILL cleanup of a writer that ignores TERM and is stuck; no owned PID survives.
 
+## Correction 1 (A7 `8af9d42`: 2 HIGH, 1 MED, 2 LOW)
+- **Segment identity:**
+  - Each segment starts with a `T0H1` header carrying `{format, segment_id}` and a sha.
+  - A new segment is created with `O_CREAT|O_EXCL|O_NOFOLLOW`, and the header and directory are fsynced.
+  - An existing segment is opened `O_NOFOLLOW`, must pass an fstat regular-file check, and its header `segment_id` must equal `--segment-id`.
+  - A symlink, a non-regular file, a foreign file or an identity mismatch is refused (`type: "refused"`, exit 3) with the bytes untouched.
+- **Recovery:**
+  - Only a proven torn final write is cut: the magic matches (or the partial tail is a prefix of it), the lengths are within `MAX_META`/`MAX_RAW`, and the declared length runs past EOF.
+  - The exact cut bytes are first written to an exclusive `<segment>.quarantine-<offset>-e<epoch>` file and fsynced. The ack includes the quarantine file's sha.
+  - `bad_sha`, `bad_magic`, `bad_length`, `bad_meta` or non-monotonic seqs anywhere are refused with exit 3. Nothing is truncated, so no valid suffix is deleted.
+- **Ack binding:**
+  - Writer acks carry `segment_id`, `epoch` (the writer's start number), `seq`, offsets, `sha256` (raw) and `metaSha256`.
+  - The producer accepts an ack only if all of these match its own run, the epoch of the writer that sent it, and its own shas of the bytes it sent. Otherwise the record is rejected with an explicit reason and stays unacked, with no `raw_ref`.
+  - Resending a durable seq gives `dup_identical`, acked at the durable offset, or `conflict`, which is not written.
+  - A seq inside a gap is `rejected: out_of_order`.
+  - A seq jump is reported as `gap`; the producer counts any gap seq not in its own lost ranges as `unexplainedGaps`.
+  - A writer refusal or failure ends the drain explicitly (`writerFailed`), not as a timeout.
+- **Producer I/O accounting:** the synchronous `statSync` in the ack handler is removed.
+  - Ack handling and pipe writes, including computing the shas, run on the producer's event loop between decision callbacks. Their total time is reported as `producerIo`, along with `eventLoopDelayNs` (from `monitorEventLoopDelay`).
+  - The p99 bound applies to the decision callback duration only. Event-loop delay is reported, not bounded.
+- **Falsification tests:**
+  - every A7 probe: a corrupt middle record in a small 3-record segment and at record 5000; a foreign file; a symlink to a 13-byte target; a rerun with a new id; seed 999 against seed 173; seqs 1,5,3; a foreign decoy process;
+  - plus a bad-magic tail and a bad-length tail.
+- **Kept:** the genuine torn tail, crash, overflow, re-decode and cleanup tests.
+
 ## Limitations (explicit)
 - **Synthetic fixture and host timing only.** The p99 is the time inside one Node process's decision callback, on this host. It is not live latency, a measurement of collector integration, source admission or owner acceptance. The decision callback is a toy decode plus publish.
 - **Q1 unresolved.** A published record carries no `raw_ref`; `raw_ref` exists only in the writer ack, after the append and fsync. Published but unacked records (the abort case) have no `raw_ref` and are not claimed as DAT-PRV-002 compliant. DAT-PRV-002's "every record, 0 missing" is not met by the published record, and nothing here chooses how to reconcile the two.
@@ -35,4 +60,7 @@ This is a hermetic prototype of the primitive missing from DAT-PRV-001 (audit `b
 - **Q2 (natural key)** is untouched. Records are keyed only by the producer's `seq`.
 - **Durability.** The ack follows `fsync` on the segment fd only. Directory fsync, rotation, partitioning, multiple writers and disk-full are not covered.
 - After a crash, resending depends on the bounded in-memory retention. A producer crash loses unacked frames, and that case is not tested.
+- The p99 bound is for the callback only. The event-loop delay p99 (about 2 ms in both arms, mostly the 1 ms `setTimeout` pacing) and the producer ack/pipe time are reported, not bounded.
+- Recovery trusts the file contents as of open. It does not detect or fence concurrent writers to the same segment beyond `O_EXCL` at creation; there is no lock.
+- `O_NOFOLLOW` covers only the final path component; parent-directory symlinks are not checked.
 - Linux only (node v24.19.0). Not run on macOS.

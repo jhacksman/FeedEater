@@ -4,38 +4,53 @@
   "summaries": {
     "roundtrip": {
       "n": 10000,
+      "segmentId": "d8849773-f4b7-438b-b0b2-bf730bcf706b",
       "published": 10000,
       "enqueued": 10000,
       "lost": 0,
       "lostRanges": [],
+      "writerGaps": [],
+      "unexplainedGaps": 0,
       "acked": 10000,
+      "ackedVia": {
+        "append": 10000
+      },
+      "rejected": 0,
+      "rejectedReasons": {},
+      "strayAcks": 0,
       "unackedPublished": 0,
-      "ackStatViolations": 0,
+      "stillInflightOrQueued": 0,
       "writerStarts": 1,
       "recovered": [
         {
           "type": "recovered",
+          "created": true,
+          "segment_id": "d8849773-f4b7-438b-b0b2-bf730bcf706b",
+          "epoch": 1,
           "records": 0,
           "lastSeq": 0,
-          "truncatedTailBytes": 0,
-          "tailReason": null
+          "quarantine": null
         }
       ],
+      "refusals": [],
+      "writerFailed": null,
+      "drainTimedOut": false,
       "exits": [
         {
-          "pid": 164759,
+          "pid": 170619,
+          "epoch": 1,
           "code": 0,
           "sig": null
         }
       ],
       "pids": [
-        164759
+        170619
       ],
       "survivors": [],
       "endMsg": {
         "type": "end",
         "lastSeq": 10000,
-        "size": 10500111
+        "size": 10500229
       },
       "aborted": false,
       "cleanup": {
@@ -48,10 +63,21 @@
         "decisionsDuringStall": 0
       },
       "decisionNs": {
-        "p50": 12347,
-        "p99": 43186,
-        "max": 3100406
-      }
+        "p50": 12654,
+        "p99": 47256,
+        "max": 315644
+      },
+      "producerIo": {
+        "ackHandlingNs": 21897825,
+        "pipeWriteNs": 75056669,
+        "ackMessages": 10000
+      },
+      "eventLoopDelayNs": {
+        "p50": 1100799,
+        "p99": 2119679,
+        "max": 5005311
+      },
+      "_rejected": {}
     },
     "redecode": {
       "decisionPathSha": "f8771d6496997b797aa85f5554b157d29eb0afe299eac1c8649009816ef03e60",
@@ -61,38 +87,53 @@
     },
     "p99-rep0-control": {
       "n": 10000,
+      "segmentId": "d64997f3-d6a5-413b-9ab4-a1c0290723c0",
       "published": 10000,
       "enqueued": 10000,
       "lost": 0,
       "lostRanges": [],
+      "writerGaps": [],
+      "unexplainedGaps": 0,
       "acked": 10000,
+      "ackedVia": {
+        "append": 10000
+      },
+      "rejected": 0,
+      "rejectedReasons": {},
+      "strayAcks": 0,
       "unackedPublished": 0,
-      "ackStatViolations": 0,
+      "stillInflightOrQueued": 0,
       "writerStarts": 1,
       "recovered": [
         {
           "type": "recovered",
+          "created": true,
+          "segment_id": "d64997f3-d6a5-413b-9ab4-a1c0290723c0",
+          "epoch": 1,
           "records": 0,
           "lastSeq": 0,
-          "truncatedTailBytes": 0,
-          "tailReason": null
+          "quarantine": null
         }
       ],
+      "refusals": [],
+      "writerFailed": null,
+      "drainTimedOut": false,
       "exits": [
         {
-          "pid": 164802,
+          "pid": 170626,
+          "epoch": 1,
           "code": 0,
           "sig": null
         }
       ],
       "pids": [
-        164802
+        170626
       ],
       "survivors": [],
       "endMsg": {
         "type": "end",
         "lastSeq": 10000,
-        "size": 10500111
+        "size": 10500229
       },
       "aborted": false,
       "cleanup": {
@@ -105,45 +146,71 @@
         "decisionsDuringStall": 0
       },
       "decisionNs": {
-        "p50": 11859,
-        "p99": 40253,
-        "max": 969761
-      }
+        "p50": 11099,
+        "p99": 40030,
+        "max": 2793573
+      },
+      "producerIo": {
+        "ackHandlingNs": 20591397,
+        "pipeWriteNs": 59895778,
+        "ackMessages": 10000
+      },
+      "eventLoopDelayNs": {
+        "p50": 1092607,
+        "p99": 2150399,
+        "max": 7020543
+      },
+      "_rejected": {}
     },
     "p99-rep0-stalled": {
       "n": 10000,
+      "segmentId": "54cfc5b0-3ac5-477f-a9b4-d4642b24c3ea",
       "published": 10000,
       "enqueued": 10000,
       "lost": 0,
       "lostRanges": [],
+      "writerGaps": [],
+      "unexplainedGaps": 0,
       "acked": 10000,
+      "ackedVia": {
+        "append": 10000
+      },
+      "rejected": 0,
+      "rejectedReasons": {},
+      "strayAcks": 0,
       "unackedPublished": 0,
-      "ackStatViolations": 0,
+      "stillInflightOrQueued": 0,
       "writerStarts": 1,
       "recovered": [
         {
           "type": "recovered",
+          "created": true,
+          "segment_id": "54cfc5b0-3ac5-477f-a9b4-d4642b24c3ea",
+          "epoch": 1,
           "records": 0,
           "lastSeq": 0,
-          "truncatedTailBytes": 0,
-          "tailReason": null
+          "quarantine": null
         }
       ],
+      "refusals": [],
+      "writerFailed": null,
+      "drainTimedOut": false,
       "exits": [
         {
-          "pid": 164819,
+          "pid": 170679,
+          "epoch": 1,
           "code": 0,
           "sig": null
         }
       ],
       "pids": [
-        164819
+        170679
       ],
       "survivors": [],
       "endMsg": {
         "type": "end",
         "lastSeq": 10000,
-        "size": 10500111
+        "size": 10500229
       },
       "aborted": false,
       "cleanup": {
@@ -152,49 +219,75 @@
       },
       "stall": {
         "observed": true,
-        "ms": 2000.225483,
-        "decisionsDuringStall": 3470
+        "ms": 2000.375058,
+        "decisionsDuringStall": 3578
       },
       "decisionNs": {
-        "p50": 10500,
-        "p99": 38618,
-        "max": 790781
-      }
+        "p50": 11040,
+        "p99": 40714,
+        "max": 2232971
+      },
+      "producerIo": {
+        "ackHandlingNs": 22095934,
+        "pipeWriteNs": 62464932,
+        "ackMessages": 10000
+      },
+      "eventLoopDelayNs": {
+        "p50": 1086463,
+        "p99": 2959359,
+        "max": 10141695
+      },
+      "_rejected": {}
     },
     "p99-rep1-stalled": {
       "n": 10000,
+      "segmentId": "089e2ec2-f19c-4561-8e3f-a2b8bd4e6a6d",
       "published": 10000,
       "enqueued": 10000,
       "lost": 0,
       "lostRanges": [],
+      "writerGaps": [],
+      "unexplainedGaps": 0,
       "acked": 10000,
+      "ackedVia": {
+        "append": 10000
+      },
+      "rejected": 0,
+      "rejectedReasons": {},
+      "strayAcks": 0,
       "unackedPublished": 0,
-      "ackStatViolations": 0,
+      "stillInflightOrQueued": 0,
       "writerStarts": 1,
       "recovered": [
         {
           "type": "recovered",
+          "created": true,
+          "segment_id": "089e2ec2-f19c-4561-8e3f-a2b8bd4e6a6d",
+          "epoch": 1,
           "records": 0,
           "lastSeq": 0,
-          "truncatedTailBytes": 0,
-          "tailReason": null
+          "quarantine": null
         }
       ],
+      "refusals": [],
+      "writerFailed": null,
+      "drainTimedOut": false,
       "exits": [
         {
-          "pid": 164869,
+          "pid": 170687,
+          "epoch": 1,
           "code": 0,
           "sig": null
         }
       ],
       "pids": [
-        164869
+        170687
       ],
       "survivors": [],
       "endMsg": {
         "type": "end",
         "lastSeq": 10000,
-        "size": 10500111
+        "size": 10500229
       },
       "aborted": false,
       "cleanup": {
@@ -203,49 +296,75 @@
       },
       "stall": {
         "observed": true,
-        "ms": 2000.254166,
-        "decisionsDuringStall": 3414
+        "ms": 2000.332121,
+        "decisionsDuringStall": 3592
       },
       "decisionNs": {
-        "p50": 10709,
-        "p99": 41058,
-        "max": 2116232
-      }
+        "p50": 10485,
+        "p99": 38885,
+        "max": 1735392
+      },
+      "producerIo": {
+        "ackHandlingNs": 18705874,
+        "pipeWriteNs": 54980119,
+        "ackMessages": 10000
+      },
+      "eventLoopDelayNs": {
+        "p50": 1083391,
+        "p99": 2144255,
+        "max": 5443583
+      },
+      "_rejected": {}
     },
     "p99-rep1-control": {
       "n": 10000,
+      "segmentId": "ec71eec8-37ab-48a8-817a-221706382ece",
       "published": 10000,
       "enqueued": 10000,
       "lost": 0,
       "lostRanges": [],
+      "writerGaps": [],
+      "unexplainedGaps": 0,
       "acked": 10000,
+      "ackedVia": {
+        "append": 10000
+      },
+      "rejected": 0,
+      "rejectedReasons": {},
+      "strayAcks": 0,
       "unackedPublished": 0,
-      "ackStatViolations": 0,
+      "stillInflightOrQueued": 0,
       "writerStarts": 1,
       "recovered": [
         {
           "type": "recovered",
+          "created": true,
+          "segment_id": "ec71eec8-37ab-48a8-817a-221706382ece",
+          "epoch": 1,
           "records": 0,
           "lastSeq": 0,
-          "truncatedTailBytes": 0,
-          "tailReason": null
+          "quarantine": null
         }
       ],
+      "refusals": [],
+      "writerFailed": null,
+      "drainTimedOut": false,
       "exits": [
         {
-          "pid": 164914,
+          "pid": 170731,
+          "epoch": 1,
           "code": 0,
           "sig": null
         }
       ],
       "pids": [
-        164914
+        170731
       ],
       "survivors": [],
       "endMsg": {
         "type": "end",
         "lastSeq": 10000,
-        "size": 10500111
+        "size": 10500229
       },
       "aborted": false,
       "cleanup": {
@@ -258,45 +377,71 @@
         "decisionsDuringStall": 0
       },
       "decisionNs": {
-        "p50": 11759,
-        "p99": 40565,
-        "max": 2133752
-      }
+        "p50": 10539,
+        "p99": 36655,
+        "max": 2385771
+      },
+      "producerIo": {
+        "ackHandlingNs": 18366506,
+        "pipeWriteNs": 54033067,
+        "ackMessages": 10000
+      },
+      "eventLoopDelayNs": {
+        "p50": 1089535,
+        "p99": 2043903,
+        "max": 6066175
+      },
+      "_rejected": {}
     },
     "p99-rep2-control": {
       "n": 10000,
+      "segmentId": "f8605cf0-9fd6-4788-a198-aa097f468a53",
       "published": 10000,
       "enqueued": 10000,
       "lost": 0,
       "lostRanges": [],
+      "writerGaps": [],
+      "unexplainedGaps": 0,
       "acked": 10000,
+      "ackedVia": {
+        "append": 10000
+      },
+      "rejected": 0,
+      "rejectedReasons": {},
+      "strayAcks": 0,
       "unackedPublished": 0,
-      "ackStatViolations": 0,
+      "stillInflightOrQueued": 0,
       "writerStarts": 1,
       "recovered": [
         {
           "type": "recovered",
+          "created": true,
+          "segment_id": "f8605cf0-9fd6-4788-a198-aa097f468a53",
+          "epoch": 1,
           "records": 0,
           "lastSeq": 0,
-          "truncatedTailBytes": 0,
-          "tailReason": null
+          "quarantine": null
         }
       ],
+      "refusals": [],
+      "writerFailed": null,
+      "drainTimedOut": false,
       "exits": [
         {
-          "pid": 164921,
+          "pid": 170782,
+          "epoch": 1,
           "code": 0,
           "sig": null
         }
       ],
       "pids": [
-        164921
+        170782
       ],
       "survivors": [],
       "endMsg": {
         "type": "end",
         "lastSeq": 10000,
-        "size": 10500111
+        "size": 10500229
       },
       "aborted": false,
       "cleanup": {
@@ -309,45 +454,71 @@
         "decisionsDuringStall": 0
       },
       "decisionNs": {
-        "p50": 11626,
-        "p99": 39027,
-        "max": 1957547
-      }
+        "p50": 10600,
+        "p99": 37566,
+        "max": 1873196
+      },
+      "producerIo": {
+        "ackHandlingNs": 18159328,
+        "pipeWriteNs": 52942308,
+        "ackMessages": 10000
+      },
+      "eventLoopDelayNs": {
+        "p50": 1088511,
+        "p99": 2038783,
+        "max": 5578751
+      },
+      "_rejected": {}
     },
     "p99-rep2-stalled": {
       "n": 10000,
+      "segmentId": "42df2276-2bce-4915-a617-43aa6a535d3a",
       "published": 10000,
       "enqueued": 10000,
       "lost": 0,
       "lostRanges": [],
+      "writerGaps": [],
+      "unexplainedGaps": 0,
       "acked": 10000,
+      "ackedVia": {
+        "append": 10000
+      },
+      "rejected": 0,
+      "rejectedReasons": {},
+      "strayAcks": 0,
       "unackedPublished": 0,
-      "ackStatViolations": 0,
+      "stillInflightOrQueued": 0,
       "writerStarts": 1,
       "recovered": [
         {
           "type": "recovered",
+          "created": true,
+          "segment_id": "42df2276-2bce-4915-a617-43aa6a535d3a",
+          "epoch": 1,
           "records": 0,
           "lastSeq": 0,
-          "truncatedTailBytes": 0,
-          "tailReason": null
+          "quarantine": null
         }
       ],
+      "refusals": [],
+      "writerFailed": null,
+      "drainTimedOut": false,
       "exits": [
         {
-          "pid": 164970,
+          "pid": 170793,
+          "epoch": 1,
           "code": 0,
           "sig": null
         }
       ],
       "pids": [
-        164970
+        170793
       ],
       "survivors": [],
       "endMsg": {
         "type": "end",
         "lastSeq": 10000,
-        "size": 10500111
+        "size": 10500229
       },
       "aborted": false,
       "cleanup": {
@@ -356,14 +527,25 @@
       },
       "stall": {
         "observed": true,
-        "ms": 2000.305541,
-        "decisionsDuringStall": 3600
+        "ms": 2000.255909,
+        "decisionsDuringStall": 3604
       },
       "decisionNs": {
-        "p50": 12297,
-        "p99": 44100,
-        "max": 2171062
-      }
+        "p50": 10368,
+        "p99": 36986,
+        "max": 334273
+      },
+      "producerIo": {
+        "ackHandlingNs": 17067592,
+        "pipeWriteNs": 43580782,
+        "ackMessages": 10000
+      },
+      "eventLoopDelayNs": {
+        "p50": 1083391,
+        "p99": 2079743,
+        "max": 5464063
+      },
+      "_rejected": {}
     },
     "p99": [
       {
@@ -372,12 +554,14 @@
           "control",
           "stalled"
         ],
-        "controlP99Ns": 40253,
-        "stalledP99Ns": 38618,
-        "boundNs": 1040253,
+        "controlP99Ns": 40030,
+        "stalledP99Ns": 40714,
+        "boundNs": 1040030,
         "withinBound": true,
-        "stallMs": 2000.225483,
-        "decisionsDuringStall": 3470
+        "stallMs": 2000.375058,
+        "decisionsDuringStall": 3578,
+        "controlEventLoopP99Ns": 2150399,
+        "stalledEventLoopP99Ns": 2959359
       },
       {
         "rep": 1,
@@ -385,12 +569,14 @@
           "stalled",
           "control"
         ],
-        "controlP99Ns": 40565,
-        "stalledP99Ns": 41058,
-        "boundNs": 1040565,
+        "controlP99Ns": 36655,
+        "stalledP99Ns": 38885,
+        "boundNs": 1036655,
         "withinBound": true,
-        "stallMs": 2000.254166,
-        "decisionsDuringStall": 3414
+        "stallMs": 2000.332121,
+        "decisionsDuringStall": 3592,
+        "controlEventLoopP99Ns": 2043903,
+        "stalledEventLoopP99Ns": 2144255
       },
       {
         "rep": 2,
@@ -398,61 +584,82 @@
           "control",
           "stalled"
         ],
-        "controlP99Ns": 39027,
-        "stalledP99Ns": 44100,
-        "boundNs": 1039027,
+        "controlP99Ns": 37566,
+        "stalledP99Ns": 36986,
+        "boundNs": 1037566,
         "withinBound": true,
-        "stallMs": 2000.305541,
-        "decisionsDuringStall": 3600
+        "stallMs": 2000.255909,
+        "decisionsDuringStall": 3604,
+        "controlEventLoopP99Ns": 2038783,
+        "stalledEventLoopP99Ns": 2079743
       }
     ],
     "crash": {
       "n": 10000,
+      "segmentId": "09428d4c-7083-4985-8611-2e1abaa81261",
       "published": 10000,
       "enqueued": 10000,
       "lost": 0,
       "lostRanges": [],
+      "writerGaps": [],
+      "unexplainedGaps": 0,
       "acked": 10000,
+      "ackedVia": {
+        "append": 9996,
+        "recovery": 4
+      },
+      "rejected": 0,
+      "rejectedReasons": {},
+      "strayAcks": 0,
       "unackedPublished": 0,
-      "ackStatViolations": 0,
+      "stillInflightOrQueued": 0,
       "writerStarts": 2,
       "recovered": [
         {
           "type": "recovered",
+          "created": true,
+          "segment_id": "09428d4c-7083-4985-8611-2e1abaa81261",
+          "epoch": 1,
           "records": 0,
           "lastSeq": 0,
-          "truncatedTailBytes": 0,
-          "tailReason": null
+          "quarantine": null
         },
         {
           "type": "recovered",
+          "created": false,
+          "segment_id": "09428d4c-7083-4985-8611-2e1abaa81261",
+          "epoch": 2,
           "records": 2998,
           "lastSeq": 2998,
-          "truncatedTailBytes": 0,
-          "tailReason": null
+          "quarantine": null
         }
       ],
+      "refusals": [],
+      "writerFailed": null,
+      "drainTimedOut": false,
       "exits": [
         {
-          "pid": 164980,
+          "pid": 170841,
+          "epoch": 1,
           "code": null,
           "sig": "SIGKILL"
         },
         {
-          "pid": 164987,
+          "pid": 170848,
+          "epoch": 2,
           "code": 0,
           "sig": null
         }
       ],
       "pids": [
-        164980,
-        164987
+        170841,
+        170848
       ],
       "survivors": [],
       "endMsg": {
         "type": "end",
         "lastSeq": 10000,
-        "size": 10500111
+        "size": 10500229
       },
       "aborted": false,
       "cleanup": {
@@ -465,58 +672,93 @@
         "decisionsDuringStall": 0
       },
       "decisionNs": {
-        "p50": 11602,
-        "p99": 39112,
-        "max": 3108315
-      }
+        "p50": 10261,
+        "p99": 35194,
+        "max": 2190194
+      },
+      "producerIo": {
+        "ackHandlingNs": 20806771,
+        "pipeWriteNs": 55865774,
+        "ackMessages": 12998
+      },
+      "eventLoopDelayNs": {
+        "p50": 1090559,
+        "p99": 2109439,
+        "max": 11698175
+      },
+      "_rejected": {}
     },
     "torn": {
       "n": 10000,
+      "segmentId": "df4ff180-6e02-447a-ac60-6199d80317f0",
       "published": 10000,
       "enqueued": 10000,
       "lost": 0,
       "lostRanges": [],
+      "writerGaps": [],
+      "unexplainedGaps": 0,
       "acked": 10000,
+      "ackedVia": {
+        "append": 10000
+      },
+      "rejected": 0,
+      "rejectedReasons": {},
+      "strayAcks": 0,
       "unackedPublished": 0,
-      "ackStatViolations": 0,
+      "stillInflightOrQueued": 0,
       "writerStarts": 2,
       "recovered": [
         {
           "type": "recovered",
+          "created": true,
+          "segment_id": "df4ff180-6e02-447a-ac60-6199d80317f0",
+          "epoch": 1,
           "records": 0,
           "lastSeq": 0,
-          "truncatedTailBytes": 0,
-          "tailReason": null
+          "quarantine": null
         },
         {
           "type": "recovered",
+          "created": false,
+          "segment_id": "df4ff180-6e02-447a-ac60-6199d80317f0",
+          "epoch": 2,
           "records": 2998,
           "lastSeq": 2998,
-          "truncatedTailBytes": 521,
-          "tailReason": "torn_body"
+          "quarantine": {
+            "file": "work/torn.seg.quarantine-3147980-e2",
+            "offset": 3147980,
+            "bytes": 521,
+            "sha256": "9ae791561e12bce46394c3fe9e82ff832d9a6af1f6cc72484e38663386394f80",
+            "tailReason": "torn_body"
+          }
         }
       ],
+      "refusals": [],
+      "writerFailed": null,
+      "drainTimedOut": false,
       "exits": [
         {
-          "pid": 165032,
+          "pid": 170855,
+          "epoch": 1,
           "code": null,
           "sig": "SIGKILL"
         },
         {
-          "pid": 165039,
+          "pid": 170862,
+          "epoch": 2,
           "code": 0,
           "sig": null
         }
       ],
       "pids": [
-        165032,
-        165039
+        170855,
+        170862
       ],
       "survivors": [],
       "endMsg": {
         "type": "end",
         "lastSeq": 10000,
-        "size": 10500111
+        "size": 10500229
       },
       "aborted": false,
       "cleanup": {
@@ -529,50 +771,81 @@
         "decisionsDuringStall": 0
       },
       "decisionNs": {
-        "p50": 11442,
-        "p99": 38498,
-        "max": 1962194
-      }
+        "p50": 10559,
+        "p99": 37513,
+        "max": 2246496
+      },
+      "producerIo": {
+        "ackHandlingNs": 23270500,
+        "pipeWriteNs": 63084668,
+        "ackMessages": 12998
+      },
+      "eventLoopDelayNs": {
+        "p50": 1092607,
+        "p99": 2077695,
+        "max": 11272191
+      },
+      "_rejected": {}
     },
     "overflow": {
       "n": 10000,
+      "segmentId": "878388b2-f406-48cf-a24d-3c2d7b849231",
       "published": 10000,
-      "enqueued": 6763,
-      "lost": 3237,
+      "enqueued": 6777,
+      "lost": 3223,
       "lostRanges": [
         [
           1380,
-          4616
+          4602
         ]
       ],
-      "acked": 6763,
+      "writerGaps": [
+        [
+          1380,
+          4602
+        ]
+      ],
+      "unexplainedGaps": 0,
+      "acked": 6777,
+      "ackedVia": {
+        "append": 6777
+      },
+      "rejected": 0,
+      "rejectedReasons": {},
+      "strayAcks": 0,
       "unackedPublished": 0,
-      "ackStatViolations": 0,
+      "stillInflightOrQueued": 0,
       "writerStarts": 1,
       "recovered": [
         {
           "type": "recovered",
+          "created": true,
+          "segment_id": "878388b2-f406-48cf-a24d-3c2d7b849231",
+          "epoch": 1,
           "records": 0,
           "lastSeq": 0,
-          "truncatedTailBytes": 0,
-          "tailReason": null
+          "quarantine": null
         }
       ],
+      "refusals": [],
+      "writerFailed": null,
+      "drainTimedOut": false,
       "exits": [
         {
-          "pid": 165046,
+          "pid": 170909,
+          "epoch": 1,
           "code": 0,
           "sig": null
         }
       ],
       "pids": [
-        165046
+        170909
       ],
       "survivors": [],
       "endMsg": {
         "type": "end",
         "lastSeq": 10000,
-        "size": 7100529
+        "size": 7115388
       },
       "aborted": false,
       "cleanup": {
@@ -581,22 +854,33 @@
       },
       "stall": {
         "observed": true,
-        "ms": 2000.314096,
-        "decisionsDuringStall": 3614
+        "ms": 2000.275192,
+        "decisionsDuringStall": 3598
       },
       "decisionNs": {
-        "p50": 11145,
-        "p99": 39880,
-        "max": 328245
+        "p50": 10360,
+        "p99": 39334,
+        "max": 1850422
       },
+      "producerIo": {
+        "ackHandlingNs": 13178202,
+        "pipeWriteNs": 35679067,
+        "ackMessages": 6777
+      },
+      "eventLoopDelayNs": {
+        "p50": 1084415,
+        "p99": 2093055,
+        "max": 4943871
+      },
+      "_rejected": {},
       "coverage": {
         "published": 10000,
-        "durable": 6763,
-        "lost": 3237,
+        "durable": 6777,
+        "lost": 3223,
         "lostRanges": [
           [
             1380,
-            4616
+            4602
           ]
         ],
         "complete": false
@@ -604,32 +888,47 @@
     },
     "abort": {
       "n": 2000,
-      "published": 818,
+      "segmentId": "060f456a-2ced-42bb-9da7-4128371ecf92",
+      "published": 798,
       "enqueued": 2000,
       "lost": 0,
       "lostRanges": [],
+      "writerGaps": [],
+      "unexplainedGaps": 0,
       "acked": 9,
-      "unackedPublished": 809,
-      "ackStatViolations": 0,
+      "ackedVia": {
+        "append": 9
+      },
+      "rejected": 0,
+      "rejectedReasons": {},
+      "strayAcks": 0,
+      "unackedPublished": 789,
+      "stillInflightOrQueued": 789,
       "writerStarts": 1,
       "recovered": [
         {
           "type": "recovered",
+          "created": true,
+          "segment_id": "060f456a-2ced-42bb-9da7-4128371ecf92",
+          "epoch": 1,
           "records": 0,
           "lastSeq": 0,
-          "truncatedTailBytes": 0,
-          "tailReason": null
+          "quarantine": null
         }
       ],
+      "refusals": [],
+      "writerFailed": null,
+      "drainTimedOut": false,
       "exits": [
         {
-          "pid": 165094,
+          "pid": 170916,
+          "epoch": 1,
           "code": null,
           "sig": "SIGKILL"
         }
       ],
       "pids": [
-        165094
+        170916
       ],
       "survivors": [],
       "endMsg": null,
@@ -644,10 +943,330 @@
         "decisionsDuringStall": 0
       },
       "decisionNs": {
-        "p50": 10284,
-        "p99": 35680,
-        "max": 121835
-      }
+        "p50": 11250,
+        "p99": 48759,
+        "max": 362804
+      },
+      "producerIo": {
+        "ackHandlingNs": 111119,
+        "pipeWriteNs": 904865,
+        "ackMessages": 9
+      },
+      "eventLoopDelayNs": {
+        "p50": 1060863,
+        "p99": 2140159,
+        "max": 5533695
+      },
+      "_rejected": {}
+    },
+    "falsify-p4-foreign-id": {
+      "n": 200,
+      "segmentId": "fb4ffcff-ee47-41cd-abad-bc283daae1c2",
+      "published": 200,
+      "enqueued": 200,
+      "lost": 0,
+      "lostRanges": [],
+      "writerGaps": [],
+      "unexplainedGaps": 0,
+      "acked": 0,
+      "ackedVia": {},
+      "rejected": 0,
+      "rejectedReasons": {},
+      "strayAcks": 0,
+      "unackedPublished": 200,
+      "stillInflightOrQueued": 200,
+      "writerStarts": 1,
+      "recovered": [],
+      "refusals": [
+        {
+          "type": "refused",
+          "reason": "segment_identity_mismatch",
+          "segment": "work/p4.seg",
+          "found": "d8849773-f4b7-438b-b0b2-bf730bcf706b",
+          "bytes": 10500229
+        }
+      ],
+      "writerFailed": {
+        "epoch": 1,
+        "code": 3,
+        "sig": null,
+        "refusal": {
+          "type": "refused",
+          "reason": "segment_identity_mismatch",
+          "segment": "work/p4.seg",
+          "found": "d8849773-f4b7-438b-b0b2-bf730bcf706b",
+          "bytes": 10500229
+        }
+      },
+      "drainTimedOut": false,
+      "exits": [
+        {
+          "pid": 170985,
+          "epoch": 1,
+          "code": 3,
+          "sig": null
+        }
+      ],
+      "pids": [
+        170985
+      ],
+      "survivors": [],
+      "endMsg": null,
+      "aborted": false,
+      "cleanup": {
+        "term": false,
+        "kill": false
+      },
+      "stall": {
+        "observed": false,
+        "ms": null,
+        "decisionsDuringStall": 0
+      },
+      "decisionNs": {
+        "p50": 11076,
+        "p99": 51676,
+        "max": 141407
+      },
+      "producerIo": {
+        "ackHandlingNs": 20896,
+        "pipeWriteNs": 0,
+        "ackMessages": 0
+      },
+      "eventLoopDelayNs": {
+        "p50": 1083391,
+        "p99": 1613823,
+        "max": 9322495
+      },
+      "_rejected": {}
+    },
+    "falsify-p4b-seed999": {
+      "n": 200,
+      "segmentId": "d8849773-f4b7-438b-b0b2-bf730bcf706b",
+      "published": 200,
+      "enqueued": 200,
+      "lost": 0,
+      "lostRanges": [],
+      "writerGaps": [],
+      "unexplainedGaps": 0,
+      "acked": 0,
+      "ackedVia": {},
+      "rejected": 200,
+      "rejectedReasons": {
+        "ack_mismatch_raw_sha256": 94,
+        "writer_conflict": 200
+      },
+      "strayAcks": 9906,
+      "unackedPublished": 200,
+      "stillInflightOrQueued": 0,
+      "writerStarts": 1,
+      "recovered": [
+        {
+          "type": "recovered",
+          "created": false,
+          "segment_id": "d8849773-f4b7-438b-b0b2-bf730bcf706b",
+          "epoch": 1,
+          "records": 10000,
+          "lastSeq": 10000,
+          "quarantine": null
+        }
+      ],
+      "refusals": [],
+      "writerFailed": null,
+      "drainTimedOut": false,
+      "exits": [
+        {
+          "pid": 170992,
+          "epoch": 1,
+          "code": 0,
+          "sig": null
+        }
+      ],
+      "pids": [
+        170992
+      ],
+      "survivors": [],
+      "endMsg": {
+        "type": "end",
+        "lastSeq": 10000,
+        "size": 10500229
+      },
+      "aborted": false,
+      "cleanup": {
+        "term": false,
+        "kill": false
+      },
+      "stall": {
+        "observed": false,
+        "ms": null,
+        "decisionsDuringStall": 0
+      },
+      "decisionNs": {
+        "p50": 12832,
+        "p99": 53763,
+        "max": 109934
+      },
+      "producerIo": {
+        "ackHandlingNs": 8914680,
+        "pipeWriteNs": 914243,
+        "ackMessages": 10000
+      },
+      "eventLoopDelayNs": {
+        "p50": 1069055,
+        "p99": 2152447,
+        "max": 3708927
+      },
+      "_rejected": {}
+    },
+    "falsify-same-id-identical": {
+      "n": 200,
+      "segmentId": "d8849773-f4b7-438b-b0b2-bf730bcf706b",
+      "published": 200,
+      "enqueued": 200,
+      "lost": 0,
+      "lostRanges": [],
+      "writerGaps": [],
+      "unexplainedGaps": 0,
+      "acked": 200,
+      "ackedVia": {
+        "recovery": 123,
+        "dup_identical": 77
+      },
+      "rejected": 0,
+      "rejectedReasons": {},
+      "strayAcks": 9877,
+      "unackedPublished": 0,
+      "stillInflightOrQueued": 0,
+      "writerStarts": 1,
+      "recovered": [
+        {
+          "type": "recovered",
+          "created": false,
+          "segment_id": "d8849773-f4b7-438b-b0b2-bf730bcf706b",
+          "epoch": 1,
+          "records": 10000,
+          "lastSeq": 10000,
+          "quarantine": null
+        }
+      ],
+      "refusals": [],
+      "writerFailed": null,
+      "drainTimedOut": false,
+      "exits": [
+        {
+          "pid": 171001,
+          "epoch": 1,
+          "code": 0,
+          "sig": null
+        }
+      ],
+      "pids": [
+        171001
+      ],
+      "survivors": [],
+      "endMsg": {
+        "type": "end",
+        "lastSeq": 10000,
+        "size": 10500229
+      },
+      "aborted": false,
+      "cleanup": {
+        "term": false,
+        "kill": false
+      },
+      "stall": {
+        "observed": false,
+        "ms": null,
+        "decisionsDuringStall": 0
+      },
+      "decisionNs": {
+        "p50": 12745,
+        "p99": 58296,
+        "max": 89346
+      },
+      "producerIo": {
+        "ackHandlingNs": 9467509,
+        "pipeWriteNs": 779052,
+        "ackMessages": 10200
+      },
+      "eventLoopDelayNs": {
+        "p50": 1088511,
+        "p99": 3266559,
+        "max": 3508223
+      },
+      "_rejected": {}
+    },
+    "falsify-decoy": {
+      "n": 2000,
+      "segmentId": "741e44c1-0904-4f02-b739-b645d632ac5f",
+      "published": 810,
+      "enqueued": 2000,
+      "lost": 0,
+      "lostRanges": [],
+      "writerGaps": [],
+      "unexplainedGaps": 0,
+      "acked": 9,
+      "ackedVia": {
+        "append": 9
+      },
+      "rejected": 0,
+      "rejectedReasons": {},
+      "strayAcks": 0,
+      "unackedPublished": 801,
+      "stillInflightOrQueued": 801,
+      "writerStarts": 1,
+      "recovered": [
+        {
+          "type": "recovered",
+          "created": true,
+          "segment_id": "741e44c1-0904-4f02-b739-b645d632ac5f",
+          "epoch": 1,
+          "records": 0,
+          "lastSeq": 0,
+          "quarantine": null
+        }
+      ],
+      "refusals": [],
+      "writerFailed": null,
+      "drainTimedOut": false,
+      "exits": [
+        {
+          "pid": 171052,
+          "epoch": 1,
+          "code": null,
+          "sig": "SIGKILL"
+        }
+      ],
+      "pids": [
+        171052
+      ],
+      "survivors": [],
+      "endMsg": null,
+      "aborted": true,
+      "cleanup": {
+        "term": true,
+        "kill": true
+      },
+      "stall": {
+        "observed": false,
+        "ms": null,
+        "decisionsDuringStall": 0
+      },
+      "decisionNs": {
+        "p50": 11482,
+        "p99": 51280,
+        "max": 327351
+      },
+      "producerIo": {
+        "ackHandlingNs": 74375,
+        "pipeWriteNs": 941179,
+        "ackMessages": 9
+      },
+      "eventLoopDelayNs": {
+        "p50": 1060863,
+        "p99": 1868799,
+        "max": 4542463
+      },
+      "_rejected": {}
     }
   }
 }

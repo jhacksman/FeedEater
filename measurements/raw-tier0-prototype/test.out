@@ -4,39 +4,53 @@ PASS tier1.mjs imports
 PASS tier1.mjs: no network/env/t_ingest value
 PASS fixture.mjs imports node:crypto
 PASS fixture.mjs: no network/env/t_ingest value
-PASS writer.mjs imports node:fs,./tier0.mjs
+PASS writer.mjs imports node:fs,node:path,./tier0.mjs
 PASS writer.mjs: no network/env/t_ingest value
-PASS producer.mjs imports node:fs,node:path,node:child_process,node:url,./tier0.mjs,./tier1.mjs
+PASS producer.mjs imports node:fs,node:path,node:crypto,node:child_process,node:url,node:perf_hooks,./tier0.mjs,./tier1.mjs
 PASS producer.mjs: no network/env/t_ingest value
 PASS fixture deterministic sha e0bca11d2aa6bb747dea06c91a0b29dc2aa1a1037fae05269c1ffb61decf14c2
 PASS 5154 frames whose bytes differ from parse+re-serialize
 PASS roundtrip lost=0 acked=10000
-PASS every ack arrived with offset+length inside the file
+PASS roundtrip: 0 rejected/stray acks, 0 unexplained gaps, no drain timeout or writer failure
 PASS segment 10000 records, tail 0
 PASS every Tier-0 raw byte-equal to the received frame
 PASS every Tier-0 metadata equal to supplied metadata
 PASS every ack file/offset/sha resolves to the received bytes
 PASS re-decoded Tier-1 partition byte-identical f8771d6496997b797aa85f5554b157d29eb0afe299eac1c8649009816ef03e60
-PASS rep 0: writer stall observed 2000.2 ms
-PASS rep 0: 3470 decisions completed while writer stalled
+PASS rep 0: writer stall observed 2000.4 ms
+PASS rep 0: 3578 decisions completed while writer stalled
 PASS rep 0: both arms 10000 acked, 0 lost
-MEASURED rep 0 (control then stalled): control p99 40253 ns, stalled p99 38618 ns, bound 1040253 ns -> within max(1 ms, 10%)
+MEASURED rep 0 (control then stalled): callback p99 control 40030 ns, stalled 40714 ns, bound 1040030 ns -> within max(1 ms, 10%); event-loop delay p99 control 2150399 ns, stalled 2959359 ns (reported, not bounded); producer ack+pipe ns control 80487175, stalled 84560866
 PASS rep 1: writer stall observed 2000.3 ms
-PASS rep 1: 3414 decisions completed while writer stalled
+PASS rep 1: 3592 decisions completed while writer stalled
 PASS rep 1: both arms 10000 acked, 0 lost
-MEASURED rep 1 (stalled then control): control p99 40565 ns, stalled p99 41058 ns, bound 1040565 ns -> within max(1 ms, 10%)
+MEASURED rep 1 (stalled then control): callback p99 control 36655 ns, stalled 38885 ns, bound 1036655 ns -> within max(1 ms, 10%); event-loop delay p99 control 2043903 ns, stalled 2144255 ns (reported, not bounded); producer ack+pipe ns control 72399573, stalled 73685993
 PASS rep 2: writer stall observed 2000.3 ms
-PASS rep 2: 3600 decisions completed while writer stalled
+PASS rep 2: 3604 decisions completed while writer stalled
 PASS rep 2: both arms 10000 acked, 0 lost
-MEASURED rep 2 (control then stalled): control p99 39027 ns, stalled p99 44100 ns, bound 1039027 ns -> within max(1 ms, 10%)
+MEASURED rep 2 (control then stalled): callback p99 control 37566 ns, stalled 36986 ns, bound 1037566 ns -> within max(1 ms, 10%); event-loop delay p99 control 2038783 ns, stalled 2079743 ns (reported, not bounded); producer ack+pipe ns control 71101636, stalled 60648374
 PASS crash: writer SIGKILLed and restarted (2 starts)
 PASS crash: every seq exactly once, in order, byte-equal
-PASS torn: recovery truncated 521 bytes (torn_body)
+PASS torn: proven torn final write 521 B (torn_body) quarantined at offset 3147980
+PASS torn: quarantine file holds exactly the cut bytes (sha matches)
 PASS torn: final segment 10000 valid records
-PASS overflow: 3237 lost in 1 ranges
+PASS overflow: 3223 lost in 1 ranges
 PASS overflow: durable + lost = published; no lost seq in Tier-0; acked = durable
 PASS overflow: re-decode equals decision-path Tier-1 for durable seqs
 PASS abort: TERM then KILL escalation
-PASS abort: 809 published records never acked (no raw_ref; not compliant)
-PASS no owned writer survives (13 pids checked)
-38 PASS, 0 FAIL
+PASS abort: 789 published records never acked (no raw_ref; not compliant)
+PASS A7 small3 corrupt middle (1171 B): refused corrupt_segment/bad_sha exit 3, bytes unchanged, no quarantine
+PASS A7 P1 corrupt record 5000: refused, all 10,000 records' bytes kept, no acks
+PASS bad-magic-tail: not a proven torn write -> refused bad_magic, unchanged
+PASS bad-length-tail: not a proven torn write -> refused bad_length, unchanged
+PASS A7 P2a foreign file: refused foreign_file, 3000 B unchanged
+PASS A7 symlink segment -> 13 B foreign target: refused segment_is_symlink, target unchanged
+PASS segment_id mismatch: refused, unchanged
+PASS A7 P4 rerun on existing segment with a new id: writerFailed segment_identity_mismatch, 173 ms, 0 acked, segment unchanged
+PASS A7 P4b seed-999 vs seed-173 segment: 0 acked, 0 wrong-sha accepted, 200 rejected {"ack_mismatch_raw_sha256":94,"writer_conflict":200}, segment unchanged
+PASS identical re-send on own segment: 200 acked at original offsets {"recovery":123,"dup_identical":77}, segment unchanged
+PASS A7 P6 seqs 1,5,3: recovered,gap:2-4,rejected:3(out_of_order),ack:1,ack:5,end
+PASS overflow: writer reported gaps [[1380,4602]], all inside producer lost ranges
+PASS A7 P5 foreign decoy pid alive (not owned, not signalled); owned survivors 0
+PASS no owned writer survives (17 pids checked)
+52 PASS, 0 FAIL
