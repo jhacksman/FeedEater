@@ -1,0 +1,58 @@
+{
+  "contract": "collector173-audit/1",
+  "inert": true,
+  "date": "2026-10-10",
+  "pins": {
+    "feedeater_173": "5206f9035ad1c057d78990b294941221e936f895",
+    "aromer_352": "6da930b67675475433a8a6706df8fd9d3beda0c3",
+    "dat_src_011": "aromer 6da930b docs/spec/v1/SPEC-v1.md l.969",
+    "ws_contract": "c899530c43e15d1fc6d334ddba12f59dd6c0eac1",
+    "joint_guard_under_review": "54ba98a98bce1eb307852861deb394ef196638ae"
+  },
+  "status_values": ["implemented", "tested", "missing", "unknown"],
+  "rows": [
+    {"id":"F1","status":["implemented","tested"],"src":["src/constants.ts:4"],"test":["collector.test.ts:76"]},
+    {"id":"F2","status":["implemented","tested"],"src":["src/constants.ts:7"],"test":["decode-measure.test.ts:14","decode-measure.test.ts:19"]},
+    {"id":"F3","status":["implemented","tested"],"src":["src/constants.ts:9"],"test":["decode-measure.test.ts:14","decode-measure.test.ts:19"]},
+    {"id":"F4","status":["implemented","tested"],"src":["src/subjects.ts:34-36"],"test":["collector.test.ts:76"]},
+    {"id":"F5","status":["implemented","tested"],"src":["src/constants.ts:23-60"],"test":["collector.test.ts:87"]},
+    {"id":"F6","status":["implemented"],"src":["src/subjects.ts:37"],"test":["collector.test.ts:87"],"note":"address-only; superset of #352 T1 topics:[Launched]"},
+    {"id":"F7","status":["implemented","tested"],"src":["src/subjects.ts:41-44","src/tracker.ts:54-57"],"test":["collector.test.ts:76","collector.test.ts:87"]},
+    {"id":"F8","status":["missing"],"src":[],"test":[],"note":"no Launched/PoolRegistered decode or layout check; raw .factory publish"},
+    {"id":"F9","status":["implemented","tested"],"src":["src/subjects.ts:48"],"test":["collector.test.ts:137","decode-measure.test.ts:52","corrections.test.ts:235"]},
+    {"id":"P1","status":["implemented","tested"],"src":["src/collector.ts:297-302","src/collector.ts:322","src/collector.ts:387","src/collector.ts:401"],"test":["collector.test.ts:27"]},
+    {"id":"P2","status":["implemented","tested"],"src":["src/collector.ts:386-392"],"test":["corrections.test.ts:105","corrections.test.ts:119"]},
+    {"id":"D1","status":["implemented","tested"],"src":["src/collector.ts:357","src/ledger.ts:8-9"],"test":["collector.test.ts:44"]},
+    {"id":"D2","status":["missing"],"src":["src/collector.ts:376"],"test":[],"note":"txHash recorded, not in identity; no unresolved-conflict state"},
+    {"id":"D3","status":["implemented","tested"],"src":["src/collector.ts:332","src/collector.ts:358","src/ledger.ts:33-45"],"test":["collector.test.ts:52","collector.test.ts:68","corrections.test.ts:21","corrections.test.ts:32"]},
+    {"id":"D4","status":["implemented","tested"],"src":["src/persister.ts:16-22"],"test":["persister.test.ts:28","persister.test.ts:40","persister.test.ts:47","persister.test.ts:53"]},
+    {"id":"A1","status":["implemented","tested"],"src":["src/persister.ts:87","src/persister.ts:122","src/persister.ts:126-144","settings.ts:57"],"test":["persister.test.ts:66","persister.test.ts:88"]},
+    {"id":"A2","status":["implemented","tested"],"src":["settings.ts:59","src/persister.ts:119"],"test":["persister.test.ts:101"]},
+    {"id":"B1","status":["implemented","tested"],"src":["src/subjects.ts:8","src/subjects.ts:17-19"],"test":["collector.test.ts:149","collector.test.ts:201","collector.test.ts:220"]},
+    {"id":"B2","status":["implemented","tested"],"src":["src/collector.ts:352-353","settings.ts:43"],"test":["collector.test.ts:149"]},
+    {"id":"B3","status":["implemented","tested"],"src":["src/collector.ts:550-561"],"test":["collector.test.ts:149","collector.test.ts:173","collector.test.ts:181"]},
+    {"id":"B4","status":["implemented","tested"],"src":["src/subjects.ts:12","src/persister.ts:236-242","src/collector.ts:592-607"],"test":["collector.test.ts:220","persister.test.ts:111","corrections.test.ts:73"]},
+    {"id":"B5","status":["implemented","missing"],"src":["src/collector.ts:401","settings.ts:43"],"test":["persister.test.ts:111"],"note":"core NATS + retained-window recovery; no durable stream"},
+    {"id":"C1","status":["implemented"],"src":["src/collector.ts:550-554","settings.ts:39"],"test":[]},
+    {"id":"C2","status":["implemented"],"src":["settings.ts:41"],"test":[]},
+    {"id":"C3","status":["implemented"],"src":["src/collector.ts:421-422","settings.ts:47"],"test":[]},
+    {"id":"C4","status":["implemented","tested"],"src":["src/tracker.ts:54-57","settings.ts:44"],"test":["collector.test.ts:100","collector.test.ts:111"]},
+    {"id":"C5","status":["implemented","tested"],"src":["src/collector.ts:715-721"],"test":["corrections.test.ts:119"]},
+    {"id":"C6","status":["missing"],"src":["src/collector.ts:236","src/collector.ts:257-260"],"test":[],"note":"reconnect unbounded"},
+    {"id":"C7","status":["missing"],"src":[],"test":[],"note":"no WS message/byte/cumulative-backfill cap in source"}
+  ],
+  "dat_src_011": {
+    "a_60min_side_by_side": "not_performed",
+    "a_100pct_live": "unknown",
+    "a_zero_duplicate_live_per_natural_key": "partial (D1 vs D2)",
+    "a_p99_le_10ms": "unmeasured",
+    "a_backfill_only_on_backfill_subjects": "implemented_tested",
+    "b_dat_prv_002_fields": "unknown"
+  },
+  "acceptance": [
+    {"id":"X1","check":"every src/test ref resolves at feedeater_173 via git show","offline":true},
+    {"id":"X2","check":"F5 six factory+hook pairs equal aromer_352 json factories rows 1-6 (set equality)","offline":true},
+    {"id":"X3","check":"F8/D2/C6/C7 stay missing until a new source head is declared; no status upgrade without a pinned test","offline":true},
+    {"id":"X4","check":"DAT-SRC-011 (a) entries change only from a native 60-min run artifact","offline":false}
+  ]
+}
