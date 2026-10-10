@@ -1,0 +1,203 @@
+{
+  "schema": "native-preflight-input/1",
+  "fixture": "SYNTHETIC reference on another boot_id, ms unit, different window",
+  "asOfUtc": "2026-10-10T05:36:30Z",
+  "pins": {
+    "collector": {
+      "commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "tree": "1111111111111111111111111111111111111111",
+      "manifestSha256": "2222222222222222222222222222222222222222222222222222222222222222"
+    },
+    "nativePath": {
+      "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "tree": "3333333333333333333333333333333333333333",
+      "manifestSha256": "4444444444444444444444444444444444444444444444444444444444444444"
+    },
+    "reference": {
+      "commit": "cccccccccccccccccccccccccccccccccccccccc",
+      "tree": "5555555555555555555555555555555555555555",
+      "manifestSha256": "6666666666666666666666666666666666666666666666666666666666666666"
+    }
+  },
+  "filters": {
+    "collector": {
+      "digest": "8b5e28aa1ca300ea4b70d2f338c79a0800196823bc0dcac224a36ab7a36146ca",
+      "filters": [
+        {
+          "address": [
+            "0x498581ff718922c3f8e6a244956af099b2652b2b"
+          ],
+          "topics": [
+            [
+              "0xdd466e674ea557f56295e2d0218a125ea4b4f0f6f3307b95f85e6110838d6438",
+              "0x40e9cecb9f5f1f1c5b9c97dec2917b7ee92e57ba5563708daca94dd84ad7112f"
+            ]
+          ]
+        },
+        {
+          "address": [
+            "0x1176122eb77ad6a2339322cda7c4d7ea9bfa63dc",
+            "0x1de58a6769526a03a504d9d59b8757cd8097dc57",
+            "0xa52ad458ce0282a971ecc71c051a32f28946bb9f",
+            "0xb9e5910043353717af54d8dd34b6ee57ffe49c35",
+            "0xe3ab924c72463c1ac8d1d8352ee640b89eb1ea64",
+            "0xff70918ef17a2d74d683a8297813b177bafad1f4"
+          ]
+        }
+      ]
+    },
+    "reference": {
+      "digest": "8b5e28aa1ca300ea4b70d2f338c79a0800196823bc0dcac224a36ab7a36146ca",
+      "filters": [
+        {
+          "address": [
+            "0x498581ff718922c3f8e6a244956af099b2652b2b"
+          ],
+          "topics": [
+            [
+              "0xdd466e674ea557f56295e2d0218a125ea4b4f0f6f3307b95f85e6110838d6438",
+              "0x40e9cecb9f5f1f1c5b9c97dec2917b7ee92e57ba5563708daca94dd84ad7112f"
+            ]
+          ]
+        },
+        {
+          "address": [
+            "0x1176122eb77ad6a2339322cda7c4d7ea9bfa63dc",
+            "0x1de58a6769526a03a504d9d59b8757cd8097dc57",
+            "0xa52ad458ce0282a971ecc71c051a32f28946bb9f",
+            "0xb9e5910043353717af54d8dd34b6ee57ffe49c35",
+            "0xe3ab924c72463c1ac8d1d8352ee640b89eb1ea64",
+            "0xff70918ef17a2d74d683a8297813b177bafad1f4"
+          ]
+        }
+      ]
+    }
+  },
+  "window": {
+    "collector": {
+      "startNs": "1000000000000",
+      "endNs": "4600000000000",
+      "clock": "mono_ns"
+    },
+    "reference": {
+      "startNs": "1000000000000",
+      "endNs": "4600000000001",
+      "clock": "mono_ns"
+    }
+  },
+  "clock": {
+    "collector": {
+      "host_id": "synthetic-host",
+      "boot_id": "0f1e2d3c-4b5a-4968-8778-695a4b3c2d1e",
+      "unit": "ns",
+      "clock_uncert_ms": 0.05
+    },
+    "reference": {
+      "host_id": "synthetic-host",
+      "boot_id": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+      "unit": "ms",
+      "clock_uncert_ms": 0.05
+    }
+  },
+  "provenance": {
+    "source_id": "base-node-synthetic",
+    "capture_source": "live_ws",
+    "endpoint": "ws://127.0.0.1:8546",
+    "client_version": "synthetic/v0",
+    "decoder_version": "synthetic-dec/1",
+    "registry_version": "synthetic-reg/1",
+    "license_class": "own_node",
+    "partition": "base/2026-10-10",
+    "rawWriter": {
+      "location": "/synthetic/tier0",
+      "pin": "dddddddddddddddddddddddddddddddddddddddd",
+      "ackBinding": [
+        "id",
+        "epoch",
+        "seq"
+      ]
+    }
+  },
+  "caps": {
+    "reconnect": 1,
+    "wsMessages": 1000000,
+    "wsBytes": 1073741824,
+    "backfillBlocks": 1900,
+    "enforcedInSource": true,
+    "enforcementPin": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "freshness": {
+    "source": "operator_supplied",
+    "maxAgeS": 5,
+    "maxEvidenceAgeS": 300,
+    "http": {
+      "observedAtUtc": "2026-10-10T05:35:41Z",
+      "head": 52410596,
+      "ageS": 2.12
+    },
+    "ws": {
+      "observedAtUtc": "2026-10-10T05:36:21Z",
+      "heads": [
+        52410615,
+        52410616,
+        52410617
+      ],
+      "ageS": 0.4
+    },
+    "recovery": "complete",
+    "note": "Codex observation relayed by Jack 2026-10-10; supplied timestamps only"
+  },
+  "defects": {
+    "M1": {
+      "state": "resolved",
+      "pin": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "oracle": [
+        "O1",
+        "O2",
+        "O3"
+      ],
+      "reviewRef": "synthetic-review"
+    },
+    "M2": {
+      "state": "resolved",
+      "pin": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "oracle": [
+        "O4",
+        "O5",
+        "O6"
+      ],
+      "reviewRef": "synthetic-review"
+    },
+    "provenance": {
+      "state": "resolved",
+      "pin": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "oracle": [
+        "O7",
+        "O8",
+        "O9",
+        "O10",
+        "O11"
+      ],
+      "reviewRef": "synthetic-review"
+    },
+    "inSourceCaps": {
+      "state": "resolved",
+      "pin": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "oracle": [
+        "O12",
+        "O13",
+        "O14"
+      ],
+      "reviewRef": "synthetic-review"
+    },
+    "jointIntegration": {
+      "state": "resolved",
+      "pin": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "oracle": [
+        "O15",
+        "O16"
+      ],
+      "reviewRef": "synthetic-review"
+    }
+  }
+}

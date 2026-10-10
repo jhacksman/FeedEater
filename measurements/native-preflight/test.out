@@ -1,0 +1,151 @@
+PASS fixture set = expectation set (9)
+PASS claim-resolved-on-173: exit 1 (want 1)
+PASS claim-resolved-on-173: verdict NOT_READY
+PASS claim-resolved-on-173: non-admission note present
+PASS claim-resolved-on-173: defect:M1=invalid (want invalid)
+PASS claim-resolved-on-173: freshness=known (want known)
+PASS claim-resolved-on-173: pins missing carries a reason
+PASS claim-resolved-on-173: window missing carries a reason
+PASS claim-resolved-on-173: clock missing carries a reason
+PASS claim-resolved-on-173: provenance missing carries a reason
+PASS claim-resolved-on-173: caps missing carries a reason
+PASS claim-resolved-on-173: defect:M1 invalid carries a reason
+PASS claim-resolved-on-173: defect:M2 missing carries a reason
+PASS claim-resolved-on-173: defect:provenance missing carries a reason
+PASS claim-resolved-on-173: defect:inSourceCaps missing carries a reason
+PASS claim-resolved-on-173: defect:jointIntegration missing carries a reason
+PASS claim-resolved-on-173: READY only if all known
+PASS corrected-full: exit 0 (want 0)
+PASS corrected-full: verdict READY
+PASS corrected-full: non-admission note present
+PASS corrected-full: pins=known (want known)
+PASS corrected-full: filters=known (want known)
+PASS corrected-full: window=known (want known)
+PASS corrected-full: clock=known (want known)
+PASS corrected-full: provenance=known (want known)
+PASS corrected-full: caps=known (want known)
+PASS corrected-full: freshness=known (want known)
+PASS corrected-full: defect:M1=known (want known)
+PASS corrected-full: defect:M2=known (want known)
+PASS corrected-full: defect:provenance=known (want known)
+PASS corrected-full: defect:inSourceCaps=known (want known)
+PASS corrected-full: defect:jointIntegration=known (want known)
+PASS corrected-full: READY only if all known
+PASS current-419-173-54: exit 1 (want 1)
+PASS current-419-173-54: verdict NOT_READY
+PASS current-419-173-54: non-admission note present
+PASS current-419-173-54: pins=missing (want missing)
+PASS current-419-173-54: filters=known (want known)
+PASS current-419-173-54: window=missing (want missing)
+PASS current-419-173-54: clock=missing (want missing)
+PASS current-419-173-54: provenance=missing (want missing)
+PASS current-419-173-54: caps=missing (want missing)
+PASS current-419-173-54: freshness=known (want known)
+PASS current-419-173-54: defect:M1=missing (want missing)
+PASS current-419-173-54: defect:M2=missing (want missing)
+PASS current-419-173-54: defect:provenance=missing (want missing)
+PASS current-419-173-54: defect:inSourceCaps=missing (want missing)
+PASS current-419-173-54: defect:jointIntegration=missing (want missing)
+PASS current-419-173-54: pins missing carries a reason
+PASS current-419-173-54: window missing carries a reason
+PASS current-419-173-54: clock missing carries a reason
+PASS current-419-173-54: provenance missing carries a reason
+PASS current-419-173-54: caps missing carries a reason
+PASS current-419-173-54: defect:M1 missing carries a reason
+PASS current-419-173-54: defect:M2 missing carries a reason
+PASS current-419-173-54: defect:provenance missing carries a reason
+PASS current-419-173-54: defect:inSourceCaps missing carries a reason
+PASS current-419-173-54: defect:jointIntegration missing carries a reason
+PASS current-419-173-54: READY only if all known
+PASS forbidden-outcome: exit 2 (want 2)
+PASS forbidden-outcome: refused with no verdict
+PASS mismatched-clock: exit 1 (want 1)
+PASS mismatched-clock: verdict NOT_READY
+PASS mismatched-clock: non-admission note present
+PASS mismatched-clock: pins=known (want known)
+PASS mismatched-clock: filters=known (want known)
+PASS mismatched-clock: window=invalid (want invalid)
+PASS mismatched-clock: clock=invalid (want invalid)
+PASS mismatched-clock: provenance=known (want known)
+PASS mismatched-clock: caps=known (want known)
+PASS mismatched-clock: freshness=known (want known)
+PASS mismatched-clock: defect:M1=known (want known)
+PASS mismatched-clock: defect:M2=known (want known)
+PASS mismatched-clock: defect:provenance=known (want known)
+PASS mismatched-clock: defect:inSourceCaps=known (want known)
+PASS mismatched-clock: defect:jointIntegration=known (want known)
+PASS mismatched-clock: window invalid carries a reason
+PASS mismatched-clock: clock invalid carries a reason
+PASS mismatched-clock: READY only if all known
+PASS mismatched-filters: exit 1 (want 1)
+PASS mismatched-filters: verdict NOT_READY
+PASS mismatched-filters: non-admission note present
+PASS mismatched-filters: pins=known (want known)
+PASS mismatched-filters: filters=invalid (want invalid)
+PASS mismatched-filters: window=known (want known)
+PASS mismatched-filters: clock=known (want known)
+PASS mismatched-filters: provenance=known (want known)
+PASS mismatched-filters: caps=known (want known)
+PASS mismatched-filters: freshness=known (want known)
+PASS mismatched-filters: defect:M1=known (want known)
+PASS mismatched-filters: defect:M2=known (want known)
+PASS mismatched-filters: defect:provenance=known (want known)
+PASS mismatched-filters: defect:inSourceCaps=known (want known)
+PASS mismatched-filters: defect:jointIntegration=known (want known)
+PASS mismatched-filters: filters invalid carries a reason
+PASS mismatched-filters: READY only if all known
+PASS partial-recovery: exit 1 (want 1)
+PASS partial-recovery: verdict NOT_READY
+PASS partial-recovery: non-admission note present
+PASS partial-recovery: pins=known (want known)
+PASS partial-recovery: filters=known (want known)
+PASS partial-recovery: window=known (want known)
+PASS partial-recovery: clock=known (want known)
+PASS partial-recovery: provenance=known (want known)
+PASS partial-recovery: caps=known (want known)
+PASS partial-recovery: freshness=invalid (want invalid)
+PASS partial-recovery: defect:M1=known (want known)
+PASS partial-recovery: defect:M2=known (want known)
+PASS partial-recovery: defect:provenance=known (want known)
+PASS partial-recovery: defect:inSourceCaps=known (want known)
+PASS partial-recovery: defect:jointIntegration=known (want known)
+PASS partial-recovery: freshness invalid carries a reason
+PASS partial-recovery: READY only if all known
+PASS stale: exit 1 (want 1)
+PASS stale: verdict NOT_READY
+PASS stale: non-admission note present
+PASS stale: pins=known (want known)
+PASS stale: filters=known (want known)
+PASS stale: window=known (want known)
+PASS stale: clock=known (want known)
+PASS stale: provenance=known (want known)
+PASS stale: caps=known (want known)
+PASS stale: freshness=invalid (want invalid)
+PASS stale: defect:M1=known (want known)
+PASS stale: defect:M2=known (want known)
+PASS stale: defect:provenance=known (want known)
+PASS stale: defect:inSourceCaps=known (want known)
+PASS stale: defect:jointIntegration=known (want known)
+PASS stale: freshness invalid carries a reason
+PASS stale: READY only if all known
+PASS unknown-proof: exit 1 (want 1)
+PASS unknown-proof: verdict NOT_READY
+PASS unknown-proof: non-admission note present
+PASS unknown-proof: pins=known (want known)
+PASS unknown-proof: filters=known (want known)
+PASS unknown-proof: window=known (want known)
+PASS unknown-proof: clock=known (want known)
+PASS unknown-proof: provenance=missing (want missing)
+PASS unknown-proof: caps=known (want known)
+PASS unknown-proof: freshness=known (want known)
+PASS unknown-proof: defect:M1=known (want known)
+PASS unknown-proof: defect:M2=missing (want missing)
+PASS unknown-proof: defect:provenance=known (want known)
+PASS unknown-proof: defect:inSourceCaps=known (want known)
+PASS unknown-proof: defect:jointIntegration=known (want known)
+PASS unknown-proof: provenance missing carries a reason
+PASS unknown-proof: defect:M2 missing carries a reason
+PASS unknown-proof: READY only if all known
+PASS preflight imports only node:fs (node:fs)
+PASS no network/process/env/wall-clock use in preflight.mjs
+native-preflight tests: 150 PASS, 0 FAIL
