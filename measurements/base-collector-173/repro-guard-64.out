@@ -1,0 +1,52 @@
+scratch /home/ubuntu/fe173-repro/fe173-repro64.PcSjAM
+== A.prompt: children=3 mode=prompt; guard-run exit 11 {"rc":11,"reason":"deadline"}; guard-run took 5644 ms
+inner client pid 38595: gone at guard-run return
+  +   203 ms child1 pid=38601 start
+  +   213 ms child3 pid=38627 start
+  +   213 ms child2 pid=38615 start
+  +   213 ms inner ready pid=38595
+  +  5238 ms inner TERM handled
+  +  5261 ms inner cleanup start
+  +  5283 ms child3 pid=38627 got TERM
+  +  5307 ms child2 pid=38615 got TERM
+  +  5333 ms child1 pid=38601 got TERM
+  +  5361 ms inner cleanup end
+  survivors at guard-run return: 0 of 3
+  survivors after repro cleanup: 0
+== A.delay3s: children=3 mode=delay:3000; guard-run exit 11 {"rc":11,"reason":"deadline"}; guard-run took 12280 ms
+inner client pid 39278: gone at guard-run return
+  +   179 ms child1 pid=39284 start
+  +   186 ms child2 pid=39298 start
+  +   187 ms child3 pid=39310 start
+  +   207 ms inner ready pid=39278
+  +  5240 ms inner TERM handled
+  +  5263 ms inner cleanup start
+  +  5284 ms child3 pid=39310 got TERM
+  +  8300 ms child3 pid=39310 exit after delay
+  +  8424 ms child2 pid=39298 got TERM
+  + 11439 ms child2 pid=39298 exit after delay
+  + 11549 ms child1 pid=39284 got TERM
+  SURVIVOR child1 pid=39284 (registered lstart matches, parent 1)
+  survivors at guard-run return: 1 of 3
+  survivors after repro cleanup: 0
+== A.ignore: children=3 mode=ignore; guard-run exit 11 {"rc":11,"reason":"deadline"}; guard-run took 12678 ms
+inner client pid 40281: gone at guard-run return
+  +   186 ms child1 pid=40287 start
+  +   193 ms child2 pid=40301 start
+  +   201 ms child3 pid=40316 start
+  +   206 ms inner ready pid=40281
+  +  5241 ms inner TERM handled
+  +  5265 ms inner cleanup start
+  +  5286 ms child3 pid=40316 got TERM
+  SURVIVOR child1 pid=40287 (registered lstart matches, parent 1)
+  SURVIVOR child2 pid=40301 (registered lstart matches, parent 1)
+  SURVIVOR child3 pid=40316 (registered lstart matches, parent 1)
+  survivors at guard-run return: 3 of 3
+  survivors after repro cleanup: 0
+decoy pid 38550 (not registered anywhere): untouched
+B. control 1..501: true span 501, hex length 5, guard span 501, HTTP 400 rpc-guard refused: logs_span_exceeded; fake upstream received 0
+B. 2^53..2^53+500: true span 501, hex length 16, guard span 501, HTTP 400 rpc-guard refused: logs_span_exceeded; fake upstream received 0
+B. 2^62..2^62+511: true span 512, hex length 18, guard span 1, HTTP 200 FORWARDED; fake upstream received 1
+B. reversed 2^62+511..2^62: true span -510, hex length 18, guard span 1, HTTP 200 FORWARDED; fake upstream received 1
+B. 2^1100..2^1100+1000 (Number=Infinity): true span 1001, hex length 278, guard span NaN, HTTP 200 FORWARDED; fake upstream received 1
+B. total forwarded to fake upstream: 3 (part A sent none)
