@@ -16,6 +16,10 @@
 | `capture-nats.mjs` | raw capture of `feedeater.base_collector.>` (subject, raw payload, `hrNs`) |
 | `capture-direct.mjs` | raw direct node capture with the collector's exact filters/digest (from the same dist + env) |
 | `make-synthetic.mjs` | rebuilds `synthetic/` by driving the 5206f90 dist `Measurement` the way `main measure` does |
+| `preflight.mjs` | bounded freshness preflight (2 HTTP calls, 1 WS subscription) |
+| `plan-inputs.mjs` | refuses unless one bounded input (checkpoint or ≤ 1800-block discovery) is declared; writes the env pins and the call budget |
+| `run-native.sh`, `lib-run.sh` | one scratch run (r1/r2/r3) with deadlines and an owned-only cleanup trap |
+| `fake-node.mjs`, `verify-offline.sh` | offline tests: fake local node, docker shim, refusals, cleanup ownership, plus `verify-synthetic.sh` |
 | `verify-synthetic.sh` | checker output and exit code per synthetic case must equal the committed bytes; `--regen` also rebuilds the fixtures and requires identical bytes |
 | `synthetic/<case>/` | `measure.json`, `nats.jsonl`, `direct.jsonl`, `expected-check.json`, `expected-exit` |
 | `MANIFEST.sha256` | sha256 of every other file in this directory |
@@ -43,6 +47,7 @@
   `RPC_MIN_INTERVAL_MS` 100, `RATE_ALERT_PER_SEC` 2000 (alert only), `PERSIST_MAX_QUEUE` 200000,
   `STATUS_INTERVAL_MS` 5000, `PERSIST_HEARTBEAT_MS` 5000, `PERSISTER_TIMEOUT_MS` 15000.
 - Node→collector traffic is every v4 Initialize/Swap on Base. Codex's earlier 30 s probe saw 12.93 events/s.
+- `run-native.sh` overrides some of these defaults for the scratch run (see Input prerequisite).
 
 ## Offline verification (no node, no NATS)
 
@@ -54,7 +59,7 @@ cd measurements/base-collector-173
 sha256sum -c MANIFEST.sha256              # macOS: shasum -a 256 -c MANIFEST.sha256
 ./verify-synthetic.sh                     # node >= 20 only
 cd ../.. && npm ci --ignore-scripts --no-audit --no-fund && npm run -w @feedeater/module-base-collector build
-measurements/base-collector-173/verify-synthetic.sh --regen   # fixtures rebuilt from the 5206f90 dist, byte-identical
+measurements/base-collector-173/verify-offline.sh --regen     # synthetic regen + preflight/plan/cleanup/refusal tests (no node)
 ```
 
 Synthetic cases (semantic probes only, not latency evidence). The #173 report gives
@@ -70,51 +75,110 @@ Synthetic cases (semantic probes only, not latency evidence). The #173 report gi
 
 ## Native/Thor run (Codex, once fresh read-only node connectivity exists)
 
+Native Mac: every checkout, output and temp file lives under
+`/Volumes/T7SHIELD/PROJECT_AROMER/aromer-scratch/`. `run-native.sh` defaults `FE173_ROOT` there,
+sets `TMPDIR` and the npm cache inside the run directory, and refuses if the parent directory is
+missing. It never creates the T7 root.
+
+Thor: the same commands run on Thor itself, with `FE173_ROOT` set explicitly to the existing
+authorized CI/capture staging directory, which Codex names. The script refuses a missing
+`FE173_ROOT` off macOS. Results are copied back explicitly; nothing is inferred about Thor paths.
+
 ```sh
-export RUN=$HOME/scratch/fe173-$(date -u +%Y%m%dT%H%M%SZ); mkdir -p "$RUN" && cd "$RUN"
-git clone https://github.com/jhacksman/FeedEater.git fe && git -C fe checkout --detach <this commit>
-export FE=$RUN/fe H=$FE/measurements/base-collector-173
-(cd "$FE" && npm ci --ignore-scripts --no-audit --no-fund && npm run -w @feedeater/module-base-collector build)
-(cd "$H" && sha256sum -c MANIFEST.sha256 && ./verify-synthetic.sh)
-docker run -d --rm --name fe173-nats -p 127.0.0.1:14222:4222 nats:2.10
-docker run -d --rm --name fe173-pg -p 127.0.0.1:15432:5432 -e POSTGRES_PASSWORD=scratch -e POSTGRES_DB=fe173 postgres:16
-HEAD_HEX=$(curl -s -X POST -H 'content-type: application/json' \
-  --data '{"jsonrpc":"2.0","id":1,"method":"eth_blockNumber","params":[]}' http://10.9.11.68:8545 | node -pe 'JSON.parse(require("fs").readFileSync(0)).result')
-HEAD=$((HEAD_HEX))
-cat > base-collector.env <<ENV
-BASE_COLLECTOR_WS_URL=ws://10.9.11.68:8546
-BASE_COLLECTOR_HTTP_URL=http://10.9.11.68:8545
-BASE_COLLECTOR_NATS_URL=nats://127.0.0.1:14222
-BASE_COLLECTOR_DATABASE_URL=postgres://postgres:scratch@127.0.0.1:15432/fe173
-BASE_COLLECTOR_STATE_DIR=$RUN/state
-BASE_COLLECTOR_START_BLOCK=$((HEAD - 43200))
-BASE_COLLECTOR_PERSIST_START_BLOCK=$HEAD
-ENV
-set -a; . ./base-collector.env; set +a
-node "$H/capture-nats.mjs"   nats.jsonl   & echo $! > capnats.pid
-node "$H/capture-direct.mjs" direct.jsonl & echo $! > capdirect.pid
-node "$FE/modules/base-collector/dist/main.js" persist 2> persist.log & echo $! > persist.pid
-node "$FE/modules/base-collector/dist/main.js" collect 2> collect.log & echo $! > collect.pid
-until grep -q '\\"reconciled\\":true' nats.jsonl && [ -s state/checkpoint.json ]; do sleep 5; done
-node "$FE/modules/base-collector/dist/main.js" measure --warmup-s 120 --window-s 1800 --teardown-s 120 \
-  --pools-from-checkpoint state/checkpoint.json --out measure.json 2> measure.log | tee measure.summary.json
-for p in collect persist capdirect capnats; do kill -TERM $(cat $p.pid); done
-node "$H/check-report.mjs" measure.json --nats-capture nats.jsonl --direct-capture direct.jsonl > check.json; echo "check exit $?"
-docker stop fe173-nats fe173-pg
+S=/Volumes/T7SHIELD/PROJECT_AROMER/aromer-scratch            # Thor: S=<existing authorized staging dir>
+git clone https://github.com/jhacksman/FeedEater.git "$S/fe173-src" && cd "$S/fe173-src"
+git checkout --detach <this commit>
+TMPDIR="$S/tmp" npm_config_cache="$S/tmp/npm-cache" npm ci --ignore-scripts --no-audit --no-fund
+npm run -w @feedeater/module-base-collector build
+cd measurements/base-collector-173 && sha256sum -c MANIFEST.sha256 && ./verify-offline.sh --regen
+export BASE_COLLECTOR_WS_URL=ws://10.9.11.68:8546 BASE_COLLECTOR_HTTP_URL=http://10.9.11.68:8545
+# Declare exactly one input (prerequisite; see below), e.g.
+export FE173_INPUT=checkpoint FE173_CHECKPOINT=<Codex-provided checkpoint.json>
+./run-native.sh r1          # then r2, r3; each makes a fresh $FE173_ROOT/fe173-<utc>-<mode>-<pid>/
+# Thor: FE173_ROOT=<staging dir>/fe173-measure ./run-native.sh r1
 ```
-- If `eth_blockNumber` or the WS open fails or times out, stop.
-- `START_BLOCK` tracks o1 pools launched in the last ~24 h (43200 blocks; about 174 paced
-  `eth_getLogs` calls). Older o1 pools need `EXTRA_POOL_IDS`, which changes the digest.
-- Runs use a fresh `$RUN` each:
-  - R1 clean: the only live-acceptance candidate.
-  - R2 persister outage: `kill -TERM $(cat persist.pid)` at window +300 s and restart after
-    ≥ 60 s. Then run `main.js verify-persist --from-block <window.fromBlock> --to-block <window.toBlock>`;
-    `missing: 0` is expected. By design `persistence_missing` makes R2 non-validating.
-  - R3 collector restart at window +300 s: `backfillOnLiveSubjects` and `lateLiveAfterBackfill`
-    must be 0, with misses recovered only on backfill.
-- Artifacts to keep: `measure.json`, `measure.summary.json`, `nats.jsonl`, `direct.jsonl`,
-  `check.json`, the logs, `base-collector.env`, `MANIFEST.sha256` output, plus `verify-persist`
-  JSON for R2.
+
+### Input prerequisite (must be declared before the run; no default)
+
+`plan-inputs.mjs` refuses (exit 3) unless exactly one of these is set. It makes no node calls; the
+head comes from the preflight.
+
+- `FE173_INPUT=checkpoint`, `FE173_CHECKPOINT=<file>`: a Codex-provided collector checkpoint.
+  - It must have `version` 1, `filterDigest` equal to this run's digest, and `verifiedBlock` ≤ head.
+  - The replay span `head − max(verifiedBlock+1−64, trackedSinceBlock) + 1` must be ≤ 1800 blocks.
+  - Its `pools` become the tracked o1 set. This is the only way to cover pools launched before
+    the run.
+- `FE173_INPUT=discovery`, `FE173_DISCOVERY_BLOCKS=N` with 1 ≤ N ≤ 1800 (about 1 h):
+  - `START_BLOCK = head − N + 1`. Only o1 pools whose Initialize falls in those N blocks are tracked.
+  - Older pools stay untracked, so expect `no_target_swaps`/`no_tracked_pools` rejections unless a
+    launch happens in range.
+  - Wider discovery, such as the earlier `HEAD-43200`, about 174 calls, is not prepared and needs a
+    new reviewed commit.
+
+Both modes pin these settings:
+
+| setting | value |
+| --- | --- |
+| `RPC_MIN_INTERVAL_MS` | 250 |
+| `BACKFILL_CHUNK_BLOCKS` | 500 |
+| `MAX_BACKFILL_BLOCKS` | 1900: the 1800 cap plus 100 for head drift. It also caps every reconnect replay; truncation is reported as incomplete coverage. |
+| `MAX_RECOVER_BLOCKS` | 500 |
+| `PERSIST_START_BLOCK` | head |
+
+HTTP call budget (`budget.json` per run; two filters per chunk):
+
+| step | calls |
+| --- | --- |
+| preflight | 2 |
+| initial replay | 1 + 2·⌈span/500⌉, at most 9 |
+| each collector reconnect | at most 9 |
+| each persister recover request | at most 2 |
+| per-head `publish_retry` | at most 2 |
+| R2 `verify-persist` over a 30 min window | about 8 |
+
+Stop the run if `collect.log` shows repeated reconnects, repeated `publish_retry` or `reconnect backfill truncated`.
+
+### What `run-native.sh` does (exit codes in its header)
+
+1. *Freshness preflight* (`preflight.mjs`: 2 HTTP calls, 1 WS subscription). The run stops with
+   exit 5 unless all of these hold:
+   - HTTP `eth_getBlockByNumber("latest")` advances between two calls about 4 s apart;
+   - the latest block timestamp is within 30 s of the host clock (NTP required);
+   - after the subscription ACK, two WS `newHeads` arrive with strictly increasing number and
+     timestamp within 20 s.
+
+   An ACK or `eth_blockNumber` alone fails.
+2. *Input plan* (`plan-inputs.mjs`). The preflight must be ≤ 120 s old; otherwise exit 3.
+3. *Scratch dependencies* (`FE173_DEPS=docker`): `nats:2.10` and `postgres:16`.
+   - They are bound to `127.0.0.1:14222/15432` and named `<RUNID>-nats/-pg`.
+   - They are labelled `fe173.run=<RUNID>`, have a 90 s ready deadline, and are removed only by
+     this run. Exit 6 if not ready.
+   - `FE173_DEPS=external` uses the given NATS and Postgres URLs and starts no containers.
+4. *Processes:* the captures start first, then `persist` and `collect`. The script waits for a
+   `reconciled:true` status plus a non-empty `state/checkpoint.json`.
+   - The deadline is `FE173_RECONCILE_DEADLINE_S`, 300 s.
+   - The wait aborts at once if any owned process exits. Exit 7.
+5. *Measure:* `--warmup-s 120 --window-s 1800 --teardown-s 120 --pools-from-checkpoint`.
+   - The deadline is warmup+window+teardown+180 s. Exit 8.
+   - R2 stops the persister at window +300 s for 60 s, then runs `verify-persist` over the scored
+     window, with a 300 s deadline. Exit 9.
+   - R3 restarts the collector at window +300 s, after 30 s down.
+6. *Teardown:* stops the collector, persister and captures, in that order, so the captures bracket
+   `teardown_end`. Then it runs `check-report.mjs` and writes `dist.sha256` and `artifacts.sha256`.
+   The exit code is the checker's.
+7. *Cleanup trap* (EXIT/INT/TERM, `lib-run.sh`):
+   - It signals only PIDs this run registered, and only while their `ps lstart` still matches.
+   - It removes only containers whose `fe173.run` label is this RUNID.
+   - Unrelated processes, reused PIDs and other containers are never touched.
+
+Artifacts in each run directory:
+- `preflight.json`, `budget.json`, `inputs.env`, `base-collector.env`;
+- `nats.jsonl`, `direct.jsonl`, `measure.json`, `measure.summary.json`, `check.json`;
+- `verify-persist.json` (R2 only);
+- `*.log`, `registry/`, `dist.sha256`, `artifacts.sha256`.
+
+R1 is the only live-acceptance candidate. R2 is non-validating by design (`persistence_missing`).
+R3 must show `backfillOnLiveSubjects` and `lateLiveAfterBackfill` at 0.
 
 ## What the checker rejects
 
