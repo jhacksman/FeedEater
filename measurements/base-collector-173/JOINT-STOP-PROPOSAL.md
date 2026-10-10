@@ -1,16 +1,13 @@
 # Joint admission/STOP interface proposal (evidence-only, 2026-10-10, parent af53a874)
-
 This is a proposal only. Nothing is implemented. It makes no edits to 4df26b2, f694290 or #173 5206f90,
 it does not rerun the drill, and it makes no node, service, latency or admission claim. It is derived
 from the `af53a874` reproductions in `COMPOSE-DRILL.md`. The machine-readable form is
 `joint-stop-contract.json` (inert).
-
 ## Reproduced failure (af53a874)
 - Gap 1: after the first HTTP stop, WS kept forwarding: 22, 12, 306 and 456 frames, over 0.27, 0.16,
   3.2 and 4.7 s.
 - Gap 2: after the first WS stop, HTTP kept admitting: 4 and 5 requests, over 0.26 and 0.24 s.
 - Gap 3: `guard-run.json` has no WS reason and no WS census.
-
 ## Interfaces pinned at the frozen heads
 | Head | File:lines | Behaviour that causes the gap |
 |---|---|---|
@@ -22,18 +19,15 @@ from the `af53a874` reproductions in `COMPOSE-DRILL.md`. The machine-readable fo
 | 4df26b2 | rpc-guard.mjs:140,170,195-207,300-301 | its latch (`guard.STOP`, `halt`, `pump`, signals) lives only in its own process |
 | f694290 | ws-guard.mjs:74-77,104,157-225,261-262 | its latch (`stopReason`, `ws-guard.STOP`, admit/forward checks, signals) lives only in its own process |
 | 4df26b2 | lib-run.sh:61-63 | `fe_cleanup` stops PIDs in reverse registration order, so ws-guard stops after the client |
-
 ## Minimal shared state
 One latch per run, set exactly once:
 `{stopped, reason, transport: http|ws|signal|controller, seq, hrNs}`.
-
 1. Every admission or forward decision on either transport, in either direction, reads the latch
    synchronously in the same code path. That covers HTTP admit, the paced send, WS frame admit and
    WS send.
 2. Setting the latch is the first stop. Before the latch can be observed:
    - no new HTTP request is admitted and no queued HTTP request is sent;
    - no WS frame is admitted or forwarded.
-
    After it is set: both listeners close, queued HTTP requests get an explicit 503 and are counted
    as dropped, queued WS frames are dropped and counted, and WS connections close with 1008.
    `JOINT.STOP` is written.
@@ -46,7 +40,6 @@ One latch per run, set exactly once:
    - Also `firstStop` and `decisionsAfterStop{http,ws}`.
 5. Owned shutdown: the controller signals the client (with its grace) only after `JOINT.STOP` exists.
    Then the existing PID + `lstart` and container-label verification applies, with 13/14 overriding.
-
 ## Single process vs cross-process: can zero post-stop forwarding be guaranteed?
 - **Single-process shared gate: yes, for decisions.**
   - Node runs every admit and forward callback to completion on one event loop. If the latch is set
@@ -68,7 +61,6 @@ One latch per run, set exactly once:
     while latching. That serializes both transports, and Node has no native `flock`. In effect it
     reintroduces a single admission authority.
   - No tolerance is proposed for this option, so it cannot meet "zero after first stop".
-
 ## Smallest separate new component (proposed, not built)
 - `joint-guard.mjs`: one loopback process with two listeners, HTTP and WS, and one latch, one `seq`
   and one summary.
@@ -81,7 +73,6 @@ One latch per run, set exactly once:
   134 (export both URLs) and 119 (joint census fields) changed. The diff would be pinned against
   4df26b2.
 - The frozen candidates stay unchanged and remain the reference for both admission rule sets.
-
 ## Predeclared finite fake-loopback acceptance cases (for a future milestone)
 Pass criteria for every case:
 - `decisionsAfterStop.http = decisionsAfterStop.ws = 0`, checked by `seq`;
@@ -89,7 +80,6 @@ Pass criteria for every case:
 - one `firstStop`;
 - no registered PID still running;
 - the decoys untouched.
-
 | Case | Setup | Expected |
 |---|---|---|
 | J1 | HTTP disallowed method, WS streaming every 20 ms | firstStop http, exit 10 |
