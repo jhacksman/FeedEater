@@ -1,0 +1,21 @@
+{
+  "schema": "backfill-plan-input/1",
+  "manifest": { "fileSha256": "3a5431c2e55a0a1f1b99d6c22b219febe47f2b0f5a10800abf8f80011484a527", "manifestSha256": "3eab7f47965ce96afdf9791ed37176b136f8de67b4ed655eee0cc14ef313c0c4" },
+  "source": { "chainId": 8453, "sourceId": "synthetic-source-a" },
+  "checkpoint": {
+    "source": { "chainId": 8453, "sourceId": "synthetic-source-a" },
+    "manifestSha256": "3eab7f47965ce96afdf9791ed37176b136f8de67b4ed655eee0cc14ef313c0c4",
+    "blockNumber": 1000,
+    "blockHash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+    "recordedAtUtc": "2000-01-01T00:00:00Z"
+  },
+  "head": {
+    "source": { "chainId": 8453, "sourceId": "synthetic-source-a" },
+    "blockNumber": 1250,
+    "blockHash": "0x2222222222222222222222222222222222222222222222222222222222222222",
+    "observedAtUtc": "2000-01-01T00:10:00Z"
+  },
+  "evidence": { "checkpointBlockHashAtHead": "0x1111111111111111111111111111111111111111111111111111111111111111", "removedLogsSeen": false },
+  "lookbackBlocks": 64,
+  "caps": { "maxGapBlocks": 1000, "maxChunkBlocks": 100, "maxCalls": 20, "maxBytes": 50000000 }
+}

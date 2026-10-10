@@ -1,0 +1,55 @@
+PASS clean checkpoint C=1000, head H=1250, L=64, chunk 100: PLANNED, overlap [937,1000] + gap [1001,1250] in 4 ranges x 2 filtersets = 8 calls in order
+PASS each call is an inert eth_getLogs with the manifest filter verbatim + hex fromBlock/toBlock; provenance backfill:true live:false
+PASS separate backfill subject: name UNADOPTED, mustDifferFromLiveSubject; resumeLive not allowed, candidate H+1=1251
+PASS claims: binding UNKNOWN, canonicality UNVERIFIED_CALLER_SUPPLIED, admission NOT_ESTABLISHED, completeness/latency NOT_MEASURED; head and evidence marked unverified
+PASS planSha256 recomputes; specSha256 is the spec file sha; output canonical
+PASS deterministic: rerun byte-identical; run with cwd=/ and absolute paths byte-identical
+PASS non-advancing head H=C same hash: exit 0 PLANNED 
+PASS H=C different hash: exit 0 UNKNOWN_NEEDS_RECONCILIATION head_hash_conflict_at_checkpoint_height
+PASS stale head below checkpoint: exit 0 UNKNOWN_NEEDS_RECONCILIATION head_below_checkpoint
+PASS head observed before checkpoint recorded: exit 0 UNKNOWN_NEEDS_RECONCILIATION head_observed_before_checkpoint_recorded
+PASS checkpoint hash evidence missing: exit 0 UNKNOWN_NEEDS_RECONCILIATION checkpoint_hash_evidence_missing
+PASS checkpoint hash conflict (reorg at/below C): exit 0 UNKNOWN_NEEDS_RECONCILIATION checkpoint_hash_conflict
+PASS removed/re-add ambiguity (removedLogsSeen true): exit 0 UNKNOWN_NEEDS_RECONCILIATION removed_readd_ambiguity
+PASS removed-log evidence missing (null): exit 0 UNKNOWN_NEEDS_RECONCILIATION removed_logs_evidence_missing
+PASS several ambiguities reported together: exit 0 UNKNOWN_NEEDS_RECONCILIATION checkpoint_hash_evidence_missing,removed_readd_ambiguity,head_below_checkpoint
+PASS gap above maxGapBlocks (1001 > 1000): exit 0 GAP_EXCEEDS_CAP gap_exceeds_maxGapBlocks
+PASS gap exactly maxGapBlocks: exit 0 PLANNED 
+PASS call budget truncation (maxCalls 5 of 8): exit 0 TRUNCATED_CALL_BUDGET calls_exceed_maxCalls
+PASS lookback clipped at genesis (C=10, L=64): exit 0 PLANNED 
+PASS chunk size 1 respects maxChunkBlocks: exit 0 PLANNED 
+PASS refuse wrong chain (head chainId 1): exit 2 chain_mismatch
+PASS refuse wrong chain (checkpoint chainId 1): exit 2 chain_mismatch
+PASS refuse checkpoint from another source: exit 2 checkpoint_source_mismatch
+PASS refuse head from another source: exit 2 head_source_mismatch
+PASS refuse checkpoint recorded under another filter manifest: exit 2 checkpoint_filter_identity_mismatch
+PASS refuse spec+checkpoint pin another manifestSha256: exit 2 filter_identity_mismatch
+PASS refuse manifest file altered: exit 2 manifest_file_hash_mismatch
+PASS refuse non-canonical manifest bytes (pinned): exit 2 manifest_noncanonical
+PASS refuse manifest self-hash broken (canonical, pinned): exit 2 manifest_self_hash_mismatch
+PASS refuse manifest filter edited without filterSha256: exit 2 manifest_filter_hash_mismatch
+PASS refuse duplicate JSON key in spec: exit 2 json_duplicate_key
+PASS refuse malformed spec JSON: exit 2 json_malformed
+PASS refuse unknown spec field: exit 2 spec_unknown_field
+PASS refuse missing evidence: exit 2 spec_missing_field
+PASS refuse wrong schema: exit 2 spec_schema_mismatch
+PASS refuse uppercase block hash: exit 2 value_invalid
+PASS refuse negative blockNumber: exit 2 value_invalid
+PASS refuse fractional blockNumber: exit 2 value_invalid
+PASS refuse blockNumber 2^53: exit 2 value_invalid
+PASS refuse blockNumber as hex string: exit 2 value_invalid
+PASS refuse lookback 0: exit 2 value_invalid
+PASS refuse lookback above maxGapBlocks: exit 2 value_invalid
+PASS refuse maxCalls 0: exit 2 value_invalid
+PASS refuse maxBytes missing: exit 2 spec_missing_field
+PASS refuse removedLogsSeen string: exit 2 value_invalid
+PASS refuse timestamp with offset: exit 2 value_invalid
+PASS refuse timestamp calendar invalid: exit 2 value_invalid
+PASS refuse spec is a symlink: exit 2 spec_is_symlink
+PASS refuse manifest missing: exit 2 manifest_missing
+PASS refuse no arguments: exit 2 usage
+PASS refuse duplicate --spec: exit 2 usage_duplicate_argument
+PASS refuse unknown --execute: exit 2 usage
+PASS static: no network/process/clock/write/env/directory-scan APIs (T7 unreadable: plan.mjs opens only --spec and --manifest) in plan.mjs
+PASS fixtures unchanged by the run
+54 PASS, 0 FAIL

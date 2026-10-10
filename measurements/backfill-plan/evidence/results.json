@@ -1,0 +1,851 @@
+{
+  "note": "synthetic acceptance cases only; not canonicality, completeness, delivery, latency or source-admission evidence",
+  "pass": 54,
+  "fail": 0,
+  "results": [
+    {
+      "case": "clean checkpoint C=1000, head H=1250, L=64, chunk 100: PLANNED, overlap [937,1000] + gap [1001,1250] in 4 ranges x 2 filtersets = 8 calls in order",
+      "ok": true,
+      "expected": [
+        [
+          "overlap",
+          "poolmanager.initialize_swap",
+          937,
+          1000
+        ],
+        [
+          "overlap",
+          "o1.factories.raw_all_topics",
+          937,
+          1000
+        ],
+        [
+          "gap",
+          "poolmanager.initialize_swap",
+          1001,
+          1100
+        ],
+        [
+          "gap",
+          "o1.factories.raw_all_topics",
+          1001,
+          1100
+        ],
+        [
+          "gap",
+          "poolmanager.initialize_swap",
+          1101,
+          1200
+        ],
+        [
+          "gap",
+          "o1.factories.raw_all_topics",
+          1101,
+          1200
+        ],
+        [
+          "gap",
+          "poolmanager.initialize_swap",
+          1201,
+          1250
+        ],
+        [
+          "gap",
+          "o1.factories.raw_all_topics",
+          1201,
+          1250
+        ]
+      ],
+      "actual": [
+        [
+          "overlap",
+          "poolmanager.initialize_swap",
+          937,
+          1000
+        ],
+        [
+          "overlap",
+          "o1.factories.raw_all_topics",
+          937,
+          1000
+        ],
+        [
+          "gap",
+          "poolmanager.initialize_swap",
+          1001,
+          1100
+        ],
+        [
+          "gap",
+          "o1.factories.raw_all_topics",
+          1001,
+          1100
+        ],
+        [
+          "gap",
+          "poolmanager.initialize_swap",
+          1101,
+          1200
+        ],
+        [
+          "gap",
+          "o1.factories.raw_all_topics",
+          1101,
+          1200
+        ],
+        [
+          "gap",
+          "poolmanager.initialize_swap",
+          1201,
+          1250
+        ],
+        [
+          "gap",
+          "o1.factories.raw_all_topics",
+          1201,
+          1250
+        ]
+      ]
+    },
+    {
+      "case": "each call is an inert eth_getLogs with the manifest filter verbatim + hex fromBlock/toBlock; provenance backfill:true live:false",
+      "ok": true,
+      "expected": "all",
+      "actual": {
+        "filterSha256": "b57e55e84ce87072d1ca3a3d50005297300d5101053cd9fca9fd98b0fdb3fdcc",
+        "filtersetId": "poolmanager.initialize_swap",
+        "fromBlock": 937,
+        "index": 0,
+        "publicationProvenance": {
+          "backfill": true,
+          "live": false
+        },
+        "request": {
+          "method": "eth_getLogs",
+          "params": [
+            {
+              "address": [
+                "0x498581ff718922c3f8e6a244956af099b2652b2b"
+              ],
+              "fromBlock": "0x3a9",
+              "toBlock": "0x3e8",
+              "topics": [
+                [
+                  "0x40e9cecb9f5f1f1c5b9c97dec2917b7ee92e57ba5563708daca94dd84ad7112f",
+                  "0xdd466e674ea557f56295e2d0218a125ea4b4f0f6f3307b95f85e6110838d6438"
+                ]
+              ]
+            }
+          ]
+        },
+        "segment": "overlap",
+        "toBlock": 1000
+      }
+    },
+    {
+      "case": "separate backfill subject: name UNADOPTED, mustDifferFromLiveSubject; resumeLive not allowed, candidate H+1=1251",
+      "ok": true,
+      "expected": "as stated",
+      "actual": {
+        "s": {
+          "class": "backfill",
+          "mustDifferFromLiveSubject": true,
+          "name": "UNADOPTED (owner-assigned)",
+          "publicationProvenance": {
+            "backfill": true,
+            "live": false
+          }
+        },
+        "r": {
+          "allowed": false,
+          "candidateFromBlock": 1251,
+          "condition": "live may resume at H+1 only after every planned call completed within maxBytes and canonicality was re-verified by the executor; this plan proves neither"
+        }
+      }
+    },
+    {
+      "case": "claims: binding UNKNOWN, canonicality UNVERIFIED_CALLER_SUPPLIED, admission NOT_ESTABLISHED, completeness/latency NOT_MEASURED; head and evidence marked unverified",
+      "ok": true,
+      "expected": "as stated",
+      "actual": {
+        "binding": "UNKNOWN",
+        "canonicality": "UNVERIFIED_CALLER_SUPPLIED",
+        "completeness": "NOT_MEASURED",
+        "latency": "NOT_MEASURED",
+        "sourceAdmission": "NOT_ESTABLISHED"
+      }
+    },
+    {
+      "case": "planSha256 recomputes; specSha256 is the spec file sha; output canonical",
+      "ok": true,
+      "expected": "match",
+      "actual": "04e6693864847ddea7cbec0dc598a413de110878514648624e90ad699694f7fb"
+    },
+    {
+      "case": "deterministic: rerun byte-identical; run with cwd=/ and absolute paths byte-identical",
+      "ok": true,
+      "expected": "identical",
+      "actual": {
+        "rerun": true,
+        "cwdRoot": true
+      }
+    },
+    {
+      "case": "non-advancing head H=C same hash: exit 0 PLANNED ",
+      "ok": true,
+      "expected": {
+        "status": "PLANNED",
+        "reasons": []
+      },
+      "actual": {
+        "rc": 0,
+        "status": "PLANNED",
+        "reasons": []
+      }
+    },
+    {
+      "case": "H=C different hash: exit 0 UNKNOWN_NEEDS_RECONCILIATION head_hash_conflict_at_checkpoint_height",
+      "ok": true,
+      "expected": {
+        "status": "UNKNOWN_NEEDS_RECONCILIATION",
+        "reasons": [
+          "head_hash_conflict_at_checkpoint_height"
+        ]
+      },
+      "actual": {
+        "rc": 0,
+        "status": "UNKNOWN_NEEDS_RECONCILIATION",
+        "reasons": [
+          "head_hash_conflict_at_checkpoint_height"
+        ]
+      }
+    },
+    {
+      "case": "stale head below checkpoint: exit 0 UNKNOWN_NEEDS_RECONCILIATION head_below_checkpoint",
+      "ok": true,
+      "expected": {
+        "status": "UNKNOWN_NEEDS_RECONCILIATION",
+        "reasons": [
+          "head_below_checkpoint"
+        ]
+      },
+      "actual": {
+        "rc": 0,
+        "status": "UNKNOWN_NEEDS_RECONCILIATION",
+        "reasons": [
+          "head_below_checkpoint"
+        ]
+      }
+    },
+    {
+      "case": "head observed before checkpoint recorded: exit 0 UNKNOWN_NEEDS_RECONCILIATION head_observed_before_checkpoint_recorded",
+      "ok": true,
+      "expected": {
+        "status": "UNKNOWN_NEEDS_RECONCILIATION",
+        "reasons": [
+          "head_observed_before_checkpoint_recorded"
+        ]
+      },
+      "actual": {
+        "rc": 0,
+        "status": "UNKNOWN_NEEDS_RECONCILIATION",
+        "reasons": [
+          "head_observed_before_checkpoint_recorded"
+        ]
+      }
+    },
+    {
+      "case": "checkpoint hash evidence missing: exit 0 UNKNOWN_NEEDS_RECONCILIATION checkpoint_hash_evidence_missing",
+      "ok": true,
+      "expected": {
+        "status": "UNKNOWN_NEEDS_RECONCILIATION",
+        "reasons": [
+          "checkpoint_hash_evidence_missing"
+        ]
+      },
+      "actual": {
+        "rc": 0,
+        "status": "UNKNOWN_NEEDS_RECONCILIATION",
+        "reasons": [
+          "checkpoint_hash_evidence_missing"
+        ]
+      }
+    },
+    {
+      "case": "checkpoint hash conflict (reorg at/below C): exit 0 UNKNOWN_NEEDS_RECONCILIATION checkpoint_hash_conflict",
+      "ok": true,
+      "expected": {
+        "status": "UNKNOWN_NEEDS_RECONCILIATION",
+        "reasons": [
+          "checkpoint_hash_conflict"
+        ]
+      },
+      "actual": {
+        "rc": 0,
+        "status": "UNKNOWN_NEEDS_RECONCILIATION",
+        "reasons": [
+          "checkpoint_hash_conflict"
+        ]
+      }
+    },
+    {
+      "case": "removed/re-add ambiguity (removedLogsSeen true): exit 0 UNKNOWN_NEEDS_RECONCILIATION removed_readd_ambiguity",
+      "ok": true,
+      "expected": {
+        "status": "UNKNOWN_NEEDS_RECONCILIATION",
+        "reasons": [
+          "removed_readd_ambiguity"
+        ]
+      },
+      "actual": {
+        "rc": 0,
+        "status": "UNKNOWN_NEEDS_RECONCILIATION",
+        "reasons": [
+          "removed_readd_ambiguity"
+        ]
+      }
+    },
+    {
+      "case": "removed-log evidence missing (null): exit 0 UNKNOWN_NEEDS_RECONCILIATION removed_logs_evidence_missing",
+      "ok": true,
+      "expected": {
+        "status": "UNKNOWN_NEEDS_RECONCILIATION",
+        "reasons": [
+          "removed_logs_evidence_missing"
+        ]
+      },
+      "actual": {
+        "rc": 0,
+        "status": "UNKNOWN_NEEDS_RECONCILIATION",
+        "reasons": [
+          "removed_logs_evidence_missing"
+        ]
+      }
+    },
+    {
+      "case": "several ambiguities reported together: exit 0 UNKNOWN_NEEDS_RECONCILIATION checkpoint_hash_evidence_missing,removed_readd_ambiguity,head_below_checkpoint",
+      "ok": true,
+      "expected": {
+        "status": "UNKNOWN_NEEDS_RECONCILIATION",
+        "reasons": [
+          "checkpoint_hash_evidence_missing",
+          "removed_readd_ambiguity",
+          "head_below_checkpoint"
+        ]
+      },
+      "actual": {
+        "rc": 0,
+        "status": "UNKNOWN_NEEDS_RECONCILIATION",
+        "reasons": [
+          "checkpoint_hash_evidence_missing",
+          "removed_readd_ambiguity",
+          "head_below_checkpoint"
+        ]
+      }
+    },
+    {
+      "case": "gap above maxGapBlocks (1001 > 1000): exit 0 GAP_EXCEEDS_CAP gap_exceeds_maxGapBlocks",
+      "ok": true,
+      "expected": {
+        "status": "GAP_EXCEEDS_CAP",
+        "reasons": [
+          "gap_exceeds_maxGapBlocks"
+        ]
+      },
+      "actual": {
+        "rc": 0,
+        "status": "GAP_EXCEEDS_CAP",
+        "reasons": [
+          "gap_exceeds_maxGapBlocks"
+        ]
+      }
+    },
+    {
+      "case": "gap exactly maxGapBlocks: exit 0 PLANNED ",
+      "ok": true,
+      "expected": {
+        "status": "PLANNED",
+        "reasons": []
+      },
+      "actual": {
+        "rc": 0,
+        "status": "PLANNED",
+        "reasons": []
+      }
+    },
+    {
+      "case": "call budget truncation (maxCalls 5 of 8): exit 0 TRUNCATED_CALL_BUDGET calls_exceed_maxCalls",
+      "ok": true,
+      "expected": {
+        "status": "TRUNCATED_CALL_BUDGET",
+        "reasons": [
+          "calls_exceed_maxCalls"
+        ]
+      },
+      "actual": {
+        "rc": 0,
+        "status": "TRUNCATED_CALL_BUDGET",
+        "reasons": [
+          "calls_exceed_maxCalls"
+        ]
+      }
+    },
+    {
+      "case": "lookback clipped at genesis (C=10, L=64): exit 0 PLANNED ",
+      "ok": true,
+      "expected": {
+        "status": "PLANNED",
+        "reasons": []
+      },
+      "actual": {
+        "rc": 0,
+        "status": "PLANNED",
+        "reasons": []
+      }
+    },
+    {
+      "case": "chunk size 1 respects maxChunkBlocks: exit 0 PLANNED ",
+      "ok": true,
+      "expected": {
+        "status": "PLANNED",
+        "reasons": []
+      },
+      "actual": {
+        "rc": 0,
+        "status": "PLANNED",
+        "reasons": []
+      }
+    },
+    {
+      "case": "refuse wrong chain (head chainId 1): exit 2 chain_mismatch",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "chain_mismatch"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "chain_mismatch",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse wrong chain (checkpoint chainId 1): exit 2 chain_mismatch",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "chain_mismatch"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "chain_mismatch",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse checkpoint from another source: exit 2 checkpoint_source_mismatch",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "checkpoint_source_mismatch"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "checkpoint_source_mismatch",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse head from another source: exit 2 head_source_mismatch",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "head_source_mismatch"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "head_source_mismatch",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse checkpoint recorded under another filter manifest: exit 2 checkpoint_filter_identity_mismatch",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "checkpoint_filter_identity_mismatch"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "checkpoint_filter_identity_mismatch",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse spec+checkpoint pin another manifestSha256: exit 2 filter_identity_mismatch",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "filter_identity_mismatch"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "filter_identity_mismatch",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse manifest file altered: exit 2 manifest_file_hash_mismatch",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "manifest_file_hash_mismatch"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "manifest_file_hash_mismatch",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse non-canonical manifest bytes (pinned): exit 2 manifest_noncanonical",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "manifest_noncanonical"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "manifest_noncanonical",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse manifest self-hash broken (canonical, pinned): exit 2 manifest_self_hash_mismatch",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "manifest_self_hash_mismatch"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "manifest_self_hash_mismatch",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse manifest filter edited without filterSha256: exit 2 manifest_filter_hash_mismatch",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "manifest_filter_hash_mismatch"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "manifest_filter_hash_mismatch",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse duplicate JSON key in spec: exit 2 json_duplicate_key",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "json_duplicate_key"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "json_duplicate_key",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse malformed spec JSON: exit 2 json_malformed",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "json_malformed"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "json_malformed",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse unknown spec field: exit 2 spec_unknown_field",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "spec_unknown_field"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "spec_unknown_field",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse missing evidence: exit 2 spec_missing_field",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "spec_missing_field"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "spec_missing_field",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse wrong schema: exit 2 spec_schema_mismatch",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "spec_schema_mismatch"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "spec_schema_mismatch",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse uppercase block hash: exit 2 value_invalid",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "value_invalid"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "value_invalid",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse negative blockNumber: exit 2 value_invalid",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "value_invalid"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "value_invalid",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse fractional blockNumber: exit 2 value_invalid",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "value_invalid"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "value_invalid",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse blockNumber 2^53: exit 2 value_invalid",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "value_invalid"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "value_invalid",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse blockNumber as hex string: exit 2 value_invalid",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "value_invalid"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "value_invalid",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse lookback 0: exit 2 value_invalid",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "value_invalid"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "value_invalid",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse lookback above maxGapBlocks: exit 2 value_invalid",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "value_invalid"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "value_invalid",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse maxCalls 0: exit 2 value_invalid",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "value_invalid"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "value_invalid",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse maxBytes missing: exit 2 spec_missing_field",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "spec_missing_field"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "spec_missing_field",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse removedLogsSeen string: exit 2 value_invalid",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "value_invalid"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "value_invalid",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse timestamp with offset: exit 2 value_invalid",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "value_invalid"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "value_invalid",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse timestamp calendar invalid: exit 2 value_invalid",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "value_invalid"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "value_invalid",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse spec is a symlink: exit 2 spec_is_symlink",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "spec_is_symlink"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "spec_is_symlink",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse manifest missing: exit 2 manifest_missing",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "manifest_missing"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "manifest_missing",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse no arguments: exit 2 usage",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "usage"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "usage",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse duplicate --spec: exit 2 usage_duplicate_argument",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "usage_duplicate_argument"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "usage_duplicate_argument",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "refuse unknown --execute: exit 2 usage",
+      "ok": true,
+      "expected": {
+        "rc": 2,
+        "refused": "usage"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "usage",
+        "stderr": ""
+      }
+    },
+    {
+      "case": "static: no network/process/clock/write/env/directory-scan APIs (T7 unreadable: plan.mjs opens only --spec and --manifest) in plan.mjs",
+      "ok": true,
+      "expected": [],
+      "actual": []
+    },
+    {
+      "case": "fixtures unchanged by the run",
+      "ok": true,
+      "expected": [
+        "3a5431c2e55a0a1f1b99d6c22b219febe47f2b0f5a10800abf8f80011484a527",
+        "9b0653db273d85fcf9a1f9dee50858da26d056d392eb26a24e73dfb75c160f55"
+      ],
+      "actual": "same"
+    }
+  ]
+}
