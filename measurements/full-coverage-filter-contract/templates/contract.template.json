@@ -1,0 +1,54 @@
+{
+  "schema": "full-coverage-filter-contract-input/1",
+  "manifest": {
+    "fileSha256": "UNRESOLVED_MANIFEST_FILE_SHA256",
+    "manifestSha256": "UNRESOLVED_MANIFEST_SHA256"
+  },
+  "plan": {
+    "fileSha256": "UNRESOLVED_PLAN_FILE_SHA256",
+    "planSha256": "UNRESOLVED_PLAN_SHA256"
+  },
+  "window": {
+    "fromBlock": "UNRESOLVED_ROOT_DEV_B_FROM_BLOCK (= max(0, C-L+1) of the plan)",
+    "toBlock": "UNRESOLVED_ROOT_DEV_B_TO_BLOCK (= plan head H)"
+  },
+  "caps": {
+    "plan": {
+      "maxCalls": "UNRESOLVED_PLAN_CAPS_MAXCALLS (= plan inputs.caps)",
+      "maxBytes": "UNRESOLVED_PLAN_CAPS_MAXBYTES (= plan inputs.caps)",
+      "maxChunkBlocks": "UNRESOLVED_PLAN_CAPS_MAXCHUNKBLOCKS (= plan inputs.caps)",
+      "maxGapBlocks": "UNRESOLVED_PLAN_CAPS_MAXGAPBLOCKS (= plan inputs.caps)"
+    },
+    "comparison": {
+      "maxBytes": "UNRESOLVED_COMPARISON_MAX_BYTES (= manifest comparison.caps)",
+      "maxRawEvents": "UNRESOLVED_COMPARISON_MAX_RAW_EVENTS (= manifest comparison.caps)"
+    }
+  },
+  "lanes": {
+    "poolmanager": {
+      "filterSha256": "UNRESOLVED (= manifest poolmanager.initialize_swap filterSha256)"
+    },
+    "factories": {
+      "filterSha256": "UNRESOLVED (= manifest o1.factories.raw_all_topics filterSha256)"
+    }
+  },
+  "comparison": {
+    "direct": {
+      "poolmanager": null,
+      "factories": null
+    },
+    "native": {
+      "poolmanager": null,
+      "factories": null
+    }
+  },
+  "observationClock": {
+    "clockId": null,
+    "fromUtc": "UNRESOLVED_ROOT_WINDOW_FROM_UTC (= manifest comparison.window.fromUtc)",
+    "toUtc": "UNRESOLVED_ROOT_WINDOW_TO_UTC (= manifest comparison.window.toUtc)"
+  },
+  "subjects": {
+    "backfill": null,
+    "live": null
+  }
+}

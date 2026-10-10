@@ -1,0 +1,92 @@
+{
+  "schema": "full-coverage-filter-contract-input/1",
+  "manifest": {
+    "fileSha256": "3a5431c2e55a0a1f1b99d6c22b219febe47f2b0f5a10800abf8f80011484a527",
+    "manifestSha256": "3eab7f47965ce96afdf9791ed37176b136f8de67b4ed655eee0cc14ef313c0c4"
+  },
+  "plan": {
+    "fileSha256": "3299b8fbcdd1156efd690d779758c5c8818d2ca36df4f18162e9a9fc771ef716",
+    "planSha256": "7e9483a10146850098d41ea70f201011e9e6df3dd223a6c226bd1efd86560eba"
+  },
+  "window": {
+    "fromBlock": 937,
+    "toBlock": 1250
+  },
+  "caps": {
+    "plan": {
+      "maxCalls": 20,
+      "maxBytes": 50000000,
+      "maxChunkBlocks": 100,
+      "maxGapBlocks": 1000
+    },
+    "comparison": {
+      "maxBytes": 1000000,
+      "maxRawEvents": 1000
+    }
+  },
+  "lanes": {
+    "poolmanager": {
+      "filterSha256": "b57e55e84ce87072d1ca3a3d50005297300d5101053cd9fca9fd98b0fdb3fdcc"
+    },
+    "factories": {
+      "filterSha256": "12b6a6ded6072e7f5354ce672d67bdbb6a749b226a6b68c3da467b7a5006db07"
+    }
+  },
+  "comparison": {
+    "direct": {
+      "poolmanager": {
+        "address": [
+          "0x498581ff718922c3f8e6a244956af099b2652b2b"
+        ],
+        "topics": [
+          [
+            "0x40e9cecb9f5f1f1c5b9c97dec2917b7ee92e57ba5563708daca94dd84ad7112f",
+            "0xdd466e674ea557f56295e2d0218a125ea4b4f0f6f3307b95f85e6110838d6438"
+          ]
+        ]
+      },
+      "factories": {
+        "address": [
+          "0x1176122eb77ad6a2339322cda7c4d7ea9bfa63dc",
+          "0x1de58a6769526a03a504d9d59b8757cd8097dc57",
+          "0xa52ad458ce0282a971ecc71c051a32f28946bb9f",
+          "0xb9e5910043353717af54d8dd34b6ee57ffe49c35",
+          "0xe3ab924c72463c1ac8d1d8352ee640b89eb1ea64",
+          "0xff70918ef17a2d74d683a8297813b177bafad1f4"
+        ]
+      }
+    },
+    "native": {
+      "poolmanager": {
+        "address": [
+          "0x498581ff718922c3f8e6a244956af099b2652b2b"
+        ],
+        "topics": [
+          [
+            "0x40e9cecb9f5f1f1c5b9c97dec2917b7ee92e57ba5563708daca94dd84ad7112f",
+            "0xdd466e674ea557f56295e2d0218a125ea4b4f0f6f3307b95f85e6110838d6438"
+          ]
+        ]
+      },
+      "factories": {
+        "address": [
+          "0x1176122eb77ad6a2339322cda7c4d7ea9bfa63dc",
+          "0x1de58a6769526a03a504d9d59b8757cd8097dc57",
+          "0xa52ad458ce0282a971ecc71c051a32f28946bb9f",
+          "0xb9e5910043353717af54d8dd34b6ee57ffe49c35",
+          "0xe3ab924c72463c1ac8d1d8352ee640b89eb1ea64",
+          "0xff70918ef17a2d74d683a8297813b177bafad1f4"
+        ]
+      }
+    }
+  },
+  "observationClock": {
+    "clockId": "synthetic-clock-a",
+    "fromUtc": "2000-01-01T00:00:00Z",
+    "toUtc": "2000-01-01T01:00:00Z"
+  },
+  "subjects": {
+    "backfill": "synthetic.backfill.subject",
+    "live": "synthetic.live.subject"
+  }
+}

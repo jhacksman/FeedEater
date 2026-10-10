@@ -1,0 +1,278 @@
+{
+ "pass": 68,
+ "fail": 0,
+ "cases": [
+  {
+   "name": "pins: fixtures/manifest.synthetic.json == 42185f2 evidence/manifest.synthetic.json bytes (3a5431c2)",
+   "pass": true
+  },
+  {
+   "name": "pins: fixtures/plan.synthetic.json == a345d48 evidence/plan.synthetic.json bytes (3299b8fb)",
+   "pass": true
+  },
+  {
+   "name": "pins: extracted plan.mjs c527e180, verify.mjs 0eb02c03",
+   "pass": true
+  },
+  {
+   "name": "pins: a345d48 plan.mjs regenerates the fixture plan byte-identically",
+   "pass": true
+  },
+  {
+   "name": "complete: exit 0, verdict CONTRACT_CONSISTENT, all 22 checks PASS, rootInputsMissing []",
+   "pass": true
+  },
+  {
+   "name": "complete: window [937,1250] inclusive covered by each lane exactly (4 calls each, contiguous)",
+   "pass": true
+  },
+  {
+   "name": "complete: lanes = PoolManager [[Swap,Initialize]] + six factories with no topics key; narrow census reported separately as NOT_ALL_TOPICS",
+   "pass": true
+  },
+  {
+   "name": "complete: backfill:true/live:false, resumeLive.permitted false, admission NOT_ESTABLISHED, latency/oneClock not measured, Q1/Q2 UNADOPTED",
+   "pass": true
+  },
+  {
+   "name": "complete: reportSha256 recomputes; rerun and cwd=/ byte-identical",
+   "pass": true
+  },
+  {
+   "name": "unresolved: null direct/native filters, clockId and subjects -> UNKNOWN (no FAIL), rootInputsMissing lists all 7",
+   "pass": true
+  },
+  {
+   "name": "unresolved: only native.factories null -> UNKNOWN at comparison.native.factories",
+   "pass": true
+  },
+  {
+   "name": "unresolved: only clockId null -> UNKNOWN at clock.one_clock_declared",
+   "pass": true
+  },
+  {
+   "name": "unresolved: only subjects.live null -> UNKNOWN at subjects.backfill_distinct_from_live",
+   "pass": true
+  },
+  {
+   "name": "narrow: direct.factories = 9d7d087 retained Launched-only request filter -> FAIL NARROW_LAUNCHED_CENSUS_NOT_ALL_TOPICS (topics_present_on_all_topics_lane); direct/native factories not equal",
+   "pass": true
+  },
+  {
+   "name": "narrow: the request params verbatim (with range keys) -> FAIL FILTER_MISMATCH incl. range_key_in_filter",
+   "pass": true
+  },
+  {
+   "name": "narrow: both sides narrow (equal to each other) still FAIL: equality to the planned all-topics filter is required",
+   "pass": true
+  },
+  {
+   "name": "narrow: 83aec5d verifier (run by this test) on the 9d7d087 narrow receipts -> 4 factory calls FILTER_MISMATCH, verdict UNKNOWN",
+   "pass": true
+  },
+  {
+   "name": "poolmanager native Swap only -> FAIL FILTER_MISMATCH (topic0_missing:Initialize)",
+   "pass": true
+  },
+  {
+   "name": "poolmanager native Initialize only -> FAIL FILTER_MISMATCH (topic0_missing:Swap)",
+   "pass": true
+  },
+  {
+   "name": "poolmanager native no topics key -> FAIL FILTER_MISMATCH (topics_missing)",
+   "pass": true
+  },
+  {
+   "name": "poolmanager native plus ModifyLiquidity topic0 -> FAIL FILTER_MISMATCH (topic0_extra:0xf208f4912782fd25c7f114ca3723a2d5dd6f3bcc3ac8db5af63baa85f711d5ec)",
+   "pass": true
+  },
+  {
+   "name": "poolmanager native topics as two positions -> FAIL FILTER_MISMATCH (topics_positions_differ)",
+   "pass": true
+  },
+  {
+   "name": "poolmanager native OR order swapped -> FAIL FILTER_MISMATCH (topics_encoding_differs)",
+   "pass": true
+  },
+  {
+   "name": "poolmanager native foreign address -> FAIL FILTER_MISMATCH (address_missing:0x498581ff718922c3f8e6a244956af099b2652b2b)",
+   "pass": true
+  },
+  {
+   "name": "factories direct five factories -> FAIL FILTER_MISMATCH (address_missing:0x1176122eb77ad6a2339322cda7c4d7ea9bfa63dc)",
+   "pass": true
+  },
+  {
+   "name": "factories direct duplicate factory (7 entries) -> FAIL FILTER_MISMATCH (address_duplicate:0xa52ad458ce0282a971ecc71c051a32f28946bb9f)",
+   "pass": true
+  },
+  {
+   "name": "factories direct six factories + a pool address -> FAIL FILTER_MISMATCH (address_extra:0x00000000000000000000000000000000000000aa)",
+   "pass": true
+  },
+  {
+   "name": "factories direct fixed pool list instead of factories -> FAIL FILTER_MISMATCH (address_missing:0xff70918ef17a2d74d683a8297813b177bafad1f4)",
+   "pass": true
+  },
+  {
+   "name": "factories direct reordered addresses -> FAIL FILTER_MISMATCH (address_order)",
+   "pass": true
+  },
+  {
+   "name": "factories direct topics [null] added -> FAIL FILTER_MISMATCH (topics_present_on_all_topics_lane)",
+   "pass": true
+  },
+  {
+   "name": "factories direct extra key -> FAIL FILTER_MISMATCH (range_key_in_filter:blockHash)",
+   "pass": true
+  },
+  {
+   "name": "window toBlock 1249 vs plan [937,1250] -> FAIL both lanes",
+   "pass": true
+  },
+  {
+   "name": "window fromBlock 936 vs plan [937,1250] -> FAIL both lanes",
+   "pass": true
+  },
+  {
+   "name": "window fromBlock 938 vs plan [937,1250] -> FAIL both lanes",
+   "pass": true
+  },
+  {
+   "name": "window toBlock 1251 vs plan [937,1250] -> FAIL both lanes",
+   "pass": true
+  },
+  {
+   "name": "window: plan regenerated with H=1249 (PLANNED) vs contract window [937,1250] -> FAIL coverage",
+   "pass": true
+  },
+  {
+   "name": "plan TRUNCATED_CALL_BUDGET (5 of 8 calls) -> planned_untruncated UNKNOWN, coverage FAIL, verdict FAIL",
+   "pass": true
+  },
+  {
+   "name": "plan UNKNOWN_NEEDS_RECONCILIATION (no calls) -> planned_untruncated UNKNOWN, coverage FAIL (covered null)",
+   "pass": true
+  },
+  {
+   "name": "caps.plan.maxCalls 19 -> FAIL at caps.plan_equal",
+   "pass": true
+  },
+  {
+   "name": "caps.plan.maxBytes 1 -> FAIL at caps.plan_equal",
+   "pass": true
+  },
+  {
+   "name": "caps.comparison.maxRawEvents 999 -> FAIL at caps.comparison_equal",
+   "pass": true
+  },
+  {
+   "name": "lanes.factories.filterSha256 = narrow sha -> FAIL at lanes.factories_pin",
+   "pass": true
+  },
+  {
+   "name": "clock fromUtc differs from manifest window -> FAIL at clock.window_equals_manifest",
+   "pass": true
+  },
+  {
+   "name": "clock toUtc differs from manifest window -> FAIL at clock.window_equals_manifest",
+   "pass": true
+  },
+  {
+   "name": "backfill subject == live subject -> FAIL at subjects.backfill_distinct_from_live",
+   "pass": true
+  },
+  {
+   "name": "manifest variant: factory lane with five addresses (row 6 kept) (re-hashed; plan PLANNED) -> FAIL incl. manifest.factories_filter",
+   "pass": true
+  },
+  {
+   "name": "manifest variant: factory row duplicated (7 rows) (re-hashed; plan PLANNED) -> FAIL incl. manifest.factory_rows_six_each_once",
+   "pass": true
+  },
+  {
+   "name": "manifest variant: PoolManager lane without Initialize (re-hashed; plan PLANNED) -> FAIL incl. manifest.poolmanager_filter",
+   "pass": true
+  },
+  {
+   "name": "manifest variant: extra fixed-pool filterset (re-hashed; plan PLANNED) -> FAIL incl. manifest.filtersets_exactly_two_lanes",
+   "pass": true
+  },
+  {
+   "name": "manifest variant: factory lane narrowed to Launched-only (re-hashed) -> pinned a345d48 plan.mjs refuses it (manifest_filtersets_invalid), so no plan; check.mjs refuses the unplanned contract (exit 2)",
+   "pass": true
+  },
+  {
+   "name": "receipts: 83aec5d complete synthetic receipts for this same plan -> ALL_CALLS_RECEIPTED with backfill:true/live:false and resumeLive.permitted false",
+   "pass": true
+  },
+  {
+   "name": "refuse template with UNRESOLVED fields -> value_invalid",
+   "pass": true
+  },
+  {
+   "name": "refuse manifest file pin mismatch -> manifest_file_hash_mismatch",
+   "pass": true
+  },
+  {
+   "name": "refuse plan identity pin mismatch -> plan_identity_mismatch",
+   "pass": true
+  },
+  {
+   "name": "refuse unknown contract field -> spec_unknown_field",
+   "pass": true
+  },
+  {
+   "name": "refuse missing window -> spec_missing_field",
+   "pass": true
+  },
+  {
+   "name": "refuse duplicate key -> json_duplicate_key",
+   "pass": true
+  },
+  {
+   "name": "refuse window fromBlock > toBlock -> value_invalid",
+   "pass": true
+  },
+  {
+   "name": "refuse window block as hex string -> value_invalid",
+   "pass": true
+  },
+  {
+   "name": "refuse clock time with offset -> value_invalid",
+   "pass": true
+  },
+  {
+   "name": "refuse comparison filter as string -> value_invalid",
+   "pass": true
+  },
+  {
+   "name": "refuse wrong schema -> contract_schema_mismatch",
+   "pass": true
+  },
+  {
+   "name": "refuse symlinked contract -> contract_is_symlink",
+   "pass": true
+  },
+  {
+   "name": "refuse missing --plan -> cli_missing_argument",
+   "pass": true
+  },
+  {
+   "name": "refuse duplicate --plan -> cli_duplicate_argument",
+   "pass": true
+  },
+  {
+   "name": "refuse unknown --endpoint -> cli_unknown_argument",
+   "pass": true
+  },
+  {
+   "name": "static: check.mjs has no network, child process, env, wall-clock, write or directory-scan API",
+   "pass": true
+  },
+  {
+   "name": "static: fixtures and 9d7d087 narrow example bytes unchanged",
+   "pass": true
+  }
+ ]
+}
