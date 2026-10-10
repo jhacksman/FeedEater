@@ -1,0 +1,28 @@
+PASS raw94 fixture.mjs extracted from 94a0ae0 with pinned sha256
+PASS raw94 tier0.mjs extracted from 94a0ae0 with pinned sha256
+PASS raw94 writer.mjs extracted from 94a0ae0 with pinned sha256
+PASS raw94 writer produced 10000 append acks
+PASS commit journal has a last entry covering exactly 9999-10000 (192 entries)
+PASS intact: 10000 RESOLVABLE, read-only
+PASS last journal entry lost, before recovery: 2 INVALIDATED beyond_committed_end (2087 B), still accessible in active file
+PASS last journal entry lost, after raw94 recovery (writer exit 0): 2 INVALIDATED beyond_eof, not accessible, bytes preserved in quarantine
+PASS journal reduced to first entry only, before recovery: 10000 INVALIDATED beyond_committed_end (10500111 B), still accessible in active file
+PASS journal reduced to first entry only, after raw94 recovery (writer exit 0): 10000 INVALIDATED beyond_eof, not accessible, bytes preserved in quarantine
+PASS malformed ack journal line: refused exit 2
+PASS truncated ack journal final line: refused exit 2
+PASS truncated segment: 4999 RESOLVABLE, 5001 INVALIDATED beyond_eof
+PASS corrupt record 5000: INVALIDATED record_sha_mismatch, bytes not found, others RESOLVABLE
+PASS corrupt metaLen of record 7000 (in bounds): INVALIDATED framing_mismatch, later refs still RESOLVABLE
+PASS foreign segment identity: 10000 INVALIDATED segment_identity_mismatch
+PASS wrong raw sha (77) and wrong meta sha (78): INVALIDATED with exact reason
+PASS duplicate identical acks counted (seq 10 RESOLVABLE); conflicting seq 20 UNKNOWN conflicting_acks
+PASS corrupt journal entry: 10000 UNKNOWN journal_unverifiable, bytes still accessible
+PASS partial trailing journal entry (20 B): reported, whole entries still prove 10000 RESOLVABLE
+PASS symlinked segment input: refused input_is_symlink
+PASS mixed segment ids in ack journal: refused
+PASS missing --journal: refused missing_argument
+PASS absent journal file: refused input_open_ENOENT
+PASS quarantine not named for the supplied segment: refused
+PASS static: imports only node:fs,node:crypto,node:path; no write/truncate/unlink/rename/spawn/network/clock or payload encoding calls
+PASS full-refs output contains no raw payload bytes (first 200 frames checked)
+27 PASS, 0 FAIL

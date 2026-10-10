@@ -1,0 +1,556 @@
+{
+  "rawWriterCommit": "94a0ae0e2a7e96c8ba21b3d609adbdfb156eb14d",
+  "fixture": "raw94 fixture.mjs makeFrames(10000,173)",
+  "allAckBytes": 10500111,
+  "results": [
+    {
+      "case": "intact: 10000 RESOLVABLE, read-only",
+      "expected": {
+        "rc": 0,
+        "RESOLVABLE": 10000,
+        "INVALIDATED": {},
+        "UNKNOWN": {}
+      },
+      "actual": {
+        "rc": 0,
+        "RESOLVABLE": 10000,
+        "INVALIDATED": {},
+        "UNKNOWN": {},
+        "nonResolvable": [],
+        "presence": {
+          "refAccessible": 10000,
+          "bytesPreservedActive": 10000,
+          "bytesPreservedQuarantine": 0,
+          "bytesNotFound": 0
+        },
+        "nonResolvableRefBytes": 0
+      },
+      "pass": true
+    },
+    {
+      "case": "last journal entry lost, before recovery: 2 INVALIDATED beyond_committed_end (2087 B), still accessible in active file",
+      "expected": {
+        "rc": 0,
+        "INVALIDATED": {
+          "beyond_committed_end": 2
+        },
+        "nonResolvable": [
+          [
+            9999,
+            10000
+          ]
+        ],
+        "refAccessible": 10000,
+        "bytesPreservedActive": 10000,
+        "nonResolvableRefBytes": 2087
+      },
+      "actual": {
+        "rc": 0,
+        "RESOLVABLE": 9998,
+        "INVALIDATED": {
+          "beyond_committed_end": 2
+        },
+        "UNKNOWN": {},
+        "nonResolvable": [
+          [
+            9999,
+            10000
+          ]
+        ],
+        "presence": {
+          "refAccessible": 10000,
+          "bytesPreservedActive": 10000,
+          "bytesPreservedQuarantine": 0,
+          "bytesNotFound": 0
+        },
+        "nonResolvableRefBytes": 2087
+      },
+      "pass": true
+    },
+    {
+      "case": "last journal entry lost, after raw94 recovery (writer exit 0): 2 INVALIDATED beyond_eof, not accessible, bytes preserved in quarantine",
+      "expected": {
+        "writerRc": 0,
+        "rc": 0,
+        "INVALIDATED": {
+          "beyond_eof": 2
+        },
+        "nonResolvable": [
+          [
+            9999,
+            10000
+          ]
+        ],
+        "refAccessible": 9998,
+        "bytesPreservedQuarantine": 2,
+        "nonResolvableRefBytes": 2087
+      },
+      "actual": {
+        "writerRc": 0,
+        "quarantines": [
+          [
+            "seg.quarantine-10498142-e2",
+            2087
+          ]
+        ],
+        "rc": 0,
+        "RESOLVABLE": 9998,
+        "INVALIDATED": {
+          "beyond_eof": 2
+        },
+        "UNKNOWN": {},
+        "nonResolvable": [
+          [
+            9999,
+            10000
+          ]
+        ],
+        "presence": {
+          "refAccessible": 9998,
+          "bytesPreservedActive": 9998,
+          "bytesPreservedQuarantine": 2,
+          "bytesNotFound": 0
+        },
+        "nonResolvableRefBytes": 2087
+      },
+      "pass": true
+    },
+    {
+      "case": "journal reduced to first entry only, before recovery: 10000 INVALIDATED beyond_committed_end (10500111 B), still accessible in active file",
+      "expected": {
+        "rc": 0,
+        "INVALIDATED": {
+          "beyond_committed_end": 10000
+        },
+        "nonResolvable": [
+          [
+            1,
+            10000
+          ]
+        ],
+        "refAccessible": 10000,
+        "bytesPreservedActive": 10000,
+        "nonResolvableRefBytes": 10500111
+      },
+      "actual": {
+        "rc": 0,
+        "RESOLVABLE": 0,
+        "INVALIDATED": {
+          "beyond_committed_end": 10000
+        },
+        "UNKNOWN": {},
+        "nonResolvable": [
+          [
+            1,
+            10000
+          ]
+        ],
+        "presence": {
+          "refAccessible": 10000,
+          "bytesPreservedActive": 10000,
+          "bytesPreservedQuarantine": 0,
+          "bytesNotFound": 0
+        },
+        "nonResolvableRefBytes": 10500111
+      },
+      "pass": true
+    },
+    {
+      "case": "journal reduced to first entry only, after raw94 recovery (writer exit 0): 10000 INVALIDATED beyond_eof, not accessible, bytes preserved in quarantine",
+      "expected": {
+        "writerRc": 0,
+        "rc": 0,
+        "INVALIDATED": {
+          "beyond_eof": 10000
+        },
+        "nonResolvable": [
+          [
+            1,
+            10000
+          ]
+        ],
+        "refAccessible": 0,
+        "bytesPreservedQuarantine": 10000,
+        "nonResolvableRefBytes": 10500111
+      },
+      "actual": {
+        "writerRc": 0,
+        "quarantines": [
+          [
+            "seg.quarantine-118-e2",
+            10500111
+          ]
+        ],
+        "rc": 0,
+        "RESOLVABLE": 0,
+        "INVALIDATED": {
+          "beyond_eof": 10000
+        },
+        "UNKNOWN": {},
+        "nonResolvable": [
+          [
+            1,
+            10000
+          ]
+        ],
+        "presence": {
+          "refAccessible": 0,
+          "bytesPreservedActive": 0,
+          "bytesPreservedQuarantine": 10000,
+          "bytesNotFound": 0
+        },
+        "nonResolvableRefBytes": 10500111
+      },
+      "pass": true
+    },
+    {
+      "case": "malformed ack journal line: refused exit 2",
+      "expected": {
+        "rc": 2,
+        "refused": "ack_journal_malformed_line"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "ack_journal_malformed_line",
+        "line": 2
+      },
+      "pass": true
+    },
+    {
+      "case": "truncated ack journal final line: refused exit 2",
+      "expected": {
+        "rc": 2,
+        "refused": "ack_journal_truncated_final_line"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "ack_journal_truncated_final_line"
+      },
+      "pass": true
+    },
+    {
+      "case": "truncated segment: 4999 RESOLVABLE, 5001 INVALIDATED beyond_eof",
+      "expected": {
+        "RESOLVABLE": 4999,
+        "INVALIDATED": {
+          "beyond_eof": 5001
+        },
+        "nonResolvable": [
+          [
+            5000,
+            10000
+          ]
+        ],
+        "segmentShorterThanCommittedEnd": true
+      },
+      "actual": {
+        "RESOLVABLE": 4999,
+        "INVALIDATED": {
+          "beyond_eof": 5001
+        },
+        "UNKNOWN": {},
+        "nonResolvable": [
+          [
+            5000,
+            10000
+          ]
+        ],
+        "presence": {
+          "refAccessible": 4999,
+          "bytesPreservedActive": 4999,
+          "bytesPreservedQuarantine": 0,
+          "bytesNotFound": 5001
+        },
+        "nonResolvableRefBytes": 5251516,
+        "segmentShorterThanCommittedEnd": true
+      },
+      "pass": true
+    },
+    {
+      "case": "corrupt record 5000: INVALIDATED record_sha_mismatch, bytes not found, others RESOLVABLE",
+      "expected": {
+        "RESOLVABLE": 9999,
+        "INVALIDATED": {
+          "record_sha_mismatch": 1
+        },
+        "nonResolvable": [
+          [
+            5000,
+            5000
+          ]
+        ],
+        "bytesNotFound": 1
+      },
+      "actual": {
+        "RESOLVABLE": 9999,
+        "INVALIDATED": {
+          "record_sha_mismatch": 1
+        },
+        "UNKNOWN": {},
+        "nonResolvable": [
+          [
+            5000,
+            5000
+          ]
+        ],
+        "presence": {
+          "refAccessible": 9999,
+          "bytesPreservedActive": 9999,
+          "bytesPreservedQuarantine": 0,
+          "bytesNotFound": 1
+        },
+        "nonResolvableRefBytes": 1043
+      },
+      "pass": true
+    },
+    {
+      "case": "corrupt metaLen of record 7000 (in bounds): INVALIDATED framing_mismatch, later refs still RESOLVABLE",
+      "expected": {
+        "INVALIDATED": {
+          "record_sha_mismatch": 1,
+          "framing_mismatch": 1
+        },
+        "RESOLVABLE": 9998
+      },
+      "actual": {
+        "RESOLVABLE": 9998,
+        "INVALIDATED": {
+          "record_sha_mismatch": 1,
+          "framing_mismatch": 1
+        },
+        "UNKNOWN": {},
+        "nonResolvable": [
+          [
+            5000,
+            5000
+          ],
+          [
+            7000,
+            7000
+          ]
+        ],
+        "presence": {
+          "refAccessible": 9998,
+          "bytesPreservedActive": 9998,
+          "bytesPreservedQuarantine": 0,
+          "bytesNotFound": 2
+        },
+        "nonResolvableRefBytes": 2102
+      },
+      "pass": true
+    },
+    {
+      "case": "foreign segment identity: 10000 INVALIDATED segment_identity_mismatch",
+      "expected": {
+        "INVALIDATED": {
+          "segment_identity_mismatch": 10000
+        },
+        "journalOk": false
+      },
+      "actual": {
+        "RESOLVABLE": 0,
+        "INVALIDATED": {
+          "segment_identity_mismatch": 10000
+        },
+        "UNKNOWN": {},
+        "nonResolvable": [
+          [
+            1,
+            10000
+          ]
+        ],
+        "presence": {
+          "refAccessible": 0,
+          "bytesPreservedActive": 0,
+          "bytesPreservedQuarantine": 0,
+          "bytesNotFound": 10000
+        },
+        "nonResolvableRefBytes": 10500111,
+        "journalOk": false,
+        "identity": "segment_identity_mismatch"
+      },
+      "pass": true
+    },
+    {
+      "case": "wrong raw sha (77) and wrong meta sha (78): INVALIDATED with exact reason",
+      "expected": {
+        "INVALIDATED": {
+          "ack_raw_sha_mismatch": 1,
+          "ack_meta_sha_mismatch": 1
+        },
+        "nonResolvable": [
+          [
+            77,
+            78
+          ]
+        ]
+      },
+      "actual": {
+        "RESOLVABLE": 9998,
+        "INVALIDATED": {
+          "ack_raw_sha_mismatch": 1,
+          "ack_meta_sha_mismatch": 1
+        },
+        "UNKNOWN": {},
+        "nonResolvable": [
+          [
+            77,
+            78
+          ]
+        ],
+        "presence": {
+          "refAccessible": 9998,
+          "bytesPreservedActive": 9998,
+          "bytesPreservedQuarantine": 0,
+          "bytesNotFound": 2
+        },
+        "nonResolvableRefBytes": 2098
+      },
+      "pass": true
+    },
+    {
+      "case": "duplicate identical acks counted (seq 10 RESOLVABLE); conflicting seq 20 UNKNOWN conflicting_acks",
+      "expected": {
+        "RESOLVABLE": 9999,
+        "UNKNOWN": {
+          "conflicting_acks": 1
+        },
+        "duplicateIdentical": 2,
+        "conflictingSeqs": 1,
+        "nonResolvable": [
+          [
+            20,
+            20
+          ]
+        ]
+      },
+      "actual": {
+        "RESOLVABLE": 9999,
+        "INVALIDATED": {},
+        "UNKNOWN": {
+          "conflicting_acks": 1
+        },
+        "nonResolvable": [
+          [
+            20,
+            20
+          ]
+        ],
+        "presence": {
+          "refAccessible": 9999,
+          "bytesPreservedActive": 9999,
+          "bytesPreservedQuarantine": 0,
+          "bytesNotFound": 1
+        },
+        "nonResolvableRefBytes": 0,
+        "duplicateIdentical": 2,
+        "conflictingSeqs": 1
+      },
+      "pass": true
+    },
+    {
+      "case": "corrupt journal entry: 10000 UNKNOWN journal_unverifiable, bytes still accessible",
+      "expected": {
+        "UNKNOWN": {
+          "journal_unverifiable:journal_bad_entry": 10000
+        },
+        "refAccessible": 10000
+      },
+      "actual": {
+        "RESOLVABLE": 0,
+        "INVALIDATED": {},
+        "UNKNOWN": {
+          "journal_unverifiable:journal_bad_entry": 10000
+        },
+        "nonResolvable": [
+          [
+            1,
+            10000
+          ]
+        ],
+        "presence": {
+          "refAccessible": 10000,
+          "bytesPreservedActive": 10000,
+          "bytesPreservedQuarantine": 0,
+          "bytesNotFound": 0
+        },
+        "nonResolvableRefBytes": 10500111
+      },
+      "pass": true
+    },
+    {
+      "case": "partial trailing journal entry (20 B): reported, whole entries still prove 10000 RESOLVABLE",
+      "expected": {
+        "RESOLVABLE": 10000,
+        "partialTailBytes": 20
+      },
+      "actual": {
+        "RESOLVABLE": 10000,
+        "partialTailBytes": 20
+      },
+      "pass": true
+    },
+    {
+      "case": "symlinked segment input: refused input_is_symlink",
+      "expected": {
+        "rc": 2,
+        "refused": "input_is_symlink"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "input_is_symlink",
+        "role": "segment",
+        "path": "work/c13/link.seg"
+      },
+      "pass": true
+    },
+    {
+      "case": "mixed segment ids in ack journal: refused",
+      "expected": {
+        "rc": 2,
+        "refused": "mixed_segment_ids"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "mixed_segment_ids"
+      },
+      "pass": true
+    },
+    {
+      "case": "missing --journal: refused missing_argument",
+      "expected": {
+        "rc": 2,
+        "refused": "missing_argument"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "missing_argument"
+      },
+      "pass": true
+    },
+    {
+      "case": "absent journal file: refused input_open_ENOENT",
+      "expected": {
+        "rc": 2,
+        "refused": "input_open_ENOENT"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "input_open_ENOENT"
+      },
+      "pass": true
+    },
+    {
+      "case": "quarantine not named for the supplied segment: refused",
+      "expected": {
+        "rc": 2,
+        "refused": "quarantine_not_for_segment"
+      },
+      "actual": {
+        "rc": 2,
+        "refused": "quarantine_not_for_segment"
+      },
+      "pass": true
+    }
+  ]
+}
