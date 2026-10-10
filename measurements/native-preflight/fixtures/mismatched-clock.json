@@ -93,13 +93,21 @@
       "host_id": "lab-host-1",
       "boot_id": "0f1e2d3c-4b5a-4968-8778-695a4b3c2d1e",
       "unit": "ns",
-      "clock_uncert_ms": 0.05
+      "clock_uncert_ms": 0.05,
+      "clock_uncert_evidence": {
+        "method": "synthetic chrony tracking excerpt",
+        "ref": "lab/clock-2026-10-10.txt"
+      }
     },
     "reference": {
       "host_id": "lab-host-1",
       "boot_id": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
       "unit": "ms",
-      "clock_uncert_ms": 0.05
+      "clock_uncert_ms": 0.05,
+      "clock_uncert_evidence": {
+        "method": "synthetic chrony tracking excerpt",
+        "ref": "lab/clock-2026-10-10.txt"
+      }
     }
   },
   "provenance": {

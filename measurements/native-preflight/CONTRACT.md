@@ -1,4 +1,4 @@
-# Native-run preflight validator: contract (correction 1 of `2b3cead`)
+# Native-run preflight validator: contract (correction 2 of `2b3cead`, final; on correction 1 `7bdb658`)
 
 Offline. `node preflight.mjs <operator-input.json>` reads one JSON file. It does not touch the network, a broker, the node, processes, the environment or the clock (statically checked in `test.mjs`).
 
@@ -60,3 +60,20 @@ Aromer processing is always reported in `aromerProcessing` as one of `NOT_SUPPLI
   - window, clock, provenance and caps are missing;
   - at `asOfUtc` 05:47:20Z the WS evidence is stale;
   - Q1/Q2 and all defects are unresolved.
+
+## Correction 2 (final)
+- **Outcome key families:** keys are normalized to lowercase alphanumerics. Any key that *contains* one of these families is refused with exit 2 at any depth, before classification:
+  - `result`, `outcome`, `latency`, `p50`, `p90`, `p95`, `p99`, `p999`, `datsrc011`, `admission`, `admit`, `performance`, `pass`, `success`, `verdict`, `ready`, `score`;
+  - so `latencyAddedMs`, `p99AddedMs`, `DAT_SRC_011_RESULT`, `admission_result`, `admissionResult`, `outcomeSummary`, `passRate`, `readyState`, `verdictText` and `successRate` are all refused.
+- **Deferred values:** any key containing `rawref` or `tingest` is refused with exit 2 at any depth, e.g. `provenance.extra.raw_ref`, `provenance.rawRef`, `provenance.fields.t_ingest`. These values exist only after a Tier-0 append, and spec:Q1 is unresolved.
+- **Clock uncertainty:** `clock_uncert_ms` is `known` only when it is greater than 0 and paired with a non-placeholder `clock_uncert_evidence {method, ref}`.
+  - A value of `0` is `missing`, because zero is not a measurement.
+  - Evidence that is missing or a placeholder is `missing`.
+  - The validator does not check what the evidence ref contains.
+- **Aromer observation:**
+  - `INVALID_OR_INCOMPLETE` when any field is missing, `asOfUtc` is invalid, it is observed after `asOfUtc` (negative evidence age), there is no valid HTTP node observation, or its head is more than 3 blocks *ahead* of the node-projected head.
+  - The node-projected head is the HTTP head + (aromer `observedAtUtc` − HTTP `observedAtUtc`) / 2 s.
+  - `BLOCKED_STALE` when its head lags the projection by more than 3 blocks, `feedState` is not `up`, `ageS` > `maxAgeS`, or the evidence is older than 600 s. A small `ageS` cannot override the head check.
+  - `FRESH_OBSERVATION` otherwise. This is still not Aromer recovery or a measurement result.
+  - An `aromer_measurement` claim needs `FRESH_OBSERVATION`. With native-only scope, Aromer is reported but not claimed.
+- **Unchanged:** the empty, immutable built-in registry; Q1/Q2 `missing` with no input waiver; the filter digest checked for format and equality, not recomputed; no owner decision recorded.

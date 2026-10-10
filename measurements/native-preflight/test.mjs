@@ -34,7 +34,7 @@ for (const s of ["2026-99-99T99:99:99Z", "2026-13-45T00:00:00Z", "2026-02-30T00:
 ok(parseUtc("2028-02-29T00:00:00Z") !== null && parseUtc("2026-10-10T05:47:11.720Z") === Date.UTC(2026, 9, 10, 5, 47, 11) + 720, "parseUtc accepts valid leap day and fraction");
 
 // 3. CLI matrix (actual shipped registry: nothing can be READY).
-const REFUSED = ["forbidden-outcome", "forbidden-alias-nested", "self-attested-registry", "old-schema"];
+const REFUSED = ["forbidden-outcome", "forbidden-alias-nested", "forbidden-alias-family", "self-attested-registry", "old-schema", "raw-ref-supplied", "nested-raw-ref"];
 for (const n of names) {
   const r = cli(n);
   if (REFUSED.includes(n)) { ok(r.rc === 2 && r.out === null, `CLI ${n} refused exit 2 (got ${r.rc})`); continue; }
@@ -64,7 +64,10 @@ const EXPECT = {
   "noncanonical-identical": { filters: "invalid" }, "mismatched-filters": { filters: "invalid" }, "mismatched-clock": { clock: "invalid" },
   "unbounded-threshold": { freshness: "invalid" }, stale: { freshness: "invalid" }, "partial-recovery": { freshness: "invalid" }, "http-ws-inconsistent": { freshness: "invalid" },
   "placeholder-values": { pins: "missing", provenance: "missing" }, "unknown-proof": { provenance: "missing", "defect:M2": "missing" },
-  "raw-ref-supplied": { provenance: "invalid" }, "stale-aromer-claimed": { aromer: "invalid" },
+  "stale-aromer-claimed": { aromer: "invalid" },
+  "aromer-fresh-claimed": {}, "aromer-lagging-native": {},
+  "aromer-future": { aromer: "invalid" }, "aromer-lagging-age04": { aromer: "invalid" }, "aromer-ahead-age04": { aromer: "invalid" },
+  "clock-uncert-zero": { clock: "missing" }, "clock-uncert-no-evidence": { clock: "missing" },
 };
 for (const n of names) {
   const x = fx(n);
@@ -91,7 +94,13 @@ const aromerOnly = fx("corrected-full"); aromerOnly.claimScope = ["aromer_measur
 ok(validate(aromerOnly, opt).verdict === "NOT_READY", "claimScope must include native_collector_run");
 const freshA = fx("corrected-full"); freshA.claimScope = ["native_collector_run", "aromer_measurement"];
 ok(eq(nonKnown(validate(freshA, opt)), { aromer: "missing" }), "aromer_measurement without observation: missing");
-for (const alias of ["Results", "p99_ms", "Admitted", "DAT_SRC_011", "outcome"]) {
+const AST = { "aromer-fresh-claimed": "FRESH_OBSERVATION", "aromer-future": "INVALID_OR_INCOMPLETE", "aromer-lagging-age04": "BLOCKED_STALE", "aromer-ahead-age04": "INVALID_OR_INCOMPLETE", "aromer-lagging-native": "BLOCKED_STALE", "stale-aromer-claimed": "INVALID_OR_INCOMPLETE" };
+for (const [n, st] of Object.entries(AST)) ok(validate(fx(n), opt).aromerProcessing.status === st, `aromer ${n} -> ${st} (${validate(fx(n), opt).aromerProcessing.status})`);
+ok(validate(fx("aromer-lagging-native"), opt).aromerProcessing.claimed === false, "native-only scope reports lagging Aromer without claiming it");
+for (const [path, k] of [["provenance", "raw_ref"], ["provenance", "rawRef"], ["provenance", "RAW-REF"], ["provenance", "t_ingest"], ["provenance", "tIngest"]]) {
+  for (const nest of [false, true]) { const y = fx("corrected-full"); const tgt = nest ? (y[path].fields = {}) : y[path]; tgt[k] = "x"; ok(refusal(y) !== null && /raw_ref\/t_ingest/.test(refusal(y)), `deferred alias ${nest ? "nested " : ""}${k} refused`); }
+}
+for (const alias of ["Results", "p99_ms", "Admitted", "DAT_SRC_011", "outcome", "latencyAddedMs", "p99AddedMs", "DAT_SRC_011_RESULT", "admission_result", "admissionResult", "outcomeSummary", "passRate", "readyState", "verdictText", "successRate"]) {
   const y = fx("corrected-full"); y.caps.extra = [{ [alias]: 1 }];
   ok(refusal(y) !== null, `nested alias ${alias} refused`);
 }

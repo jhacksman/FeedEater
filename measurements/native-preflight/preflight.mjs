@@ -33,7 +33,10 @@ const FACTORIES = [
 ];
 export const CANONICAL_FILTERS = [{ address: [PM], topics: [[T_INIT, T_SWAP]] }, { address: FACTORIES }];
 
-const FORBIDDEN = new Set(["result", "results", "outcome", "outcomes", "latency", "latencyms", "latencyns", "p99", "p99ms", "datsrc011", "datsrc011pass", "admission", "admitted", "performance", "pass", "passed", "success", "verdict", "ready"]);
+// Outcome key families: a normalized key (lowercase alphanumerics) containing any family is refused at any depth.
+export const FORBIDDEN_FAMILIES = ["result", "outcome", "latency", "p50", "p90", "p95", "p99", "p999", "datsrc011", "admission", "admit", "performance", "pass", "success", "verdict", "ready", "score"];
+// Values that only exist after a Tier-0 append (spec:Q1): refused at any depth under any alias.
+export const DEFERRED_FAMILIES = ["rawref", "tingest"];
 const SELF_ATTEST = new Set(["reviewed", "reviewedpins", "registry", "ownerrecord", "ownerrecords", "ownerdecision", "waiver", "waived"]);
 const CAPTURE = ["live_ws", "live_poll", "repair", "backfill_node", "backfill_thirdparty", "manual", "sealed_capture"];
 const DEFECTS = ["M1", "M2", "provenance", "inSourceCaps", "jointIntegration"];
@@ -87,13 +90,14 @@ function grade(id, fn) {
   return { id, status: bad.length > 0 ? "invalid" : miss.length > 0 ? "missing" : "known", detail: [...bad, ...miss] };
 }
 
-function scanKeys(v, path, forb, self) {
-  if (Array.isArray(v)) v.forEach((x, i) => scanKeys(x, `${path}[${i}]`, forb, self));
+function scanKeys(v, path, forb, self, deferred) {
+  if (Array.isArray(v)) v.forEach((x, i) => scanKeys(x, `${path}[${i}]`, forb, self, deferred));
   else if (isObj(v)) for (const k of Object.keys(v)) {
     const n = normKey(k);
-    if (FORBIDDEN.has(n)) forb.push(`${path}.${k}`);
+    if (FORBIDDEN_FAMILIES.some((f) => n.includes(f))) forb.push(`${path}.${k}`);
     if (SELF_ATTEST.has(n)) self.push(`${path}.${k}`);
-    scanKeys(v[k], `${path}.${k}`, forb, self);
+    if (DEFERRED_FAMILIES.some((f) => n.includes(f))) deferred.push(`${path}.${k}`);
+    scanKeys(v[k], `${path}.${k}`, forb, self, deferred);
   }
 }
 
@@ -101,9 +105,11 @@ export function refusal(input) {
   if (!isObj(input) || input.schema !== "native-preflight-input/2") return 'schema must be "native-preflight-input/2"';
   const forb = [];
   const self = [];
-  scanKeys(input, "$", forb, self);
+  const deferred = [];
+  scanKeys(input, "$", forb, self, deferred);
   if (forb.length > 0) return `run outcomes are not preflight input: ${forb.join(", ")}`;
   if (self.length > 0) return `self-attested registry/owner records are not accepted from input: ${self.join(", ")}`;
+  if (deferred.length > 0) return `raw_ref/t_ingest cannot be pre-supplied (exist only after a Tier-0 append; spec:Q1 unresolved): ${deferred.join(", ")}`;
   return null;
 }
 
@@ -194,6 +200,9 @@ export function validate(input, opts = {}) {
       if (x.unit !== "ns") c.bad(`${arm}.unit must be "ns" (int64)`);
       if (x.clock_uncert_ms === undefined || x.clock_uncert_ms === null || absent(x.clock_uncert_ms)) c.miss(`${arm}.clock_uncert_ms absent (measured value required)`);
       else if (!finNonNeg(x.clock_uncert_ms) || x.clock_uncert_ms > 1000) c.bad(`${arm}.clock_uncert_ms invalid`);
+      else if (x.clock_uncert_ms === 0) c.miss(`${arm}.clock_uncert_ms 0 is not a measurement (unknown)`);
+      const ev = x.clock_uncert_evidence;
+      if (!isObj(ev) || absent(ev.method) || absent(ev.ref)) c.miss(`${arm}.clock_uncert_evidence {method, ref} absent: uncertainty unsubstantiated`);
     }
     if (isObj(k.collector) && isObj(k.reference)) {
       if (k.collector.host_id !== k.reference.host_id) c.bad("arms on different host_id");
@@ -280,16 +289,30 @@ export function validate(input, opts = {}) {
     else if (f.recovery !== "complete") c.miss('recovery must be "complete"');
   }));
 
-  // Aromer processing is a separate claim from node transport.
+  // Aromer processing is a separate claim from node transport. Its head is cross-checked against the HTTP node
+  // observation projected at BLOCK_S per block (fixed tolerance HEAD_TOL); a reported ageS cannot override the head.
   let aromer = "NOT_SUPPLIED";
   const aromerDetail = [];
   const a = input.aromer;
   if (isObj(a)) {
     const t = parseUtc(a.observedAtUtc);
-    const maxAge = finNonNeg(input.freshness?.maxAgeS) && input.freshness.maxAgeS > 0 && input.freshness.maxAgeS <= MAX_AGE_S ? input.freshness.maxAgeS : MAX_AGE_S;
-    if (t === null || !finNonNeg(a.ageS) || !posInt(a.head) || absent(a.feedState)) { aromer = "INVALID_OR_INCOMPLETE"; aromerDetail.push("aromer observation needs calendar-valid observedAtUtc, head, ageS, feedState"); }
-    else if (a.feedState !== "up" || a.ageS > maxAge || (asOf !== null && (asOf - t) / 1000 > MAX_EVIDENCE_AGE_S)) { aromer = "BLOCKED_STALE"; aromerDetail.push(`aromer head ${a.head} age ${a.ageS}s, feedState ${a.feedState}`); }
-    else aromer = "FRESH_OBSERVATION";
+    const fr = isObj(input.freshness) ? input.freshness : {};
+    const maxAge = finNonNeg(fr.maxAgeS) && fr.maxAgeS > 0 && fr.maxAgeS <= MAX_AGE_S ? fr.maxAgeS : MAX_AGE_S;
+    const h = isObj(fr.http) ? fr.http : {};
+    const tH = parseUtc(h.observedAtUtc);
+    const bad = (x) => { aromer = "INVALID_OR_INCOMPLETE"; aromerDetail.push(x); };
+    if (t === null || !finNonNeg(a.ageS) || !posInt(a.head) || absent(a.feedState)) bad("aromer observation needs calendar-valid observedAtUtc, head, ageS, feedState");
+    else if (asOf === null) bad("asOfUtc invalid: aromer evidence age unknown");
+    else if (t > asOf) bad("aromer observed after asOfUtc (negative evidence age)");
+    else if (tH === null || !posInt(h.head)) bad("no valid HTTP node observation to cross-check the aromer head");
+    else {
+      const expected = h.head + (t - tH) / 1000 / BLOCK_S;
+      const lag = expected - a.head;
+      aromerDetail.push(`aromer head ${a.head}, node-projected ${expected.toFixed(1)} (lag ${lag.toFixed(1)} blocks = ${(lag * BLOCK_S).toFixed(1)} s), ageS ${a.ageS}, feedState ${a.feedState}`);
+      if (lag < -HEAD_TOL) bad("aromer head ahead of the node observation beyond tolerance");
+      else if (lag > HEAD_TOL || a.feedState !== "up" || a.ageS > maxAge || (asOf - t) / 1000 > MAX_EVIDENCE_AGE_S) aromer = "BLOCKED_STALE";
+      else aromer = "FRESH_OBSERVATION";
+    }
   }
   if (scope.includes("aromer_measurement")) {
     P.push(grade("aromer", (c) => {

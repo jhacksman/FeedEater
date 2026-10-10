@@ -18,7 +18,7 @@ fresh={"source":"operator_supplied","maxAgeS":5,"maxEvidenceAgeS":300,
  "http":{"observedAtUtc":"2026-10-10T05:35:41Z","head":52410596,"ageS":2.12},
  "ws":{"observedAtUtc":"2026-10-10T05:36:21Z","heads":[52410615,52410616,52410617],"ageS":0.40},"recovery":"complete"}
 win={"startNs":"1000000000000","endNs":"4600000000000","clock":"mono_ns"}
-clk={"host_id":"lab-host-1","boot_id":BOOT,"unit":"ns","clock_uncert_ms":0.05}
+clk={"host_id":"lab-host-1","boot_id":BOOT,"unit":"ns","clock_uncert_ms":0.05,"clock_uncert_evidence":{"method":"synthetic chrony tracking excerpt","ref":"lab/clock-2026-10-10.txt"}}
 ok={"schema":"native-preflight-input/2","fixture":"SYNTHETIC corrected, fully supplied; sha1-label pins are not real heads; READY only with the test-only synthetic registry","asOfUtc":"2026-10-10T05:36:30Z",
  "claimScope":["native_collector_run"],
  "pins":{k:{"commit":S[k],"tree":ST[k],"manifestSha256":SM[k]} for k in ["collector","nativePath","reference"]},
@@ -65,6 +65,22 @@ mut("unknown-proof","client_version unknown, writer location null, M2 flag absen
 mut("raw-ref-supplied","raw_ref and t_ingest pre-supplied",lambda x:x["provenance"].update(raw_ref={"file":"f","offset":0,"sha256":h2("r")},t_ingest="1"))
 mut("stale-aromer-native","stale Aromer observation, claimScope native only",lambda x:x.update(aromer=copy.deepcopy(current["aromer"]),asOfUtc="2026-10-10T05:47:20Z") or x["freshness"].update(http={"observedAtUtc":"2026-10-10T05:47:11Z","head":52410942,"ageS":0.72},ws={"observedAtUtc":"2026-10-10T05:47:15Z","heads":[52410943,52410944],"ageS":0.4}))
 mut("stale-aromer-claimed","stale Aromer with aromer_measurement claimed",lambda x:x.update(aromer=copy.deepcopy(current["aromer"]),claimScope=["native_collector_run","aromer_measurement"]))
+A_FRESH={"observedAtUtc":"2026-10-10T05:47:11Z","pid":18507,"head":52410942,"ageS":0.5,"processed":90000,"feedState":"up"}
+def aro(desc, a, scope=("native_collector_run","aromer_measurement")):
+    def f(x):
+        fx["stale-aromer-native"]  # base on native-only fresh node at 05:47
+        x.update(copy.deepcopy({k:v for k,v in fx["stale-aromer-native"].items() if k in ("asOfUtc","freshness")}))
+        x["aromer"]=a; x["claimScope"]=list(scope)
+    return f
+mut("aromer-fresh-claimed","Aromer head consistent with node, aromer_measurement claimed",aro("",A_FRESH))
+mut("aromer-future","Aromer observedAtUtc after asOfUtc",aro("",{**A_FRESH,"observedAtUtc":"2026-10-10T06:00:00Z"}))
+mut("aromer-lagging-age04","Aromer head 52318772 paired with ageS 0.4, feed up",aro("",{**A_FRESH,"head":52318772,"ageS":0.4}))
+mut("aromer-ahead-age04","Aromer head node+1e6 paired with ageS 0.4",aro("",{**A_FRESH,"head":52410942+1000000,"ageS":0.4}))
+mut("aromer-lagging-native","lagging Aromer reported, native-only scope",aro("",{**A_FRESH,"head":52318772,"ageS":0.4},("native_collector_run",)))
+mut("clock-uncert-zero","clock_uncert_ms 0 with evidence",lambda x:[x["clock"][a].update(clock_uncert_ms=0) for a in ("collector","reference")])
+mut("clock-uncert-no-evidence","clock_uncert_ms without evidence",lambda x:[x["clock"][a].pop("clock_uncert_evidence") for a in ("collector","reference")])
+mut("nested-raw-ref","provenance.extra.raw_ref, provenance.rawRef, provenance.fields.t_ingest",lambda x:x["provenance"].update(extra={"raw_ref":"r"},rawRef="r",fields={"t_ingest":"1"}))
+mut("forbidden-alias-family","nested outcome-family aliases",lambda x:x["caps"].update(extra=[{"latencyAddedMs":1},{"p99AddedMs":1},{"DAT_SRC_011_RESULT":1},{"admission_result":1},{"admissionResult":1},{"outcomeSummary":1},{"passRate":1},{"readyState":1},{"verdictText":1},{"successRate":1}]))
 def claim(x):
     x.clear(); x.update(copy.deepcopy(current)); x["fixture"]="current manifest; operator claims M1 resolved at 5206f90"; x["defects"]["M1"]={"state":"resolved"}
 mut("claim-resolved-on-173","",claim)
