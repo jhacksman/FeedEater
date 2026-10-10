@@ -1,0 +1,226 @@
+{
+  "schema": "q1-fault-matrix/1",
+  "status": "INERT_UNADOPTED",
+  "sourcePin": "1bbabb2ce72bb21c48d885f181a3455462923378",
+  "sourceTree": "2244520ee65281b0db6d6955640cbfcd600cc03a",
+  "specPin": "68da358 docs/spec/v1/SPEC-v1.md DAT-PRV-001 l.1076, DAT-PRV-002 l.1078-1089, DAT-TIM-001 l.1116-1123",
+  "q1": "UNRESOLVED",
+  "q2": "UNRESOLVED",
+  "evidenceClass": "synthetic prototype only; not native/live latency/admission/owner acceptance",
+  "faults": [
+    {
+      "id": "F1",
+      "fault": "normal publication then durable append",
+      "pins": [
+        "1bbabb2ce72bb21c48d885f181a3455462923378:measurements/raw-tier0-prototype/producer.mjs:144-151",
+        "1bbabb2ce72bb21c48d885f181a3455462923378:measurements/raw-tier0-prototype/producer.mjs:116-130",
+        "1bbabb2ce72bb21c48d885f181a3455462923378:measurements/raw-tier0-prototype/writer.mjs:76-81",
+        "1bbabb2ce72bb21c48d885f181a3455462923378:measurements/raw-tier0-prototype/writer.mjs:108-111",
+        "1bbabb2ce72bb21c48d885f181a3455462923378:measurements/raw-tier0-prototype/producer.mjs:70-76"
+      ],
+      "currentBehaviorAtPin": "published in memory first without raw_ref; ack after fsync binds segment/epoch/sha",
+      "testAtPin": "roundtrip",
+      "rawRefState": "DURABLE_ACKED",
+      "rawRef": "ack fields (segment_id, ack_epoch, file, offset, length, rawOffset, rawLength, sha256, metaSha256)",
+      "t_ingest": "unknown",
+      "receiveProvenance": "fixture_supplied (fixture.mjs:45-47); clock offset/uncertainty unknown",
+      "invariant": "ack only after fsync with own-sha binding",
+      "support": "code+test@pin",
+      "policyStatus": "UNADOPTED"
+    },
+    {
+      "id": "F2",
+      "fault": "published record never acked (abort/stop)",
+      "pins": [
+        "1bbabb2ce72bb21c48d885f181a3455462923378:measurements/raw-tier0-prototype/producer.mjs:174-200"
+      ],
+      "currentBehaviorAtPin": "counted unackedPublished; no raw_ref",
+      "testAtPin": "abort",
+      "rawRefState": "UNKNOWN_ABORTED",
+      "rawRef": "unknown",
+      "t_ingest": "unknown",
+      "receiveProvenance": "fixture_supplied (fixture.mjs:45-47); clock offset/uncertainty unknown",
+      "invariant": "unacked record never claimed compliant; raw_ref stays unknown",
+      "support": "code+test@pin",
+      "policyStatus": "UNADOPTED"
+    },
+    {
+      "id": "F3",
+      "fault": "published record's DAT-PRV-002 completeness",
+      "pins": [
+        "1bbabb2ce72bb21c48d885f181a3455462923378:measurements/raw-tier0-prototype/producer.mjs:147"
+      ],
+      "currentBehaviorAtPin": "published value carries no raw_ref/t_ingest; ack never joined to it",
+      "testAtPin": null,
+      "rawRefState": "PUBLISHED_UNREFERENCED",
+      "rawRef": "unknown",
+      "t_ingest": "unknown",
+      "receiveProvenance": "fixture_supplied (fixture.mjs:45-47); clock offset/uncertainty unknown",
+      "invariant": "every-record raw_ref with 0 missing",
+      "support": "requires_owner_Q1",
+      "policyStatus": "UNADOPTED"
+    },
+    {
+      "id": "F4",
+      "fault": "writer refusal (symlink/foreign/identity/corrupt)",
+      "pins": [
+        "1bbabb2ce72bb21c48d885f181a3455462923378:measurements/raw-tier0-prototype/writer.mjs:25-26",
+        "1bbabb2ce72bb21c48d885f181a3455462923378:measurements/raw-tier0-prototype/writer.mjs:42-50",
+        "1bbabb2ce72bb21c48d885f181a3455462923378:measurements/raw-tier0-prototype/producer.mjs:113"
+      ],
+      "currentBehaviorAtPin": "exit 3, bytes untouched; producer writerFailed, no timeout",
+      "testAtPin": "A7 small3/P1/P2a/symlink/P4",
+      "rawRefState": "UNKNOWN_WRITER_FAILED",
+      "rawRef": "unknown",
+      "t_ingest": "unknown",
+      "receiveProvenance": "fixture_supplied (fixture.mjs:45-47); clock offset/uncertainty unknown",
+      "invariant": "refusal explicit and distinct from timeout; no segment mutation",
+      "support": "code+test@pin",
+      "policyStatus": "UNADOPTED"
+    },
+    {
+      "id": "F5",
+      "fault": "writer crash (SIGKILL) and restart",
+      "pins": [
+        "1bbabb2ce72bb21c48d885f181a3455462923378:measurements/raw-tier0-prototype/producer.mjs:153-172",
+        "1bbabb2ce72bb21c48d885f181a3455462923378:measurements/raw-tier0-prototype/producer.mjs:60-67",
+        "1bbabb2ce72bb21c48d885f181a3455462923378:measurements/raw-tier0-prototype/writer.mjs:69-70"
+      ],
+      "currentBehaviorAtPin": "inflight requeued; recovery or dup_identical acks for durable seqs; every seq once",
+      "testAtPin": "crash",
+      "rawRefState": "DURABLE_ACKED",
+      "rawRef": "ack fields (segment_id, ack_epoch, file, offset, length, rawOffset, rawLength, sha256, metaSha256)",
+      "t_ingest": "unknown",
+      "receiveProvenance": "fixture_supplied (fixture.mjs:45-47); clock offset/uncertainty unknown",
+      "invariant": "no lost or duplicated durable record across restart",
+      "support": "code+test@pin",
+      "policyStatus": "UNADOPTED"
+    },
+    {
+      "id": "F6",
+      "fault": "torn final write",
+      "pins": [
+        "1bbabb2ce72bb21c48d885f181a3455462923378:measurements/raw-tier0-prototype/tier0.mjs:59-87",
+        "1bbabb2ce72bb21c48d885f181a3455462923378:measurements/raw-tier0-prototype/writer.mjs:56-64"
+      ],
+      "currentBehaviorAtPin": "exact tail bytes quarantined (O_EXCL, fsync, sha) before ftruncate",
+      "testAtPin": "torn",
+      "rawRefState": "SENT->requeued",
+      "rawRef": "unknown",
+      "t_ingest": "unknown",
+      "receiveProvenance": "fixture_supplied (fixture.mjs:45-47); clock offset/uncertainty unknown",
+      "invariant": "only proven torn tail cut; bytes preserved",
+      "support": "code+test@pin",
+      "policyStatus": "UNADOPTED"
+    },
+    {
+      "id": "F7",
+      "fault": "overflow",
+      "pins": [
+        "1bbabb2ce72bb21c48d885f181a3455462923378:measurements/raw-tier0-prototype/producer.mjs:132-142",
+        "1bbabb2ce72bb21c48d885f181a3455462923378:measurements/raw-tier0-prototype/writer.mjs:99"
+      ],
+      "currentBehaviorAtPin": "lostRanges recorded; writer gap reported; unexplainedGaps counted",
+      "testAtPin": "overflow",
+      "rawRefState": "LOST_OVERFLOW",
+      "rawRef": "unknown",
+      "t_ingest": "unknown",
+      "receiveProvenance": "fixture_supplied (fixture.mjs:45-47); clock offset/uncertainty unknown",
+      "invariant": "coverage loss explicit, gaps explained by lost ranges",
+      "support": "code+test@pin",
+      "policyStatus": "UNADOPTED"
+    },
+    {
+      "id": "F8",
+      "fault": "duplicate same seq identical bytes",
+      "pins": [
+        "1bbabb2ce72bb21c48d885f181a3455462923378:measurements/raw-tier0-prototype/writer.mjs:92-95"
+      ],
+      "currentBehaviorAtPin": "dup_identical ack at durable offset; not rewritten",
+      "testAtPin": "same-id identical",
+      "rawRefState": "DURABLE_ACKED",
+      "rawRef": "ack fields (segment_id, ack_epoch, file, offset, length, rawOffset, rawLength, sha256, metaSha256)",
+      "t_ingest": "unknown",
+      "receiveProvenance": "fixture_supplied (fixture.mjs:45-47); clock offset/uncertainty unknown",
+      "invariant": "idempotent resend",
+      "support": "code+test@pin",
+      "policyStatus": "UNADOPTED"
+    },
+    {
+      "id": "F9",
+      "fault": "same seq different bytes / foreign ack",
+      "pins": [
+        "1bbabb2ce72bb21c48d885f181a3455462923378:measurements/raw-tier0-prototype/writer.mjs:96",
+        "1bbabb2ce72bb21c48d885f181a3455462923378:measurements/raw-tier0-prototype/producer.mjs:70-79"
+      ],
+      "currentBehaviorAtPin": "conflict, not written; producer rejects mismatched ack",
+      "testAtPin": "A7 P4b seed999",
+      "rawRefState": "REJECTED",
+      "rawRef": "unknown",
+      "t_ingest": "unknown",
+      "receiveProvenance": "fixture_supplied (fixture.mjs:45-47); clock offset/uncertainty unknown",
+      "invariant": "no wrong-sha ack accepted",
+      "support": "code+test@pin",
+      "policyStatus": "UNADOPTED"
+    },
+    {
+      "id": "F10",
+      "fault": "semantic duplicate delivery at different seqs (WS re-delivery)",
+      "pins": [
+        "1bbabb2ce72bb21c48d885f181a3455462923378:measurements/raw-tier0-prototype/writer.mjs:99-111"
+      ],
+      "currentBehaviorAtPin": "stored as separate records; no byte or natural-key dedup",
+      "testAtPin": null,
+      "rawRefState": "DURABLE_ACKED",
+      "rawRef": "ack fields (segment_id, ack_epoch, file, offset, length, rawOffset, rawLength, sha256, metaSha256)",
+      "t_ingest": "unknown",
+      "receiveProvenance": "fixture_supplied (fixture.mjs:45-47); clock offset/uncertainty unknown",
+      "invariant": "dedup key",
+      "support": "requires_owner_Q1",
+      "policyStatus": "UNADOPTED"
+    },
+    {
+      "id": "F11",
+      "fault": "reconnect / new connection",
+      "pins": [
+        "1bbabb2ce72bb21c48d885f181a3455462923378:measurements/raw-tier0-prototype/fixture.mjs:16-52"
+      ],
+      "currentBehaviorAtPin": "connection_id carried in metadata only; no reconnect logic; seq is producer-global",
+      "testAtPin": null,
+      "rawRefState": "unknown",
+      "rawRef": "unknown",
+      "t_ingest": "unknown",
+      "receiveProvenance": "fixture_supplied (fixture.mjs:45-47); clock offset/uncertainty unknown",
+      "invariant": "connection-scoped seq continuity and per-connection gap accounting",
+      "support": "requires_future_impl",
+      "policyStatus": "UNADOPTED"
+    },
+    {
+      "id": "F12",
+      "fault": "concurrent writers on one segment",
+      "pins": [
+        "1bbabb2ce72bb21c48d885f181a3455462923378:measurements/raw-tier0-prototype/writer.mjs:25-46",
+        "1bbabb2ce72bb21c48d885f181a3455462923378:measurements/raw-tier0-prototype/writer.mjs:108"
+      ],
+      "currentBehaviorAtPin": "no lock/fencing; two writers on an existing segment both pass identity and would write at their own offsets (reasoned, not run)",
+      "testAtPin": null,
+      "rawRefState": "unknown",
+      "rawRef": "unknown",
+      "t_ingest": "unknown",
+      "receiveProvenance": "fixture_supplied (fixture.mjs:45-47); clock offset/uncertainty unknown",
+      "invariant": "single-writer fencing (lock/lease + epoch)",
+      "support": "requires_future_impl",
+      "policyStatus": "UNADOPTED"
+    }
+  ],
+  "replayLookup": {
+    "semantics": "open O_NOFOLLOW, verify header segment_id, read length at offset, verify magic/record sha/raw sha256/metaSha256; absent/foreign/corrupt -> unresolvable; quarantine never resolvable",
+    "support": "format+tests; no API (requires_future_impl)"
+  },
+  "t_ingestCandidates": [
+    "writer wall at append",
+    "writer wall at fsync",
+    "producer ack receipt"
+  ],
+  "t_ingestChosen": null
+}
