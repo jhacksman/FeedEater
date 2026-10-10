@@ -42,21 +42,22 @@ Full ids, byte counts and repo paths are in `kit.mjs` and the emitted `KIT.json`
   created); 4 internal; 5 `WRITE_FAILED` (`kitPersisted:false`, `persisted[]` with their shas, `writeFailure{file,
   stage, bytesWritten, code}`). No cleanup or retry.
 
-**Acceptance:** a `KIT.json` existing is not sufficient. A `WRITE_FAILED` directory is incomplete even if a (possibly
-zero-byte or partial) `KIT.json` exists. A kit is established only by exit 0 `BUILT` + `kitPersisted:true` and then
-`check-kit.mjs` `KIT_VERIFIED` (or the tool-free check below) on the directory actually used.
+**Acceptance (only route):** `node "$KIT_TOOLS/check-kit.mjs" --kit "$KIT"` exit 0 `KIT_VERIFIED`, where
+`check-kit.mjs` and `kit.mjs` are taken from the reviewed candidate commit (their literal pins), by explicit path,
+outside the kit. Neither a `KIT.json` existing nor any checksum list in the kit is sufficient: a `WRITE_FAILED` directory
+is incomplete even if a (possibly zero-byte or partial) `KIT.json` exists, and `SHA256SUMS` is a mutable informational
+listing that authenticates neither `KIT.json` nor itself. A build's exit 0 `BUILT` + `kitPersisted:true` is necessary
+but does not replace `KIT_VERIFIED` on the directory actually used.
 
-## Check (offline, no git)
+## Check (offline, no git, node only)
 
-    node check-kit.mjs --kit "$KIT"
+    node "$KIT_TOOLS/check-kit.mjs" --kit "$KIT"
 
-Refuses (exit 2) a missing kit, a symlinked root, any symlinked or non-regular entry, any missing or extra file
-(including `.git`, case-colliding names), any byte/sha256/blob-id mismatch, and any `KIT.json`/`SHA256SUMS` that is not
-byte-equal to its deterministic render. Exit 0 `KIT_VERIFIED`.
-
-Tool-free (`KIT.json` `use.checkKitNoTools`):
-
-    cd "$KIT" && sha256sum -c SHA256SUMS && test "$(find . -type f | wc -l)" -eq 14 && test -z "$(find . -type l)"
+The checker's closure is `check-kit.mjs` + `kit.mjs` (pins and deterministic renders); it reads nothing from the kit
+except the files it verifies. Refuses (exit 2) a missing kit, a symlinked root, any symlinked or non-regular entry, any
+missing or extra file (including `.git`, case-colliding names), any byte/sha256/blob-id mismatch, and any
+`KIT.json`/`SHA256SUMS` that is not byte-equal to its deterministic render (so a forged claim, a zero-byte or partial
+`KIT.json`, or a component edited together with a matching `SHA256SUMS` are all refused). Exit 0 `KIT_VERIFIED`.
 
 ## Use (by path, any cwd, no `.git`)
 
@@ -72,18 +73,21 @@ refuses them otherwise.
 
     node test.mjs   # from this directory; needs /usr/bin/git and a checkout holding the six pinned commits
 
-47 cases: build reproduction against `git show` bytes and pins; byte-identical rebuild; deploy to a temp dir outside
-any work tree; check-kit and the tool-free check; by-path compose from cwd=/ with an empty env reproducing all 8
+52 cases: build reproduction against `git show` bytes and pins; byte-identical rebuild; deploy to a realpath temp dir
+outside any work tree; check-kit (direct and the single published `use.checkKit` command); by-path compose from cwd=/ with an empty env reproducing all 8
 `7ee6ead`/`7d06dde` `evidence/composed` bytes (manifest `3a5431c2`, six-factory ALL-topics + Initialize/Swap);
 handoff rebuild/check commands with `COMPONENTS=$KIT`; unresolved-input refusal through the kit; check-kit
-refusals (missing, extra, dirty, symlinks); compose's own refusal in a dirty kit; build CLI/`--out` refusals;
+refusals (missing, extra, capability-aware case collision, dirty, forged `KIT.json` claim, partial/zero-byte `KIT.json`,
+component edited with a matching `SHA256SUMS`, symlinks); compose's own refusal in a dirty kit; build CLI/`--out` refusals;
 missing objects, missing git, `git replace` ignored, corrupted blob/tree/commit from a fake git; 7 B short writes;
 EIO on `KIT.json` (zero-byte file disclosed and refused by check-kit) and on `compose.mjs`; static checks.
 
 ## Limits
 
 - SHA-1 object ids are recomputed, so provenance is as strong as SHA-1 plus the pinned sha256 of every file.
-- `check-kit.mjs` lives in this candidate, not in the kit; the tool-free check covers a kit alone.
+- `check-kit.mjs` lives in this candidate, not in the kit; there is no tool-free acceptance route.
+- On a case-insensitive filesystem a case-colliding name aliases the pinned file, so it is refused as `kit_file_mismatch`
+  (or as an inventory mismatch on a case-sensitive one); the tests probe the capability and assert the matching refusal.
 - Directory fsync is not performed; readback proves bytes through the same fd, not media durability.
 - File modes in the kit are 0600 / dirs 0700 (not the repo's 100644); copy tools may change them.
 - `compile.mjs`'s own CLI has a `--sources` default relative to itself; the documented commands always pass `--sources`.

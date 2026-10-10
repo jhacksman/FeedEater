@@ -8,7 +8,8 @@ PASS build: no machine path in KIT.json or SHA256SUMS
 PASS build: KIT.json inventory lists each file once with commit/tree/repoPath/blob/sha256/bytes
 PASS deploy: copy has no .git and is not inside a git work tree
 PASS deploy: check-kit (empty env, cwd=/) -> KIT_VERIFIED 14 files, same KIT.json sha
-PASS deploy: KIT.json use.checkKitNoTools (sha256sum -c + exact count + no symlinks) exits 0
+PASS deploy: KIT.json publishes exactly one acceptance command (checkKit via KIT_TOOLS), no tool-free/checksum route
+PASS deploy: KIT.json use.checkKit run verbatim -> exit 0 KIT_VERIFIED
 PASS deploy: KIT.json use.compose (by path, cwd=/, no .git) -> exit 0 COMPOSED, handoffPersisted true, transportExecuted false
 PASS deploy: all 8 composed files byte-identical to compose 7ee6ead/7d06dde evidence/composed (emitted hashes preserved)
 PASS deploy: manifest sha 3a5431c2 (42185f2 evidence); six-factory ALL-topics lane and Initialize/Swap OR retained
@@ -19,7 +20,11 @@ PASS deploy: unresolved root inputs through the kit -> exit 2 root_inputs_unreso
 PASS deploy: kit files unchanged after use (check-kit still KIT_VERIFIED)
 PASS check-kit: missing pinned file -> kit_inventory_mismatch missing
 PASS check-kit: missing KIT.json (e.g. partial build) -> kit_inventory_mismatch
-PASS check-kit: extra file (case-colliding Compile.mjs) -> kit_inventory_mismatch extra
+PASS check-kit: case-colliding filter-manifest/Compile.mjs refused on this case-sensitive -> kit_inventory_mismatch extra filesystem
+PASS check-kit: KIT.json claims.sourceAdmission forged (14 files, no symlinks, SHA256SUMS still valid) -> kit_file_mismatch KIT.json
+PASS check-kit: partial (truncated) KIT.json -> kit_file_mismatch
+PASS check-kit: zero-byte KIT.json with all 14 files present -> kit_file_mismatch
+PASS check-kit: component edited and SHA256SUMS rewritten to match -> kit_file_mismatch on the component
 PASS check-kit: extra .git directory -> kit_inventory_mismatch extra
 PASS check-kit: one dirty byte in capture.mjs -> kit_file_mismatch
 PASS check-kit: dirty source declaration constants.py -> kit_file_mismatch
@@ -45,4 +50,4 @@ PASS writes: EIO on compose.mjs -> exit 5, persisted list stops before it, no SH
 PASS static: build-kit has exactly one spawnSync (git cat-file, shell:false, literal env, --no-replace-objects), no process.env/fetch/clone/remote/http/net/clock
 PASS static: check-kit and kit.mjs have no child_process, env, network, clock or writes
 PASS static: build-kit opens outputs only with O_EXCL|O_NOFOLLOW
-47 PASS, 0 FAIL
+52 PASS, 0 FAIL

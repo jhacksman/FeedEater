@@ -48,8 +48,8 @@ export function renderIndex() {
     files: FILES.map((x) => ({ path: x.path, sourceCommit: x.commit, sourceTree: COMMITS[x.commit].tree, repoPath: x.repoPath, gitBlob: x.blob, mode: "100644", bytes: x.bytes, sha256: x.sha256 })),
     sha256sums: { file: SUMS, bytes: sums.length, sha256: sha256(sums) },
     use: {
-      variables: "KIT (this directory), KIT_TOOLS (backfill-capture-kit checkout), ROOT_SPEC, ROOT_COMPOSE_OUT (new directory) are root-supplied; nothing is defaulted",
-      checkKitNoTools: `cd "$KIT" && sha256sum -c ${SUMS} && test "$(find . -type f | wc -l)" -eq ${KIT_PATHS.length} && test -z "$(find . -type l)"`,
+      variables: "KIT (this directory), KIT_TOOLS (reviewed backfill-capture-kit checkout, outside the kit), ROOT_SPEC, ROOT_COMPOSE_OUT (new directory) are root-supplied; nothing is defaulted",
+      acceptance: `the only acceptance route: checkKit exit 0 KIT_VERIFIED, using check-kit.mjs + kit.mjs from the reviewed candidate commit (literal pins), never files inside the kit; ${SUMS} is an informational listing and authenticates neither ${INDEX} nor itself`,
       checkKit: `node "$KIT_TOOLS/check-kit.mjs" --kit "$KIT"`,
       compose: `node ${c("backfill-capture-compose/compose.mjs")} --spec "$ROOT_SPEC" --components "$KIT" --out "$ROOT_COMPOSE_OUT"`,
       afterCompose: `cd "$ROOT_COMPOSE_OUT" && export COMPONENTS="$KIT", then run handoff.json commands.rebuildManifest, rebuildPlan, checkContract; capture and verify are root-operated only`,

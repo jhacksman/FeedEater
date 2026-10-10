@@ -42,7 +42,11 @@
       "pass": true
     },
     {
-      "name": "deploy: KIT.json use.checkKitNoTools (sha256sum -c + exact count + no symlinks) exits 0",
+      "name": "deploy: KIT.json publishes exactly one acceptance command (checkKit via KIT_TOOLS), no tool-free/checksum route",
+      "pass": true
+    },
+    {
+      "name": "deploy: KIT.json use.checkKit run verbatim -> exit 0 KIT_VERIFIED",
       "pass": true
     },
     {
@@ -86,7 +90,23 @@
       "pass": true
     },
     {
-      "name": "check-kit: extra file (case-colliding Compile.mjs) -> kit_inventory_mismatch extra",
+      "name": "check-kit: case-colliding filter-manifest/Compile.mjs refused on this case-sensitive -> kit_inventory_mismatch extra filesystem",
+      "pass": true
+    },
+    {
+      "name": "check-kit: KIT.json claims.sourceAdmission forged (14 files, no symlinks, SHA256SUMS still valid) -> kit_file_mismatch KIT.json",
+      "pass": true
+    },
+    {
+      "name": "check-kit: partial (truncated) KIT.json -> kit_file_mismatch",
+      "pass": true
+    },
+    {
+      "name": "check-kit: zero-byte KIT.json with all 14 files present -> kit_file_mismatch",
+      "pass": true
+    },
+    {
+      "name": "check-kit: component edited and SHA256SUMS rewritten to match -> kit_file_mismatch on the component",
       "pass": true
     },
     {
