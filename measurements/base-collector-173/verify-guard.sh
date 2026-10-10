@@ -46,7 +46,14 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const res = [];
 if (mode === "seq" || mode === "seqsleep") for (let i = 1; i <= n; i++) res.push(await post(rq("eth_blockNumber", [], i)));
 if (mode === "conc") res.push(...(await Promise.all(Array.from({ length: n }, (_, i) => post(rq("eth_blockNumber", [], i + 1))))));
+if (mode === "stopq") {
+  const p = Array.from({ length: 3 }, (_, i) => post(rq("eth_blockNumber", [], i + 1)));
+  await sleep(100);
+  const bad = await post(rq("eth_sendRawTransaction", ["0x00"]));
+  res.push(...(await Promise.all(p)), bad);
+}
 if (mode === "accept") {
+  res.push(await post(logs({ address: [PM], fromBlock: "0x1ffffffffffe0c", toBlock: "0x1fffffffffffff" })));
   res.push(await post(rq("eth_blockNumber", [])));
   res.push(await post(rq("eth_getBlockByNumber", ["latest", false])));
   res.push(await post(logs({ address: [PM], topics: [[INIT]], fromBlock: "0x1", toBlock: "0x1f4" })));
@@ -74,6 +81,10 @@ if (mode === "invalid") {
     [logs({ address: PM, fromBlock: "0x2", toBlock: "0x1" })],
     [logs({ address: PM, blockHash: `0x${"0".repeat(64)}` })],
     [logs({ address: PM, topics: ["0x12"], fromBlock: "0x1", toBlock: "0x2" })],
+    [logs({ address: PM, fromBlock: "0x20000000000001", toBlock: "0x20000000000000" })],
+    [logs({ address: PM, fromBlock: `0x${(1n << 62n).toString(16)}`, toBlock: `0x${((1n << 62n) + 511n).toString(16)}` })],
+    [logs({ address: PM, fromBlock: `0x1${"0".repeat(275)}`, toBlock: `0x1${"0".repeat(272)}3e8` })],
+    [rq("eth_getBlockByNumber", ["0x10000000000000000", false])],
     ["x".repeat(70000)],
     [""],
     [rq("eth_blockNumber", [])],
@@ -104,15 +115,19 @@ if (fw.length !== S.forwarded) fails.push(`forward lines ${fw.length} != summary
 if (ad.length !== S.admitted || S.admitted > S.cap) fails.push(`admitted ${ad.length}/${S.admitted} cap ${S.cap}`);
 if (recv.length !== S.received) fails.push(`recv ${recv.length} != summary ${S.received}`);
 if (U.length !== S.forwarded) fails.push(`upstream received ${U.length} != forwarded ${S.forwarded}`);
-let minGapMs = null;
+let minGapNs = null;
 for (let i = 1; i < fw.length; i++) {
-  const g = Number(BigInt(fw[i].hrNs) - BigInt(fw[i - 1].hrNs)) / 1e6;
-  minGapMs = minGapMs === null ? g : Math.min(minGapMs, g);
+  const g = BigInt(fw[i].startNs) - BigInt(fw[i - 1].startNs);
+  if (minGapNs === null || g < minGapNs) minGapNs = g;
 }
-if (minGapMs !== null && minGapMs < S.minIntervalMs) fails.push(`forward gap ${minGapMs} ms < ${S.minIntervalMs}`);
+if (minGapNs !== null && minGapNs < BigInt(S.minIntervalMs) * 1000000n) fails.push(`send-start gap ${minGapNs} ns < ${S.minIntervalMs} ms`);
+const minGapMs = minGapNs === null ? null : Number(minGapNs) / 1e6;
+const drops = L.filter((x) => x.ev === "drop").length;
+if (drops !== S.dropped) fails.push(`drop lines ${drops} != summary ${S.dropped}`);
+if (S.reconciled !== true || S.admitted !== S.forwarded + S.dropped) fails.push(`not reconciled: admitted ${S.admitted} forwarded ${S.forwarded} dropped ${S.dropped} completed ${S.completed} errors ${JSON.stringify(S.upstreamErrors)}`);
 const maxInflight = Math.max(0, ...U.map((u) => u.inflight));
 if (maxInflight > 1) fails.push(`upstream saw ${maxInflight} concurrent requests`);
-console.log(JSON.stringify({ ok: fails.length === 0, fails, forwarded: S.forwarded, upstream: U.length, maxInflight, minGapMs }));
+console.log(JSON.stringify({ ok: fails.length === 0, fails, admitted: S.admitted, forwarded: S.forwarded, dropped: S.dropped, upstream: U.length, maxInflight, minGapMs }));
 process.exit(fails.length === 0 ? 0 : 1);
 JS
 
@@ -185,12 +200,12 @@ ustop
 
 # 2. Allowlisted read-only requests are forwarded unchanged in count.
 ustart acc ok
-gstart acc 3 0 1000
+gstart acc 4 0 1000
 o=$(client accept)
-expect "$(statuses "$o")" "200,200,200" "accept: getBlockNumber/getBlockByNumber(false)/getLogs(address, 500 blocks)"
+expect "$(statuses "$o")" "200,200,200,200" "accept: getLogs at 2^53-1 (500 blocks)/blockNumber/getBlockByNumber(false)/getLogs"
 expect "$([ -e "$GR/guard.STOP" ] && echo yes || echo no)" no "accept: no STOP"
 gstop
-expect "$(upn)" 3 "accept: upstream requests"
+expect "$(upn)" 4 "accept: upstream requests"
 evc "$GR" accept
 ustop
 
@@ -217,14 +232,24 @@ expect "$(jget "$GR/guard.summary.json" '[j.received,j.admitted,j.forwarded,j.co
 evc "$GR" cap3
 ustop
 
-# 5. Concurrency: 20 simultaneous requests, cap 5, paced 50 ms, one in flight at a time.
+# 5. Concurrency: 5 simultaneous at cap 5, paced 50 ms, one in flight at a time; then 20 at cap 5,
+# where the first over-cap refusal STOPs dispatch and drops the queued admitted requests.
 ustart cc ok
 gstart cc 5 50 1000
-o=$(client conc 20)
-expect "$(node -pe 'const r=JSON.parse(process.argv[1]).res;[r.filter(x=>x.status===200).length,r.filter(x=>x.status===429).length].join("/")' "$o")" "5/15" "concurrent 20 cap5: 200/429 counts"
+o=$(client conc 5)
+expect "$(statuses "$o")" "200,200,200,200,200" "concurrent 5 cap5: statuses"
 gstop
-expect "$(upn)" 5 "concurrent: upstream requests"
-evc "$GR" concurrent
+expect "$(upn)" 5 "concurrent 5: upstream requests"
+evc "$GR" "concurrent 5"
+ustop
+ustart cc2 ok
+gstart cc2 5 50 1000
+o=$(client conc 20)
+expect "$(node -pe 'const r=JSON.parse(process.argv[1]).res;[200,503,429].map(c=>r.filter(x=>x.status===c).length).join("/")' "$o")" "1/4/15" "concurrent 20 cap5: 200/503 dropped/429 refused"
+gstop
+expect "$(jget "$GR/guard.summary.json" '[j.admitted,j.forwarded,j.dropped,j.reconciled].join("/")')" "5/1/4/true" "concurrent 20: admitted/forwarded/dropped/reconciled"
+expect "$(upn)" 1 "concurrent 20: upstream requests"
+evc "$GR" "concurrent 20"
 ustop
 
 # 6. Finite upstream timeout.
@@ -243,8 +268,8 @@ ustop
 ustart inv ok
 gstart inv 10 0 1000
 o=$(client invalid)
-expect "$(reasons "$o")" "http_method,malformed_json,batch,not_object,extra_field,jsonrpc_version,bad_id,bad_id,method_not_allowed,method_not_allowed,method_not_allowed,method_not_allowed,bad_params,bad_params,bad_params,logs_address_required,logs_range_not_hex,logs_span_exceeded,logs_range_reversed,logs_bad_field,logs_bad_topics,body_too_large,malformed_json,stopped" "invalid inputs: reasons"
-expect "$(statuses "$o" | tr ',' '\n' | sort | uniq -c | tr -s ' ' | tr '\n' ';')" " 23 400; 1 429;" "invalid inputs: statuses"
+expect "$(reasons "$o")" "http_method,malformed_json,batch,not_object,extra_field,jsonrpc_version,bad_id,bad_id,method_not_allowed,method_not_allowed,method_not_allowed,method_not_allowed,bad_params,bad_params,bad_params,logs_address_required,logs_range_not_hex,logs_span_exceeded,logs_range_reversed,logs_bad_field,logs_bad_topics,quantity_out_of_range,quantity_out_of_range,quantity_out_of_range,quantity_out_of_range,body_too_large,malformed_json,stopped" "invalid inputs: reasons"
+expect "$(statuses "$o" | tr ',' '\n' | sort | uniq -c | tr -s ' ' | tr '\n' ';')" " 27 400; 1 429;" "invalid inputs: statuses"
 expect "$(jget "$GR/guard.STOP" j.reason)" http_method "invalid inputs: STOP on first refusal"
 gstop
 expect "$(upn)" 0 "invalid inputs: upstream requests"
@@ -271,6 +296,44 @@ expect "$(upn)" 1 "shutdown: upstream requests"
 evc "$GR" shutdown
 ustop
 
+# 8b. A7 regressions (64db8f6).
+# A7-1: send starts never closer than the interval on the ns clock (3 runs, 8 concurrent, 50 ms).
+for k in 1 2 3; do
+  ustart p$k ok
+  gstart p$k 8 50 1000
+  client conc 8 >/dev/null
+  gstop
+  evc "$GR" "A7-1 pacing 50 ms run $k"
+  ustop
+done
+# A7-2: SIGTERM 0.5 s after 2 admissions at 10000 ms pacing: second is dropped explicitly, reconciled.
+ustart t2 ok
+gstart t2 5 10000 5000
+client conc 2 >"$T/t2.client" &
+CP=$!
+sleep 0.5
+t0=$SECONDS
+gstop
+expect "$([ $((SECONDS - t0)) -le 2 ] && echo yes || echo no)" yes "A7-2: guard exited within 2 s of TERM"
+wait "$CP"
+expect "$(statuses "$(cat "$T/t2.client")" | tr ',' '\n' | sort | tr '\n' ' ')" "200 503 " "A7-2: client answers"
+expect "$(jget "$GR/guard.summary.json" '[j.admitted,j.forwarded,j.dropped,j.completed,j.reconciled].join("/")')" "2/1/1/1/true" "A7-2: admitted/forwarded/dropped/completed/reconciled"
+expect "$(upn)" 1 "A7-2: upstream requests"
+evc "$GR" A7-2
+ustop
+# A7-3: STOP (disallowed method) with 3 valid admitted at 700 ms pacing: dispatch stops at once.
+ustart t3 ok
+gstart t3 5 700 1000
+o=$(client stopq)
+expect "$(statuses "$o")" "200,503,503,400" "A7-3: 3 queued valid + 1 refused"
+sleep 2
+expect "$(upn)" 1 "A7-3: upstream requests 2 s after STOP"
+gstop
+expect "$(jget "$GR/guard.summary.json" '[j.admitted,j.forwarded,j.dropped,j.reconciled,j.stopReason].join("/")')" "3/1/2/true/method_not_allowed" "A7-3: admitted/forwarded/dropped/reconciled/stop"
+evc "$GR" A7-3
+ustop
+# A7-4 is in section 7 (quantity_out_of_range x4: reversed 2^53+1..2^53, 2^62 span 512, 2^1100, 17 hex digits).
+
 # 9. Controller: signals only what it started; STOP, deadline and normal exit.
 ustart ctl ok
 UC="http://127.0.0.1:$UPORT"
@@ -278,7 +341,7 @@ sleep 300 &
 DECOY=$!
 PIDS="$PIDS $DECOY"
 R="$T/ctl-ok" && mkdir -p "$R"
-./guard-run.sh "$R" "$UC" 5 0 1000 500 20 -- node "$T/client.mjs" seq 2 2>"$R/ctl.err"
+./guard-run.sh "$R" "$UC" 5 0 1000 500 20 5 none -- node "$T/client.mjs" seq 2 2>"$R/ctl.err"
 expect "$?/$(jget "$R/guard-run.json" j.reason)" 0/client_exit "controller: normal client exit"
 expect "$(jget "$R/client.out" j.envOk)" true "controller: client env points at the guard on 127.0.0.1"
 expect "$(kill -0 "$(cat "$R/guard.pid")" 2>/dev/null && echo alive || echo stopped)" stopped "controller: guard stopped"
@@ -289,7 +352,7 @@ ustart ctl2 ok
 UC="http://127.0.0.1:$UPORT"
 R="$T/ctl-stop" && mkdir -p "$R"
 t0=$SECONDS
-./guard-run.sh "$R" "$UC" 1 0 1000 500 30 -- node "$T/client.mjs" seqsleep 2 2>"$R/ctl.err"
+./guard-run.sh "$R" "$UC" 1 0 1000 500 30 5 none -- node "$T/client.mjs" seqsleep 2 2>"$R/ctl.err"
 expect "$?/$(jget "$R/guard-run.json" j.reason)" 10/guard_stop "controller: STOP at cap 1"
 expect "$([ $((SECONDS - t0)) -le 15 ] && echo yes || echo no)" yes "controller STOP: finished within 15 s"
 expect "$(kill -0 "$(cat "$R/client.pid")" 2>/dev/null && echo alive || echo stopped)" stopped "controller STOP: client stopped"
@@ -299,16 +362,95 @@ ustop
 ustart ctl3 ok
 UC="http://127.0.0.1:$UPORT"
 R="$T/ctl-dl" && mkdir -p "$R"
-./guard-run.sh "$R" "$UC" 5 0 1000 500 2 -- node "$T/client.mjs" sleep 2>"$R/ctl.err"
+./guard-run.sh "$R" "$UC" 5 0 1000 500 2 5 none -- node "$T/client.mjs" sleep 2>"$R/ctl.err"
 expect "$?/$(jget "$R/guard-run.json" j.reason)" 11/deadline "controller: deadline"
 expect "$(kill -0 "$(cat "$R/client.pid")" 2>/dev/null && echo alive || echo stopped)" stopped "controller deadline: client stopped"
 expect "$(upn)" 0 "controller deadline: upstream requests"
 expect "$(kill -0 "$DECOY" 2>/dev/null && echo alive || echo killed)" alive "controller: unregistered decoy process untouched"
 mkdir -p "$T/ctl-u" && : >"$T/ctl-u/guard.jsonl"
-expect "$(runx ./guard-run.sh rel/dir "$UC" 1 0 1000 500 5 -- true)" 2 "controller usage: relative run dir"
-expect "$(runx ./guard-run.sh "$T/ctl-u" "$UC" 1 0 1000 500 5 -- true)" 2 "controller usage: existing guard.jsonl"
-expect "$(runx ./guard-run.sh "$T" "$UC" 1 0 1000 500 0 -- true)" 2 "controller usage: deadline 0"
-expect "$(runx ./guard-run.sh "$T" "$UC" 1 0 1000 500 5 true)" 2 "controller usage: missing --"
+expect "$(runx ./guard-run.sh rel/dir "$UC" 1 0 1000 500 5 5 none -- true)" 2 "controller usage: relative run dir"
+expect "$(runx ./guard-run.sh "$T/ctl-u" "$UC" 1 0 1000 500 5 5 none -- true)" 2 "controller usage: existing guard.jsonl"
+expect "$(runx ./guard-run.sh "$T" "$UC" 1 0 1000 500 0 5 none -- true)" 2 "controller usage: deadline 0"
+expect "$(runx ./guard-run.sh "$T" "$UC" 1 0 1000 500 5 0 none -- true)" 2 "controller usage: grace 0"
+expect "$(runx ./guard-run.sh "$T" "$UC" 1 0 1000 500 5 5 none -- ./run-native.sh r1)" 2 "controller usage: run-native.sh without CLIENT_REGISTRY"
+expect "$(runx ./guard-run.sh "$T" "$UC" 1 0 1000 500 5 5 rel/{pid}/registry -- true)" 2 "controller usage: relative CLIENT_REGISTRY"
+expect "$(runx ./guard-run.sh "$T" "$UC" 1 0 1000 500 5 5 "$T/x/registry" -- true)" 2 "controller usage: CLIENT_REGISTRY without {pid}"
+expect "$(runx ./guard-run.sh "$T" "$UC" 1 0 1000 500 5 5 none true)" 2 "controller usage: missing --"
+ustop
+kill "$DECOY" 2>/dev/null
+
+# 10. Nested cleanup: client with its own lib-run.sh registry and children (as run-native.sh).
+cat >"$T/child.mjs" <<'JS'
+const [mode] = process.argv.slice(2);
+process.on("SIGTERM", () => {
+  if (mode === "prompt") process.exit(0);
+  if (mode.startsWith("delay:")) setTimeout(() => process.exit(0), Number(mode.slice(6)));
+});
+setInterval(() => {}, 1e6);
+JS
+cat >"$T/inner.sh" <<'SH'
+#!/usr/bin/env bash
+# inner.sh BASE MODE N [EXTRA]: registry BASE/inner-$$/registry, N children, run-native-style sleep 5
+RUNID=inner-$$ RUN=$1/inner-$$ MODE=$2 N=$3
+. "$H/lib-run.sh"
+trap fe_cleanup EXIT
+trap 'exit 143' TERM
+for i in $(seq 1 "$N"); do fe_start "child$i" "$RUN/child$i.out" node "$CHILD" "$MODE"; done
+[ "$(wc -l <"$FE173_REG/pids")" = "$N" ] || exit 70
+if [ "${4:-}" = extra ]; then
+  printf 'cid-own\town\ncid-foreign\tforeign\n' >>"$FE173_REG/containers"
+  echo "$RUNID" >"$SHIM/labels/cid-own"
+  printf '%s\treused\tMon Jan  1 00:00:00 2001\n' "$DECOY" >>"$FE173_REG/pids"
+fi
+while :; do sleep 5; done
+SH
+mkdir -p "$T/shim/labels"
+cat >"$T/shim/docker" <<'SH'
+#!/usr/bin/env bash
+echo "$*" >>"$SHIM/docker.log"
+id=${*: -1}
+case "$1" in
+  inspect) [ -f "$SHIM/labels/$id" ] && cat "$SHIM/labels/$id" || { echo "Error: No such object: $id" >&2; exit 1; } ;;
+  rm) rm -f "$SHIM/labels/$id" ;;
+esac
+SH
+chmod +x "$T/shim/docker"
+echo other-run >"$T/shim/labels/cid-foreign"
+export H SHIM=$T/shim CHILD=$T/child.mjs
+sleep 300 &
+DECOY=$!
+export DECOY
+DECOY_ST=$(ps -o lstart= -p "$DECOY")
+PIDS="$PIDS $DECOY"
+ustart nest ok
+UC="http://127.0.0.1:$UPORT"
+nest() { # name mode n grace extra -> sets NR NRC
+  NR="$T/n-$1"
+  mkdir -p "$NR/g" "$NR/c"
+  PATH="$T/shim:$PATH" ./guard-run.sh "$NR/g" "$UC" 0 0 1000 500 2 "$4" "$NR/c/inner-{pid}/registry" -- bash "$T/inner.sh" "$NR/c" "$2" "$3" ${5:-} 2>"$NR/ctl.err"
+  NRC=$?
+}
+left() { # registry dir: registered PIDs still running with recorded lstart
+  local n=0 pid l st
+  while IFS="$(printf '\t')" read -r pid l st; do [ "$(ps -o lstart= -p "$pid" 2>/dev/null | sed 's/^ *//;s/ *$//')" = "$st" ] && n=$((n + 1)); done <"$1/pids"
+  echo "$n"
+}
+nest prompt prompt 3 20
+expect "$NRC/$(jget "$NR/g/guard-run.json" 'j.survivors.length+"/"+j.ownership.split(":")[0]')" 11/0/verified "nested immediate x3, grace 20: exit/survivors/ownership"
+expect "$(left "$(echo "$NR"/c/inner-*/registry)")" 0 "nested immediate: registered children left"
+nest delay delay:3000 3 20
+expect "$NRC/$(jget "$NR/g/guard-run.json" 'j.survivors.length+"/"+j.clientKilled')" 11/0/false "nested delayed 3 s x3, grace 20: exit/survivors/client killed"
+expect "$(left "$(echo "$NR"/c/inner-*/registry)")" 0 "nested delayed: registered children left"
+nest ignore1 ignore 1 20
+expect "$NRC/$(jget "$NR/g/guard-run.json" 'j.survivors.length+"/"+j.clientKilled')" 11/0/false "nested TERM-ignoring x1, grace 20 (inner 5 + 10.5 s): exit/survivors/client killed"
+nest ignore3 ignore 3 5 extra
+expect "$NRC/$(jget "$NR/g/guard-run.json" 'j.clientKilled+"/"+j.survivors.join(" ").replace(/pid:[0-9]+:/g,"")')" "13/true/child1 child2 child3 container:own" "nested TERM-ignoring x3, grace 5: exit 13, client killed, survivors listed"
+expect "$(left "$(echo "$NR"/c/inner-*/registry)")" 0 "nested x3: registered children alive after sweep (reused-PID line never matches)"
+expect "$([ "$(ps -o lstart= -p "$DECOY")" = "$DECOY_ST" ] && echo untouched || echo SIGNALLED)" untouched "nested: reused-PID registry line and unregistered decoy untouched"
+expect "$([ -f "$T/shim/labels/cid-own" ] && echo present || echo removed)/$([ -f "$T/shim/labels/cid-foreign" ] && echo present || echo removed)" removed/present "nested: own labelled container removed, foreign container untouched"
+mkdir -p "$T/n-none/g"
+./guard-run.sh "$T/n-none/g" "$UC" 0 0 1000 500 5 5 "$T/n-none/nomatch-{pid}/registry" -- true 2>/dev/null
+expect "$?/$(jget "$T/n-none/g/guard-run.json" j.ownership)" "14/unverifiable:registry_matches=0" "nested: registry not found -> exit 14"
 ustop
 kill "$DECOY" 2>/dev/null
 

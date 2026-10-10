@@ -4,7 +4,10 @@
 // at a time, at most --cap requests, at least --min-interval-ms apart, each bounded by --timeout-ms.
 // Every request is numbered and logged when it arrives, before any forwarding decision. Refused
 // requests (invalid, disallowed, batch, over cap) never reach the upstream; the first refusal writes
-// <run-dir>/guard.STOP and from then on nothing new is admitted.
+// <run-dir>/guard.STOP, stops dispatch at once and drops every queued request with an explicit
+// response. Send starts are spaced by at least --min-interval-ms on the ns monotonic clock. Block
+// quantities are hex <= 2^53-1 and compared as BigInt. Summary reconciles admitted = forwarded +
+// dropped and forwarded = completed + upstream errors.
 //   node rpc-guard.mjs --run-dir ABS_DIR --upstream http://host:port[/path] --cap N
 //        --min-interval-ms MS --timeout-ms MS --max-log-span BLOCKS [--port P] [--methods a,b]
 // Files in --run-dir: guard.jsonl (evidence, created exclusively), guard.ready.json, guard.STOP,
@@ -69,17 +72,21 @@ try {
   die(`cannot create ${path.join(runDir, "guard.jsonl")} exclusively (exists or unwritable)`);
 }
 const ev = (o) => fs.writeSync(fd, `${JSON.stringify({ hrNs: process.hrtime.bigint().toString(), ...o })}\n`);
-const nowMs = () => Number(process.hrtime.bigint() / 1000000n);
+const nowNs = () => process.hrtime.bigint();
+const intervalNs = BigInt(minIntervalMs) * 1000000n;
+const MAX_BLOCK = (1n << 53n) - 1n;
 
 const st = { received: 0, admitted: 0, forwarded: 0, completed: 0, dropped: 0, upstreamErrors: {}, refused: {} };
 let stopReason = null;
 let stopping = false;
-let lastSendMs = -Infinity;
-let chain = Promise.resolve();
+let lastSendNs = null;
 let inflight = null;
-const pending = new Set();
+const queue = [];
+let pumping = null;
+let pacer = null;
 
 const HEX = /^0x(0|[1-9a-fA-F][0-9a-fA-F]*)$/;
+const qty = (x) => (x.length <= 16 && BigInt(x) <= MAX_BLOCK ? BigInt(x) : null);
 const ADDR = /^0x[0-9a-fA-F]{40}$/;
 const TOPIC = /^0x[0-9a-fA-F]{64}$/;
 const isObj = (x) => typeof x === "object" && x !== null && !Array.isArray(x);
@@ -94,7 +101,10 @@ function validate(m) {
   const p = m.params;
   if (m.method === "eth_blockNumber") return p.length === 0 ? null : "bad_params";
   if (m.method === "eth_getBlockByNumber") {
-    return p.length === 2 && (p[0] === "latest" || (typeof p[0] === "string" && HEX.test(p[0]))) && p[1] === false ? null : "bad_params";
+    if (p.length !== 2 || p[1] !== false || typeof p[0] !== "string") return "bad_params";
+    if (p[0] === "latest") return null;
+    if (!HEX.test(p[0])) return "bad_params";
+    return qty(p[0]) === null ? "quantity_out_of_range" : null;
   }
   // eth_getLogs: one filter with an explicit address set and a bounded hex block range.
   if (p.length !== 1 || !isObj(p[0])) return "bad_params";
@@ -107,9 +117,11 @@ function validate(m) {
     if (!Array.isArray(f.topics) || f.topics.length > 4 || !f.topics.every(okTopic)) return "logs_bad_topics";
   }
   if (typeof f.fromBlock !== "string" || typeof f.toBlock !== "string" || !HEX.test(f.fromBlock) || !HEX.test(f.toBlock)) return "logs_range_not_hex";
-  const span = Number(BigInt(f.toBlock)) - Number(BigInt(f.fromBlock)) + 1;
-  if (span < 1) return "logs_range_reversed";
-  if (span > maxLogSpan) return "logs_span_exceeded";
+  const from = qty(f.fromBlock);
+  const to = qty(f.toBlock);
+  if (from === null || to === null) return "quantity_out_of_range";
+  if (to < from) return "logs_range_reversed";
+  if (to - from + 1n > BigInt(maxLogSpan)) return "logs_span_exceeded";
   return null;
 }
 
@@ -126,7 +138,8 @@ function refuse(seq, res, reason, id) {
   if (stopReason === null && reason !== "shutting_down") {
     stopReason = reason;
     fs.writeFileSync(path.join(runDir, "guard.STOP"), `${JSON.stringify({ reason, seq, hrNs: process.hrtime.bigint().toString() })}\n`);
-    ev({ ev: "stop", seq, reason });
+    ev({ ev: "stop", seq, reason, queued: queue.length });
+    halt("stopped");
   }
   const status = reason === "cap_exceeded" || reason === "stopped" ? 429 : reason === "shutting_down" ? 503 : 400;
   reply(res, status, id, -32005, `rpc-guard refused: ${reason}`);
@@ -148,27 +161,50 @@ function handle(seq, text, res) {
   st.admitted += 1;
   const n = st.admitted;
   ev({ ev: "admit", seq, n, method: m.method, params: m.params });
-  const job = { seq, n, m, res };
-  pending.add(job);
-  chain = chain.then(() => forward(job)).catch(() => undefined);
+  queue.push({ seq, n, m, res });
+  if (pumping === null) pumping = pump().finally(() => (pumping = null));
 }
 
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const halted = () => stopping || stopReason !== null;
+// Drop every queued (admitted, unsent) request with an explicit response and cancel any pacing wait.
+function halt(reason) {
+  while (queue.length > 0) {
+    const { seq, n, m, res } = queue.shift();
+    st.dropped += 1;
+    ev({ ev: "drop", seq, n, reason });
+    reply(res, 503, m.id, -32005, `rpc-guard dropped before send: ${reason}`);
+  }
+  if (pacer !== null) {
+    clearTimeout(pacer.timer);
+    pacer.resolve();
+    pacer = null;
+  }
+}
+// Wait until at least intervalNs has passed since the previous send start (ns clock, re-checked after
+// every timer, so a forward never starts early). Returns early if halted.
+async function paced() {
+  while (lastSendNs !== null && !halted()) {
+    const left = lastSendNs + intervalNs - nowNs();
+    if (left <= 0n) return;
+    await new Promise((resolve) => {
+      pacer = { resolve, timer: setTimeout(resolve, Number((left + 999999n) / 1000000n)) };
+    });
+    pacer = null;
+  }
+}
+async function pump() {
+  while (queue.length > 0 && !halted()) {
+    await paced();
+    if (halted() || queue.length === 0) break;
+    await forward(queue.shift());
+  }
+}
+
 async function forward(job) {
   const { seq, n, m, res } = job;
-  if (!stopping) {
-    const wait = lastSendMs + minIntervalMs - nowMs();
-    if (wait > 0) await sleep(wait);
-  }
-  pending.delete(job);
-  if (stopping) {
-    st.dropped += 1;
-    ev({ ev: "drop", seq, n, reason: "shutting_down" });
-    return reply(res, 503, m.id, -32005, "rpc-guard: shutting down before send");
-  }
-  lastSendMs = nowMs();
+  lastSendNs = nowNs();
   st.forwarded += 1;
-  ev({ ev: "forward", seq, n, f: st.forwarded, method: m.method });
+  ev({ ev: "forward", seq, n, f: st.forwarded, method: m.method, startNs: lastSendNs.toString() });
   const body = JSON.stringify(m);
   await new Promise((resolve) => {
     let done = false;
@@ -244,16 +280,19 @@ function shutdown(sig) {
   ev({ ev: "shutdown", signal: sig });
   server.close();
   server.closeIdleConnections?.();
+  halt("shutting_down");
   inflight?.destroy(new Error("aborted_shutdown"));
   const end = () => {
-    const summary = { cap, minIntervalMs, timeoutMs, maxLogSpan, methods: [...methods], upstream: up.href, stopReason, ...st };
+    const upstreamErrorTotal = Object.values(st.upstreamErrors).reduce((a, b) => a + b, 0);
+    const reconciled = st.admitted === st.forwarded + st.dropped && st.forwarded === st.completed + upstreamErrorTotal;
+    const summary = { cap, minIntervalMs, timeoutMs, maxLogSpan, methods: [...methods], upstream: up.href, stopReason, ...st, inflightAtExit: inflight !== null, reconciled };
     ev({ ev: "summary", ...summary });
     fs.writeFileSync(path.join(runDir, "guard.summary.json"), `${JSON.stringify(summary, null, 2)}\n`);
     fs.closeSync(fd);
     process.exit(0);
   };
   const force = setTimeout(end, SHUTDOWN_MS);
-  chain.then(() => {
+  Promise.resolve(pumping).then(() => {
     clearTimeout(force);
     end();
   });

@@ -115,3 +115,11 @@ verify-persist failed, 130/143 signal.
 
 No latency, admission or T7-containment claim (bare `mktemp` in the older verify scripts and Docker
 storage stay outside T7).
+
+## Correction (first guard round, supersedes sections 2 and 9 where they differ)
+
+Command: `./guard-run.sh "$G" <http url> <CAP> 250 14000 500 <DEADLINE_S> 120 "$FE173_ROOT/fe173-*-<mode>-{pid}/registry" -- ./run-native.sh <mode>`.
+`FE173_ROOT` must be set explicitly. Order: the guard stops first, then the client gets 120 s of grace,
+then its registry is checked (owned survivors → exit 13, ownership not established → exit 14). The
+10 s outer KILL limit from section 9 no longer applies. Controller wall time is at most
+`DEADLINE_S + 10 + 120 + 10` s plus a few seconds. See HANDOFF "First guard correction round".

@@ -295,3 +295,35 @@ config refusals 0, cap 0 → 0, cap 3 of 5 sequential → 3, 20 concurrent at ca
 gaps >= 50 ms), timeout → 1 (504 in < 1.5 s), 23 invalid inputs → 0, shutdown with 1 in flight and
 2 queued → 1 (exit <= 3 s), controller STOP/deadline/normal → 1/0/2, unregistered decoy untouched.
 `verify-offline.sh` and `verify-synthetic.sh` still use bare `mktemp -d` (macOS: `/var/folders`).
+
+### First guard correction round (child of 247e9f6)
+
+- Pacing: send starts are spaced on the ns `hrtime` clock (`forward.startNs`), re-checked after every
+  timer, so no gap is below `--min-interval-ms`. `verify-guard.sh` checks the gaps in ns.
+- Dispatch is a cancellable queue. The first refusal (`guard.STOP`) and SIGTERM both drop every queued
+  admitted request at once, with an explicit 503 and a `drop` line. Pacing waits are cancelled, so no
+  upstream call happens after STOP except one already in flight. The summary adds
+  `reconciled = (admitted == forwarded + dropped && forwarded == completed + upstream errors)` and
+  `inflightAtExit`. Consequence: when more requests arrive than the cap, the first over-cap refusal
+  also drops the requests already admitted and queued.
+- Block quantities: hex ≤ 16 characters and ≤ 2^53−1, compared as BigInt (`quantity_out_of_range`,
+  `logs_range_reversed`, `logs_span_exceeded`); this also applies to the `eth_getBlockByNumber` argument.
+- `guard-run.sh RUN_DIR UPSTREAM CAP MIN_INTERVAL_MS TIMEOUT_MS MAX_LOG_SPAN DEADLINE_S GRACE_S CLIENT_REGISTRY -- CMD...`
+  - Stops the guard first, then sends TERM to the client and waits up to `GRACE_S` (≤ 900), then KILLs it.
+  - Then it checks the client's own registry (`CLIENT_REGISTRY`: an absolute glob with `{pid}`, which
+    must match exactly one directory). Registered PIDs still running with the recorded `ps lstart`, and
+    listed containers whose `fe173.run` label equals that registry's RUNID, are owned survivors. They are
+    stopped and the run exits 13, listing them in `guard-run.json`.
+  - Exit 14 when ownership can't be established: no match or several, unreadable files, a container
+    listed but no docker, or an inspect error other than "No such object".
+  - `CLIENT_REGISTRY=none` is refused for `run-native.sh`. Nothing that isn't registered is touched.
+- For `run-native.sh`, use `CLIENT_REGISTRY="$FE173_ROOT/fe173-*-<mode>-{pid}/registry"` (RUNID ends in
+  `$$` = client PID) with `FE173_ROOT` set explicitly, and `GRACE_S` ≥ 120. Worst-case inner cleanup is
+  about 5 s trap latency + 8 × 10.5 s + 2 container removals.
+
+Remaining limits:
+- WS traffic is still unguarded.
+- Grandchildren a registered child starts without registering them are not covered.
+- `ps lstart` has 1 s resolution, so a PID reused within the same second is indistinguishable.
+- The guard forces its exit 2 s after SIGTERM (`inflightAtExit` records an unfinished request).
+- Checked on Linux only.

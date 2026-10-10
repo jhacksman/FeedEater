@@ -1,0 +1,4 @@
+binding drill (fake-node fresh, run-native.sh r1, no input declared): guard-run exit 3
+{"rc":3,"reason":"client_exit","clientExit":3,"guardStoppedMs":962,"clientTermMs":985,"clientExitMs":1033,"clientKilled":false,"graceS":120,"ownership":"verified:<scratch>/runs/fe173-20261010T034320Z-r1-65889/registry","survivors":[]}
+{"admitted":2,"forwarded":2,"dropped":0,"reconciled":true}
+client pid 65889; run dirs: fe173-20261010T034320Z-r1-65889
