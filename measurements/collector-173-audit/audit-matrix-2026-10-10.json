@@ -9,7 +9,8 @@
     "ws_contract": "c899530c43e15d1fc6d334ddba12f59dd6c0eac1",
     "joint_guard_under_review": "54ba98a98bce1eb307852861deb394ef196638ae (A7 whole PASS, Codex macOS 139/139; fake-only, unwired)",
     "checkpoint_clock_defect": "aromer 6da930b docs/realignment/O1-INPUT-CHECKPOINT-2026-10-10.md:62-68",
-    "dat_prv_002": "aromer 6da930b docs/spec/v1/SPEC-v1.md l.1078-1089; DAT-TIM-001 l.1116-1123"
+    "dat_prv_002": "aromer 6da930b docs/spec/v1/SPEC-v1.md l.1078-1089; DAT-TIM-001 l.1116-1123",
+    "spec_main": "aromer 68da3589baa8dbc8cdee538facd342a4969b1a96 docs/spec/v1/SPEC-v1.md l.1062 DAT-IDN-012, l.1076 DAT-PRV-001, l.1998 I-1, l.2635 LAT-006"
   },
   "status_values": [
     "implemented",
@@ -18,7 +19,8 @@
     "unknown",
     "partial",
     "known_defect",
-    "out_of_collector_scope"
+    "out_of_collector_scope",
+    "spec_ambiguity"
   ],
   "rows": [
     {
@@ -126,12 +128,14 @@
       ],
       "src": [
         "src/subjects.ts:7",
+        "src/collector.ts:331",
+        "src/collector.ts:376",
         "src/collector.ts:379-381"
       ],
       "test": [
         "collector.test.ts:87"
       ],
-      "note": "raw-first boundary: raw factory publish is the collector requirement; Launched/PoolRegistered decode is a decoder-admission requirement"
+      "note": "published undecoded: address lowercased; topics/data as received in parsed JSON; blockHash/txHash lowercased; not received frame bytes (P3); Launched/PoolRegistered decode = decoder-admission requirement"
     },
     {
       "id": "F9",
@@ -179,6 +183,41 @@
       ]
     },
     {
+      "id": "P3",
+      "rule": "DAT-PRV-001 as-received Tier-0 append",
+      "status": [
+        "missing"
+      ],
+      "src": [
+        "src/collector.ts:291",
+        "src/collector.ts:363-384",
+        "src/persister.ts:126-167"
+      ],
+      "test": [],
+      "accept": {
+        "a": "re-decoding Tier-0 reproduces a deleted Tier-1 partition byte for byte",
+        "b": "writer stalled 2 s on a fixed 10,000-event fixture: decision p99 within max(1 ms, 10%) of control"
+      },
+      "note": "frame parsed and re-serialized; persister writes decoded records after the bus; no Tier-0 writer in src/"
+    },
+    {
+      "id": "P4",
+      "rule": "LAT-006 publish before any DB write or enrichment",
+      "status": [
+        "implemented",
+        "tested"
+      ],
+      "src": [
+        "src/collector.ts:297-302",
+        "src/collector.ts:401",
+        "src/persister.ts:126-167"
+      ],
+      "test": [
+        "collector.test.ts:27"
+      ],
+      "note": "pre-DB publish only; distinct from P3"
+    },
+    {
       "id": "D1",
       "status": [
         "implemented",
@@ -195,15 +234,30 @@
     {
       "id": "D2",
       "status": [
+        "implemented",
+        "tested",
+        "spec_ambiguity",
         "out_of_collector_scope"
       ],
       "src": [
-        "src/collector.ts:76",
+        "src/collector.ts:357-358",
         "src/collector.ts:376",
-        "src/types.ts:64"
+        "src/ledger.ts:8-9",
+        "src/ledger.ts:33-45",
+        "src/types.ts:51-73"
       ],
-      "test": [],
-      "note": "#352 triple/conflict rule = census validation; live identity requirement is D1 blockHash:logIndex; txHash carried"
+      "test": [
+        "collector.test.ts:44",
+        "corrections.test.ts:21",
+        "corrections.test.ts:32"
+      ],
+      "keys": {
+        "lat_006_key": "(chainId, blockHash, txHash, logIndex)",
+        "lat_006_live_dedup": "(blockHash, logIndex, removed)",
+        "dat_idn_012_and_i1": "(chain_id, block_hash, log_index)",
+        "collector_173_live_dedup": "blockHash:logIndex + removed state"
+      },
+      "note": "dedup tuple implemented/tested; txHash carried, not key-enforced; chainId absent on LogRecord; DAT-SRC-011 natural key unresolved in spec = owner decision; #352 census triple/conflict rule outside collector scope"
     },
     {
       "id": "D3",
@@ -540,7 +594,7 @@
   "dat_src_011": {
     "a_60min_side_by_side": "blocked_by_M1_M2; run alone cannot establish admission",
     "a_100pct_live": "unknown",
-    "a_zero_duplicate_live_per_natural_key": "implemented_tested (D1 blockHash:logIndex); native unknown",
+    "a_zero_duplicate_live_per_natural_key": "implemented_tested dedup (blockHash, logIndex, removed); natural key = D2 spec ambiguity; native unknown",
     "a_p99_le_10ms": "unmeasured",
     "a_backfill_only_on_backfill_subjects": "implemented_tested",
     "b_dat_prv_002_fields": "missing V1,V3-V6,V8; partial V2,V7"
@@ -558,7 +612,7 @@
     },
     {
       "id": "X3",
-      "check": "C6/C7/M1/M2/V1-V8 stay as recorded until a new source head is declared; no status upgrade without a pinned test",
+      "check": "C6/C7/M1/M2/P3/V1-V8 stay as recorded until a new source head is declared; D2 stays spec_ambiguity until the owner decides; no status upgrade without a pinned test",
       "offline": true
     },
     {
@@ -567,6 +621,8 @@
       "offline": false
     }
   ],
-  "revision": 2,
-  "supersedes": "d7719e533f170222bbe3a8548090e8c9e579d42b"
+  "revision": 3,
+  "supersedes": "419346d7f774118b66cb786397ea015709280345",
+  "final": true,
+  "dat_prv_001": "missing (P3)"
 }
