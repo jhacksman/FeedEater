@@ -1,0 +1,27 @@
+{
+  "name": "base-collector",
+  "version": "0.1.0",
+  "description": "Persistent raw-first Base collector (Uniswap v4 PoolManager Initialize/Swap for o1 pools, o1 factory logs). Runs as its own processes (collect, persist), not as worker jobs; see README.md.",
+  "namespace": "feedeater.base_collector",
+  "queues": [],
+  "jobs": [],
+  "settings": [
+    { "key": "wsUrl", "type": "string", "description": "Node WebSocket endpoint (env BASE_COLLECTOR_WS_URL)" },
+    { "key": "httpUrl", "type": "string", "description": "Node HTTP endpoint, configured separately from wsUrl (env BASE_COLLECTOR_HTTP_URL)" },
+    { "key": "natsUrl", "type": "string", "description": "NATS server (env BASE_COLLECTOR_NATS_URL)" },
+    { "key": "databaseUrl", "type": "string", "description": "Postgres DSN for the persister (env BASE_COLLECTOR_DATABASE_URL)" },
+    { "key": "stateDir", "type": "string", "description": "Directory for the collector checkpoint (env BASE_COLLECTOR_STATE_DIR)" },
+    { "key": "confirmBlocks", "type": "number", "default": 10 },
+    { "key": "overlapBlocks", "type": "number", "default": 64 },
+    { "key": "backfillChunkBlocks", "type": "number", "default": 500 },
+    { "key": "maxBackfillBlocks", "type": "number", "default": 43200 },
+    { "key": "maxRecoverBlocks", "type": "number", "default": 2000 },
+    { "key": "retainBlocks", "type": "number", "default": 4096 },
+    { "key": "maxTrackedPools", "type": "number", "default": 100000 },
+    { "key": "poolIdleBlocks", "type": "number", "default": 0 },
+    { "key": "maxPendingSwaps", "type": "number", "default": 20000 },
+    { "key": "rpcMinIntervalMs", "type": "number", "default": 100 },
+    { "key": "rateAlertPerSec", "type": "number", "default": 2000 }
+  ],
+  "cards": []
+}

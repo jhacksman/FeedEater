@@ -1,0 +1,158 @@
+# base-collector
+
+Persistent raw-first Base collector for Uniswap v4 pools launched by the o1 launchpads. It runs as
+its own processes (`collect`, `persist`), not as worker jobs, and does not replace or modify
+`modules/uniswap-base`.
+
+Status: prototype for code review. Nothing here has been measured against a node. Fixture tests
+prove semantics only; they make no latency, coverage or DAT-SRC-011 claim.
+
+## Processes
+
+| command | role |
+| --- | --- |
+| `node dist/main.js collect` | one persistent WebSocket; publishes raw + decoded logs to NATS |
+| `node dist/main.js persist` | batched Postgres writes from NATS; owns the persistence acknowledgement |
+| `node dist/main.js measure --out FILE ...` | direct node subscription vs collector NATS output, one process, one clock |
+| `node dist/main.js verify-persist --from-block N --to-block N` | stored state vs canonical `eth_getLogs` |
+
+## Filters and volume
+
+Node-side filters (identical for live subscription, backfill, and `measure`; `filterDigest` names them):
+
+1. `address = PoolManager 0x498581fF718922c3f8e6A244956aF099B2652b2b`, `topic0 ∈ {Initialize, Swap}`.
+2. `address ∈` the six o1 factories (all topics).
+
+No all-address subscription. Node→collector traffic is every v4 Initialize and Swap on Base plus
+the factory logs. The collector publishes every PoolManager Initialize (`suite` is null unless the
+hook is an o1 hook or in `extraHooks`), tracks pools with o1/extra hooks plus `extraPoolIds`, and
+drops Swaps of untracked pools locally (`coverage.untrackedSwaps`). Actual traffic is
+unmeasured. `rateAlertPerSec` logs when publications exceed the threshold; nothing is dropped for rate.
+
+The six suites (factory, hook) come from DefiLlama `fees/o1-launchpad/config.ts`; they are settings
+(`BASE_COLLECTOR_SUITES_JSON`) pending A3 review.
+
+## Records and subjects
+
+`LogRecord.id = blockHash:logIndex`. Every record carries the raw log fields (`blockNumber`,
+`blockHash`, `txHash`, `txIndex`, `logIndex`, `address`, `topics`, `data`, `removed`), `decoded`,
+`suite`, `receivedAtMs`, and `(epoch, seq)` which orders all observations of one collector lineage.
+
+| subject | content |
+| --- | --- |
+| `feedeater.base_collector.{initialize,swap,factory}` | live, `realtime: true`, `recovery: null` |
+| `feedeater.base_collector.removed.<kind>` | live `removed: true` observation |
+| `feedeater.base_collector.backfill.<kind>` / `.backfill.removed.<kind>` | recovery, `realtime: false`, `recovery` = `reconnect`, `pending_swap`, `persister` or `stale` |
+| `feedeater.base_collector.seal` / `.backfill.seal` | per-block count + digest of active identities |
+| `feedeater.base_collector.ctl.status` | collector status (coverage, counters, persistence state) |
+| `feedeater.base_collector.ctl.recover` | persister → collector republish request |
+| `feedeater.base_collector.ctl.persister` | persister heartbeat (contiguous block, gaps, queue, errors) |
+
+Live publication happens synchronously inside the WebSocket message handler: classify, decode,
+identity transition, `nats.publish`. No block/transaction RPC and no database work precede it.
+
+Identity state: one identity is `active` or `removed`. A repeat of the current state is a duplicate
+and is not published; `active → removed` and `removed → active` are transitions and are published.
+State is kept for `retainBlocks` below the verified block. A live log older than that window is
+published on `.backfill` with `recovery: "stale"`, never as live.
+
+Ordering: within one WebSocket the node delivers logs in order, so an Initialize registers its pool
+before a later Swap of the same block is classified. Backfill sorts by `(blockNumber, logIndex)`.
+
+## Recovery contract
+
+Core NATS has no durability; neither process assumes the other is online.
+
+Collector (realtime recovery, `recovery: "reconnect"`):
+
+- `verifiedBlock` is the highest block sealed contiguously while subscribed and reconciled. It is
+  never the max block observed. It is checkpointed atomically to `$BASE_COLLECTOR_STATE_DIR/checkpoint.json`
+  together with the filter digest, tracked pools and `epoch`.
+- On every (re)connect: subscribe first, then read head `H0`, then `eth_getLogs` over
+  `[verifiedBlock + 1 - overlapBlocks, H0]` in `backfillChunkBlocks` chunks onto `.backfill`.
+  Identities already published are skipped by state; previously active identities the node no
+  longer returns (below `H0 - confirmBlocks`) are published as removals. Live swaps for pools not yet
+  known during this phase are buffered (`maxPendingSwaps`) and released as `.backfill` `pending_swap`.
+- If the range exceeds `maxBackfillBlocks`, only the newest part is replayed and
+  `coverage.backfillTruncatedBlocks` records the hole.
+- A checkpoint written with a different filter digest is refused at start.
+
+Persister (persistence recovery, `recovery: "persister"`):
+
+- Rows are keyed by `id`; a row's state changes only to a strictly newer `(epoch, seq)`, so both
+  `removed → re-added` and `re-added → removed` apply and stale replays do not regress state. Every
+  observation is also appended to `log_transitions`. There is no `ON CONFLICT DO NOTHING` on state.
+- A block is acknowledged when a seal for it matches the stored active identities (count and
+  digest). Stored rows on a different block hash than the seal are marked removed.
+  `contiguousBlock` advances only through consecutive acknowledged blocks.
+- On start and every `persistRecoverIntervalMs` while gaps exist, it publishes `ctl.recover` from
+  `firstGap - persistRecoverOverlapBlocks`. The collector replays at most `maxRecoverBlocks` per
+  request, with `.backfill.seal` per block.
+- Missing persistence is exposed in collector status: `persistence.state` is `missing` when no
+  heartbeat arrived within `persisterTimeoutMs`. Heartbeats report queue depth, overflow drops,
+  last error and gap blocks. A failed batch stays queued and is retried.
+
+## Coverage bounds
+
+`maxTrackedPools` (LRU) and `poolIdleBlocks` (0 = off) bound tracked pools. Evictions are recorded:
+`coverage.droppedPools`, `recentDropped` (pool, reason, block), and `swapsForDroppedPools`.
+`coverage.complete` is false once anything was dropped, buffered swaps overflowed, or backfill was
+truncated. The collector does not claim every launch under those conditions.
+
+## Settings
+
+Environment variables are `BASE_COLLECTOR_` + the settings key in upper snake case (see
+`settings.ts`). Required:
+
+| variable | example |
+| --- | --- |
+| `BASE_COLLECTOR_WS_URL` | `ws://10.9.11.68:8546` |
+| `BASE_COLLECTOR_HTTP_URL` | `http://10.9.11.68:8545` (configured separately; never derived from the WS URL) |
+| `BASE_COLLECTOR_NATS_URL` | NATS server |
+| `BASE_COLLECTOR_STATE_DIR` | `collect` only |
+| `BASE_COLLECTOR_DATABASE_URL` | `persist`, `verify-persist` only |
+
+Optional: `START_BLOCK` (first run only; default = head), `CONFIRM_BLOCKS`, `OVERLAP_BLOCKS`,
+`BACKFILL_CHUNK_BLOCKS`, `MAX_BACKFILL_BLOCKS`, `MAX_RECOVER_BLOCKS`, `RETAIN_BLOCKS`,
+`MAX_TRACKED_POOLS`, `POOL_IDLE_BLOCKS`, `RPC_MIN_INTERVAL_MS`, `EXTRA_HOOKS`, `EXTRA_POOL_IDS`,
+`SUITES_JSON`, and the `PERSIST_*` settings.
+
+## Measurement (owner/Codex, natively or on Thor)
+
+Build: `npm ci && npm run -w @feedeater/module-base-collector build`. Use one environment file for
+all three processes so the filters are identical; `measure` reports `filterDigestVerified` only when
+the collector's status digest equals its own.
+
+```sh
+set -a; . ./base-collector.env; set +a      # the variables above
+node modules/base-collector/dist/main.js persist &
+node modules/base-collector/dist/main.js collect &
+node modules/base-collector/dist/main.js measure \
+  --warmup-s 120 --window-s 1800 --teardown-s 120 \
+  --pools-from-checkpoint "$BASE_COLLECTOR_STATE_DIR/checkpoint.json" \
+  --out base-collector-measure.json
+```
+
+`measure` holds a direct node subscription with the same filters plus a NATS subscription on
+`feedeater.base_collector.>` in one process timed by `process.hrtime.bigint()`. Warmup is not scored;
+the window is scored by block range; teardown keeps collecting late deliveries for window blocks.
+Report fields: `expected`, `deliveredLive`, `liveDeliveryPct`, `missedLiveRecoveredOnBackfill`,
+`missedEntirely`, `duplicateLivePublishes`, `backfillOnLiveSubjects`, `lateLiveAfterBackfill`,
+`addedLatencyMs` (p50/p95/p99/max), persistence samples, and `dat011` booleans
+(100% live, zero duplicate live, zero backfill contamination, p99 added ≤ 10 ms).
+
+Run separately, each with its own `measure` report:
+
+1. Clean window (no interruptions).
+2. Persister outage: during the window stop `persist` for ≥ 60 s, then restart it. Live delivery
+   should be unaffected; afterwards run `verify-persist --from-block <window from> --to-block <window to>`
+   and expect `missing: 0` and status `persistence.state` back to `ok`.
+3. Collector reconnect: during the window restart `collect` (or drop its connection). Logs missed
+   while down must appear only on `.backfill` (`missedLiveRecoveredOnBackfill`), never on live
+   subjects; `backfillOnLiveSubjects` and `lateLiveAfterBackfill` must be 0. This window is not a
+   live-delivery acceptance window.
+
+`pools-from-checkpoint` seeds the measured pool set with pools tracked before the window, so swaps
+of those pools count as expected.
+
+Not done here: any run against a node, NATS or Postgres. Admission and deployment are owner-gated.
